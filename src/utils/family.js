@@ -25,6 +25,21 @@ export const getMaxGeneration = (node) => {
   return max;
 };
 
+// Mã định danh phả hệ theo hệ thống d'Aboville: gốc = "1", con thứ k của một người
+// mang mã "<mã cha>.<k>" (đánh số theo thứ tự khai báo). Giúp tra cứu, đối chiếu
+// nhanh vị trí một người trong cây mà không cần mở rộng toàn bộ sơ đồ.
+export const buildFamilyCodeMap = (node, prefix = '1') => {
+  const map = {};
+  if (!node) return map;
+  map[node.id] = prefix;
+  if (node.children) {
+    node.children.forEach((child, idx) => {
+      Object.assign(map, buildFamilyCodeMap(child, `${prefix}.${idx + 1}`));
+    });
+  }
+  return map;
+};
+
 export const flattenFamily = (node, parentId = '', parentName = 'Thủy tổ') => {
   if (!node) return [];
   let list = [{ ...node, parentId, parentName }];

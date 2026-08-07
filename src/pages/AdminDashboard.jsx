@@ -1,52 +1,79 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import { AppContext } from '../store';
 import AdminFamilyTree from '../components/AdminFamilyTree';
+import { INCOME_CATEGORIES, formatCurrency, computeFinanceSummary, getAvailableYears, getYear } from '../utils/finance';
+
+const MAX_UPLOAD_MB = 10;
 
 function AdminDashboard() {
-  const { isAuthenticated, logout, financeData, setFinanceData, newsData, setNewsData } = useContext(AppContext);
+  const {
+    isAuthenticated, logout,
+    financeData, setFinanceData,
+    newsData, setNewsData,
+    aboutData, setAboutData,
+    bannerData, setBannerData,
+    galleryData, setGalleryData
+  } = useContext(AppContext);
   const [activeTab, setActiveTab] = useState('family'); // Default to family management
 
   // Form states for Finance
-  const emptyTx = { date: '', type: 'Thu', amount: '', description: '', person: '' };
+  const emptyTx = { date: '', type: 'Thu', category: INCOME_CATEGORIES[0], amount: '', description: '', person: '', proof: '', status: 'actual' };
   const [newTx, setNewTx] = useState(emptyTx);
   const [editingTxId, setEditingTxId] = useState(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
+
+  const financeYears = useMemo(() => getAvailableYears(financeData), [financeData]);
+  const [financeYear, setFinanceYear] = useState(financeYears[0]);
+  const financeSummary = useMemo(() => computeFinanceSummary(financeData, financeYear), [financeData, financeYear]);
+  const [txYearFilter, setTxYearFilter] = useState('all');
 
   // Form states for News
   const emptyNews = { title: '', date: '', content: '', image: '' };
   const [newNews, setNewNews] = useState(emptyNews);
   const [editingNewsId, setEditingNewsId] = useState(null);
 
+  // Form state for About (Giới Thiệu)
+  const [aboutForm, setAboutForm] = useState(() => ({
+    image: aboutData.image || '',
+    content: aboutData.content || '',
+    highlightsStr: (aboutData.highlights || []).map(h => `${h.year}|${h.text}`).join('\n')
+  }));
+  const [uploadingAboutImage, setUploadingAboutImage] = useState(false);
+
+  // Form states for Banner (Trang chủ)
+  const emptyBanner = { url: '', caption: '' };
+  const [newBanner, setNewBanner] = useState(emptyBanner);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+
+  // Form states for Gallery (Thư viện ảnh)
+  const emptyGalleryPhoto = { url: '', caption: '', date: '' };
+  const [newGalleryPhoto, setNewGalleryPhoto] = useState(emptyGalleryPhoto);
+  const [uploadingGalleryPhoto, setUploadingGalleryPhoto] = useState(false);
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-
-  const formatCurrency = (amount) => amount.toLocaleString('vi-VN') + ' VNĐ';
 
   const handleSubmitTransaction = (e) => {
     e.preventDefault();
     if(!newTx.date || !newTx.amount || !newTx.description || !newTx.person) return alert("Vui lòng điền đủ thông tin");
 
     const amount = parseInt(newTx.amount);
+    const payload = { ...newTx, amount };
+    if (payload.type !== 'Thu') delete payload.category;
 
     if (editingTxId) {
-      setFinanceData(prev => {
-        const oldTx = prev.transactions.find(tx => tx.id === editingTxId);
-        const oldEffect = oldTx.type === 'Thu' ? oldTx.amount : -oldTx.amount;
-        const newEffect = newTx.type === 'Thu' ? amount : -amount;
-        return {
-          ...prev,
-          totalFund: prev.totalFund - oldEffect + newEffect,
-          transactions: prev.transactions.map(tx => tx.id === editingTxId ? { ...tx, ...newTx, amount } : tx)
-        };
-      });
+      setFinanceData(prev => ({
+        ...prev,
+        transactions: prev.transactions.map(tx => tx.id === editingTxId ? { ...tx, ...payload } : tx)
+      }));
       setEditingTxId(null);
       alert("Cập nhật giao dịch thành công!");
     } else {
-      const newTransaction = { id: Date.now(), ...newTx, amount };
+      const newTransaction = { id: Date.now(), ...payload };
       setFinanceData(prev => ({
         ...prev,
-        totalFund: prev.totalFund + (newTx.type === 'Thu' ? amount : -amount),
         transactions: [newTransaction, ...prev.transactions]
       }));
       alert("Thêm giao dịch thành công!");
@@ -57,7 +84,16 @@ function AdminDashboard() {
 
   const handleEditTransaction = (tx) => {
     setEditingTxId(tx.id);
-    setNewTx({ date: tx.date, type: tx.type, amount: String(tx.amount), description: tx.description, person: tx.person });
+    setNewTx({
+      date: tx.date,
+      type: tx.type,
+      category: tx.category || INCOME_CATEGORIES[0],
+      amount: String(tx.amount),
+      description: tx.description,
+      person: tx.person,
+      proof: tx.proof || '',
+      status: tx.status || 'actual'
+    });
   };
 
   const handleCancelEditTx = () => {
@@ -67,17 +103,40 @@ function AdminDashboard() {
 
   const handleDeleteTransaction = (id) => {
     if (!window.confirm("Bạn có chắc chắn muốn xóa giao dịch này không?")) return;
-    setFinanceData(prev => {
-      const tx = prev.transactions.find(t => t.id === id);
-      const effect = tx.type === 'Thu' ? tx.amount : -tx.amount;
-      return {
-        ...prev,
-        totalFund: prev.totalFund - effect,
-        transactions: prev.transactions.filter(t => t.id !== id)
-      };
-    });
+    setFinanceData(prev => ({
+      ...prev,
+      transactions: prev.transactions.filter(t => t.id !== id)
+    }));
     if (editingTxId === id) handleCancelEditTx();
   };
+
+  const handleUploadProof = async (file) => {
+    if (!file) return;
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      return alert(`File quá lớn! Vui lòng chọn ảnh dưới ${MAX_UPLOAD_MB}MB.`);
+    }
+    const fd = new FormData();
+    fd.append('image', file);
+    setUploadingProof(true);
+    try {
+      const res = await fetch('http://localhost:3001/api/upload?type=receipt', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.success) {
+        setNewTx(prev => ({ ...prev, proof: data.url }));
+        alert('Tải minh chứng thành công!');
+      } else {
+        alert('Lỗi: ' + data.error);
+      }
+    } catch (err) {
+      alert('Lỗi kết nối Server Tải ảnh!');
+    } finally {
+      setUploadingProof(false);
+    }
+  };
+
+  const visibleTransactions = financeData.transactions
+    .filter(tx => txYearFilter === 'all' || getYear(tx.date) === txYearFilter)
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
   const handleSubmitNews = (e) => {
     e.preventDefault();
@@ -120,6 +179,84 @@ function AdminDashboard() {
     if (editingNewsId === id) handleCancelEditNews();
   };
 
+  const uploadImage = async (file, type, setUploading) => {
+    if (!file) return null;
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      alert(`File quá lớn! Vui lòng chọn ảnh dưới ${MAX_UPLOAD_MB}MB.`);
+      return null;
+    }
+    const fd = new FormData();
+    fd.append('image', file);
+    setUploading(true);
+    try {
+      const res = await fetch(`http://localhost:3001/api/upload?type=${type}`, { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.success) return data.url;
+      alert('Lỗi: ' + data.error);
+      return null;
+    } catch (err) {
+      alert('Lỗi kết nối Server Tải ảnh!');
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSaveAbout = (e) => {
+    e.preventDefault();
+    const highlights = aboutForm.highlightsStr
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map(line => {
+        const [year, ...rest] = line.split('|');
+        return { year: (year || '').trim(), text: rest.join('|').trim() };
+      })
+      .filter(h => h.year || h.text);
+
+    setAboutData({ image: aboutForm.image, content: aboutForm.content, highlights });
+    alert('Đã lưu nội dung Giới Thiệu!');
+  };
+
+  const handleUploadAboutImage = async (file) => {
+    const url = await uploadImage(file, 'about', setUploadingAboutImage);
+    if (url) setAboutForm(prev => ({ ...prev, image: url }));
+  };
+
+  const handleAddBanner = (e) => {
+    e.preventDefault();
+    if (!newBanner.url) return alert('Vui lòng chọn hoặc tải lên một ảnh!');
+    setBannerData(prev => [...prev, { id: Date.now(), ...newBanner }]);
+    setNewBanner(emptyBanner);
+  };
+
+  const handleUploadBanner = async (file) => {
+    const url = await uploadImage(file, 'banner', setUploadingBanner);
+    if (url) setNewBanner(prev => ({ ...prev, url }));
+  };
+
+  const handleDeleteBanner = (id) => {
+    if (!window.confirm('Xóa ảnh banner này khỏi trang chủ?')) return;
+    setBannerData(prev => prev.filter(b => b.id !== id));
+  };
+
+  const handleAddGalleryPhoto = (e) => {
+    e.preventDefault();
+    if (!newGalleryPhoto.url) return alert('Vui lòng chọn hoặc tải lên một ảnh!');
+    setGalleryData(prev => [{ id: Date.now(), ...newGalleryPhoto }, ...prev]);
+    setNewGalleryPhoto(emptyGalleryPhoto);
+  };
+
+  const handleUploadGalleryPhoto = async (file) => {
+    const url = await uploadImage(file, 'gallery', setUploadingGalleryPhoto);
+    if (url) setNewGalleryPhoto(prev => ({ ...prev, url }));
+  };
+
+  const handleDeleteGalleryPhoto = (id) => {
+    if (!window.confirm('Xóa ảnh này khỏi thư viện?')) return;
+    setGalleryData(prev => prev.filter(p => p.id !== id));
+  };
+
   return (
     <div className="container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
@@ -143,12 +280,26 @@ function AdminDashboard() {
           >
             Quản Lý Thu Chi
           </button>
-          <button 
-            onClick={() => setActiveTab('news')} 
+          <button
+            onClick={() => setActiveTab('news')}
             className={`btn-primary ${activeTab === 'news' ? '' : 'inactive-tab'}`}
             style={{ background: activeTab === 'news' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'news' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
           >
             Quản Lý Tin Tức
+          </button>
+          <button
+            onClick={() => setActiveTab('about')}
+            className={`btn-primary ${activeTab === 'about' ? '' : 'inactive-tab'}`}
+            style={{ background: activeTab === 'about' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'about' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+          >
+            Giới Thiệu
+          </button>
+          <button
+            onClick={() => setActiveTab('media')}
+            className={`btn-primary ${activeTab === 'media' ? '' : 'inactive-tab'}`}
+            style={{ background: activeTab === 'media' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'media' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+          >
+            Banner & Thư Viện Ảnh
           </button>
         </div>
       </div>
@@ -160,6 +311,45 @@ function AdminDashboard() {
       {activeTab === 'finance' && (
         <>
           <div className="card" style={{ marginBottom: '30px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <h3 style={{ margin: 0 }}>Tổng Quan Ngân Sách</h3>
+              <select value={financeYear} onChange={e => setFinanceYear(Number(e.target.value))} style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                {financeYears.map(y => <option key={y} value={y}>Năm {y}</option>)}
+              </select>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginTop: '20px' }}>
+              <div style={{ background: 'var(--bg-color)', borderRadius: '8px', padding: '15px' }}>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Tồn Quỹ Hiện Tại</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>{formatCurrency(financeSummary.currentFund)}</div>
+              </div>
+              <div style={{ background: 'var(--bg-color)', borderRadius: '8px', padding: '15px' }}>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Thu Thực Tế ({financeYear})</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#27ae60' }}>{formatCurrency(financeSummary.totalActualIncome)}</div>
+              </div>
+              <div style={{ background: 'var(--bg-color)', borderRadius: '8px', padding: '15px' }}>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Chi Thực Tế ({financeYear})</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#c0392b' }}>{formatCurrency(financeSummary.totalActualExpense)}</div>
+              </div>
+              <div style={{ background: 'var(--bg-color)', borderRadius: '8px', padding: '15px' }}>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Dự Kiến Cuối Năm {financeYear}</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>{formatCurrency(financeSummary.projectedYearEndBalance)}</div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <label style={{ fontWeight: 'bold' }}>Tồn dư đầu kỳ (trước giao dịch đầu tiên):</label>
+              <input
+                type="number"
+                value={financeData.openingBalance}
+                onChange={e => setFinanceData(prev => ({ ...prev, openingBalance: parseInt(e.target.value) || 0 }))}
+                style={{ padding: '8px 10px', borderRadius: '4px', border: '1px solid var(--border-color)', width: '200px' }}
+              />
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Dùng làm điểm khởi đầu cộng dồn qua các năm</span>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginBottom: '30px' }}>
             <h3>{editingTxId ? 'Cập Nhật Giao Dịch' : 'Thêm Giao Dịch Mới'}</h3>
             <form onSubmit={handleSubmitTransaction} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
               <div>
@@ -169,6 +359,24 @@ function AdminDashboard() {
                   <option value="Chi">Chi</option>
                 </select>
               </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px' }}>Trạng Thái</label>
+                <select value={newTx.status} onChange={e => setNewTx({...newTx, status: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                  <option value="actual">Đã thực hiện</option>
+                  <option value="planned">Dự kiến (sắp tới)</option>
+                </select>
+              </div>
+
+              {newTx.type === 'Thu' && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={{ display: 'block', marginBottom: '5px' }}>Danh Mục Thu</label>
+                  <select value={newTx.category} onChange={e => setNewTx({...newTx, category: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                    {INCOME_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label style={{ display: 'block', marginBottom: '5px' }}>Ngày</label>
                 <input type="date" value={newTx.date} onChange={e => setNewTx({...newTx, date: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
@@ -185,6 +393,24 @@ function AdminDashboard() {
                 <label style={{ display: 'block', marginBottom: '5px' }}>Nội Dung Chi Tiết</label>
                 <input type="text" value={newTx.description} onChange={e => setNewTx({...newTx, description: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
               </div>
+
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', marginBottom: '5px' }}>Minh Chứng Giao Dịch (hóa đơn, bill, ảnh chuyển khoản... nếu có)</label>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input type="text" value={newTx.proof} onChange={e => setNewTx({...newTx, proof: e.target.value})} placeholder="URL ảnh hóa đơn/chứng từ..." style={{ flex: 1, minWidth: '200px', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                  <label style={{ background: 'var(--primary-color)', color: 'white', padding: '10px 15px', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {uploadingProof ? 'Đang tải...' : 'Tải Ảnh Lên'}
+                    <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploadingProof} onChange={e => handleUploadProof(e.target.files[0])} />
+                  </label>
+                </div>
+                <small style={{ color: 'var(--text-secondary)' }}>Ảnh sẽ được lưu vào thư mục lưu trữ trên server. Tối đa {MAX_UPLOAD_MB}MB mỗi lần tải lên.</small>
+                {newTx.proof && (
+                  <div style={{ marginTop: '10px' }}>
+                    <img src={newTx.proof} alt="Xem trước minh chứng" style={{ maxHeight: '120px', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                  </div>
+                )}
+              </div>
+
               <div style={{ gridColumn: '1 / -1', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 {editingTxId && (
                   <button type="button" onClick={handleCancelEditTx} style={{ padding: '10px 20px', background: '#ccc', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Hủy Bỏ</button>
@@ -195,21 +421,29 @@ function AdminDashboard() {
           </div>
 
           <div className="card">
-            <h3>Lịch Sử Giao Dịch ({financeData.transactions.length})</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <h3 style={{ margin: 0 }}>Lịch Sử Giao Dịch ({visibleTransactions.length})</h3>
+              <select value={txYearFilter} onChange={e => setTxYearFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))} style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                <option value="all">Tất cả các năm</option>
+                {financeYears.map(y => <option key={y} value={y}>Năm {y}</option>)}
+              </select>
+            </div>
             <div style={{ overflowX: 'auto', marginTop: '20px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
                     <th style={{ padding: '15px' }}>Ngày</th>
                     <th style={{ padding: '15px' }}>Loại</th>
+                    <th style={{ padding: '15px' }}>Danh mục / Trạng thái</th>
                     <th style={{ padding: '15px' }}>Số Tiền</th>
                     <th style={{ padding: '15px' }}>Nội Dung</th>
                     <th style={{ padding: '15px' }}>Người Giao Dịch</th>
+                    <th style={{ padding: '15px' }}>Chứng Từ</th>
                     <th style={{ padding: '15px' }}>Thao Tác</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {financeData.transactions.map((tx) => (
+                  {visibleTransactions.map((tx) => (
                     <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                       <td style={{ padding: '15px' }}>{tx.date}</td>
                       <td style={{ padding: '15px' }}>
@@ -223,15 +457,31 @@ function AdminDashboard() {
                           {tx.type}
                         </span>
                       </td>
+                      <td style={{ padding: '15px', fontSize: '0.85rem' }}>
+                        {tx.type === 'Thu' && <div>{tx.category || '—'}</div>}
+                        <span style={{ color: tx.status === 'planned' ? '#d1a93e' : '#7f8c8d' }}>
+                          {tx.status === 'planned' ? 'Dự kiến' : 'Đã thực hiện'}
+                        </span>
+                      </td>
                       <td style={{ padding: '15px', fontWeight: 'bold' }}>{formatCurrency(tx.amount)}</td>
                       <td style={{ padding: '15px' }}>{tx.description}</td>
                       <td style={{ padding: '15px' }}>{tx.person}</td>
+                      <td style={{ padding: '15px' }}>
+                        {tx.proof ? (
+                          <a href={tx.proof} target="_blank" rel="noopener noreferrer" title="Xem minh chứng cỡ đầy đủ">
+                            <img src={tx.proof} alt="Minh chứng" style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                          </a>
+                        ) : '—'}
+                      </td>
                       <td style={{ padding: '15px' }}>
                         <button onClick={() => handleEditTransaction(tx)} style={{ padding: '5px 10px', background: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' }}>Sửa</button>
                         <button onClick={() => handleDeleteTransaction(tx.id)} style={{ padding: '5px 10px', background: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Xóa</button>
                       </td>
                     </tr>
                   ))}
+                  {visibleTransactions.length === 0 && (
+                    <tr><td colSpan={8} style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>Không có giao dịch nào</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -264,9 +514,8 @@ function AdminDashboard() {
                       if(!file) return;
                       const fd = new FormData();
                       fd.append('image', file);
-                      fd.append('type', 'news');
                       try {
-                        const res = await fetch('http://localhost:3001/api/upload', { method: 'POST', body: fd });
+                        const res = await fetch('http://localhost:3001/api/upload?type=news', { method: 'POST', body: fd });
                         const data = await res.json();
                         if(data.success) {
                           setNewNews({...newNews, image: data.url});
@@ -313,6 +562,114 @@ function AdminDashboard() {
             ))}
           </div>
         </div>
+        </>
+      )}
+
+      {activeTab === 'about' && (
+        <div className="card">
+          <h3>Nội Dung Trang Giới Thiệu</h3>
+          <form onSubmit={handleSaveAbout} style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '20px' }}>
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Ảnh Đầu Trang</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input type="text" value={aboutForm.image} onChange={e => setAboutForm({...aboutForm, image: e.target.value})} placeholder="URL ảnh..." style={{ flex: 1, padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                <label style={{ background: 'var(--primary-color)', color: 'white', padding: '10px 15px', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  {uploadingAboutImage ? 'Đang tải...' : 'Tải Ảnh Lên'}
+                  <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploadingAboutImage} onChange={e => handleUploadAboutImage(e.target.files[0])} />
+                </label>
+              </div>
+              {aboutForm.image && (
+                <img src={aboutForm.image} alt="Xem trước" style={{ marginTop: '10px', maxHeight: '150px', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+              )}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Nội Dung Giới Thiệu (mỗi dòng trống là 1 đoạn văn)</label>
+              <textarea rows="8" value={aboutForm.content} onChange={e => setAboutForm({...aboutForm, content: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}></textarea>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Các Mốc Son Lịch Sử (mỗi dòng: Năm|Nội dung)</label>
+              <textarea
+                rows="5"
+                value={aboutForm.highlightsStr}
+                onChange={e => setAboutForm({...aboutForm, highlightsStr: e.target.value})}
+                placeholder={'VD:\n1850|Cụ Tổ lập nghiệp\n1992|Lập ban liên lạc dòng họ'}
+                style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+              ></textarea>
+            </div>
+
+            <div style={{ textAlign: 'right' }}>
+              <button type="submit" className="btn-primary">Lưu Nội Dung</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {activeTab === 'media' && (
+        <>
+          <div className="card" style={{ marginBottom: '30px' }}>
+            <h3>Banner Trang Chủ (Slideshow)</h3>
+            <form onSubmit={handleAddBanner} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <input type="text" value={newBanner.url} onChange={e => setNewBanner({...newBanner, url: e.target.value})} placeholder="URL ảnh..." style={{ flex: 1, minWidth: '200px', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                <label style={{ background: 'var(--primary-color)', color: 'white', padding: '10px 15px', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  {uploadingBanner ? 'Đang tải...' : 'Tải Ảnh Lên'}
+                  <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploadingBanner} onChange={e => handleUploadBanner(e.target.files[0])} />
+                </label>
+              </div>
+              <input type="text" value={newBanner.caption} onChange={e => setNewBanner({...newBanner, caption: e.target.value})} placeholder="Chú thích ảnh (tùy chọn)..." style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+              {newBanner.url && <img src={newBanner.url} alt="Xem trước" style={{ maxHeight: '120px', borderRadius: '6px', border: '1px solid var(--border-color)' }} />}
+              <div style={{ textAlign: 'right' }}>
+                <button type="submit" className="btn-primary">Thêm Vào Banner</button>
+              </div>
+            </form>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '25px' }}>
+              {bannerData.map(b => (
+                <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                  <img src={b.url} alt={b.caption} style={{ width: '90px', height: '55px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>{b.caption || <em style={{ color: 'var(--text-secondary)' }}>Không có chú thích</em>}</div>
+                  <button onClick={() => handleDeleteBanner(b.id)} style={{ padding: '5px 10px', background: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Xóa</button>
+                </div>
+              ))}
+              {bannerData.length === 0 && <p style={{ color: 'var(--text-secondary)' }}>Chưa có ảnh banner nào.</p>}
+            </div>
+          </div>
+
+          <div className="card">
+            <h3>Thư Viện Ảnh</h3>
+            <form onSubmit={handleAddGalleryPhoto} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <input type="text" value={newGalleryPhoto.url} onChange={e => setNewGalleryPhoto({...newGalleryPhoto, url: e.target.value})} placeholder="URL ảnh..." style={{ flex: 1, minWidth: '200px', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                <label style={{ background: 'var(--primary-color)', color: 'white', padding: '10px 15px', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  {uploadingGalleryPhoto ? 'Đang tải...' : 'Tải Ảnh Lên'}
+                  <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploadingGalleryPhoto} onChange={e => handleUploadGalleryPhoto(e.target.files[0])} />
+                </label>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <input type="text" value={newGalleryPhoto.caption} onChange={e => setNewGalleryPhoto({...newGalleryPhoto, caption: e.target.value})} placeholder="Chú thích ảnh..." style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                <input type="date" value={newGalleryPhoto.date} onChange={e => setNewGalleryPhoto({...newGalleryPhoto, date: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+              </div>
+              {newGalleryPhoto.url && <img src={newGalleryPhoto.url} alt="Xem trước" style={{ maxHeight: '120px', borderRadius: '6px', border: '1px solid var(--border-color)' }} />}
+              <div style={{ textAlign: 'right' }}>
+                <button type="submit" className="btn-primary">Thêm Vào Thư Viện</button>
+              </div>
+            </form>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px', marginTop: '25px' }}>
+              {galleryData.map(photo => (
+                <div key={photo.id} style={{ border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
+                  <img src={photo.url} alt={photo.caption} style={{ width: '100%', height: '110px', objectFit: 'cover' }} />
+                  <div style={{ padding: '8px' }}>
+                    <div style={{ fontSize: '0.85rem' }}>{photo.caption || '—'}</div>
+                    <button onClick={() => handleDeleteGalleryPhoto(photo.id)} style={{ marginTop: '6px', width: '100%', padding: '4px', background: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Xóa</button>
+                  </div>
+                </div>
+              ))}
+              {galleryData.length === 0 && <p style={{ color: 'var(--text-secondary)' }}>Chưa có ảnh nào trong thư viện.</p>}
+            </div>
+          </div>
         </>
       )}
     </div>

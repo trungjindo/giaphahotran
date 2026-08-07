@@ -1,6 +1,6 @@
 import React, { useState, useContext, useRef, useMemo } from 'react';
 import { AppContext } from '../store';
-import { flattenFamily, calculateAge, formatDateVN } from '../utils/family';
+import { flattenFamily, calculateAge, formatDateVN, buildFamilyCodeMap } from '../utils/family';
 
 // Lấy danh sách con cái
 const getChildrenNames = (children) => {
@@ -8,7 +8,7 @@ const getChildrenNames = (children) => {
   return children.map(c => c.name).join(', ');
 };
 
-const TreeNode = ({ node, onSelect, filterProvince }) => {
+const TreeNode = ({ node, onSelect, filterProvince, codeMap }) => {
   // Mặc định chỉ mở rộng 2 đời đầu, các đời sau sẽ bị ẩn đi để tiết kiệm không gian
   const [isExpanded, setIsExpanded] = useState(node.generation < 2);
   const hasChildren = node.children && node.children.length > 0;
@@ -51,6 +51,9 @@ const TreeNode = ({ node, onSelect, filterProvince }) => {
               {node.name} {node.gender === 'Nam' ? '♂' : node.gender === 'Nữ' ? '♀' : ''}
             </h4>
             <span className="generation">Đời {node.generation}</span>
+            {codeMap && codeMap[node.id] && (
+              <span className="member-code" title="Mã định danh phả hệ">#{codeMap[node.id]}</span>
+            )}
           </div>
         </div>
 
@@ -68,7 +71,7 @@ const TreeNode = ({ node, onSelect, filterProvince }) => {
       {hasChildren && isExpanded && (
         <div className="tree-children">
           {node.children.map(child => (
-            <TreeNode key={child.id} node={child} onSelect={onSelect} filterProvince={filterProvince} />
+            <TreeNode key={child.id} node={child} onSelect={onSelect} filterProvince={filterProvince} codeMap={codeMap} />
           ))}
         </div>
       )}
@@ -85,6 +88,8 @@ function FamilyTreePage() {
     const members = flattenFamily(familyData);
     return [...new Set(members.map(m => m.currentProvince).filter(Boolean))].sort();
   }, [familyData]);
+
+  const codeMap = useMemo(() => buildFamilyCodeMap(familyData), [familyData]);
 
   // Trạng thái cho tính năng Zoom và Pan (Kéo thả)
   const [zoom, setZoom] = useState(1);
@@ -170,7 +175,7 @@ function FamilyTreePage() {
           style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}
         >
           <div className="tree-container">
-            {familyData ? <TreeNode node={familyData} onSelect={setSelectedMember} filterProvince={filterProvince} /> : <p>Không có dữ liệu</p>}
+            {familyData ? <TreeNode node={familyData} onSelect={setSelectedMember} filterProvince={filterProvince} codeMap={codeMap} /> : <p>Không có dữ liệu</p>}
           </div>
         </div>
       </div>
@@ -289,6 +294,14 @@ function FamilyTreePage() {
           text-align: center;
         }
         
+        .member-code {
+          font-size: 0.65rem;
+          color: var(--text-secondary);
+          font-family: monospace;
+          display: block;
+          margin-top: 2px;
+        }
+
         .generation {
           font-size: 0.75rem;
           color: var(--text-secondary);
@@ -488,8 +501,11 @@ function FamilyTreePage() {
               <h2 style={{ margin: '15px 0 5px', fontFamily: 'var(--font-serif)', color: 'var(--primary-color)' }}>
                 {selectedMember.name}
               </h2>
-              <span className="generation" style={{ display: 'inline-block', marginBottom: '25px', padding: '5px 15px', fontSize: '0.9rem' }}>Đời thứ {selectedMember.generation}</span>
-              
+              <span className="generation" style={{ display: 'inline-block', marginBottom: '25px', padding: '5px 15px', fontSize: '0.9rem' }}>
+                Đời thứ {selectedMember.generation}
+                {codeMap[selectedMember.id] && <> · Mã: <span style={{ fontFamily: 'monospace' }}>{codeMap[selectedMember.id]}</span></>}
+              </span>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', textAlign: 'left', background: 'var(--bg-color)', padding: '20px', borderRadius: '8px' }}>
                 <div><strong>Giới tính:</strong> {selectedMember.gender || 'Chưa rõ'}</div>
                 <div>

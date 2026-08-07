@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import Home from './pages/Home';
+import About from './pages/About';
 import FamilyTreePage from './pages/FamilyTreePage';
 import Finance from './pages/Finance';
 import NewsGallery from './pages/NewsGallery';
+import Gallery from './pages/Gallery';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 
@@ -22,9 +24,11 @@ function App() {
           
           <div className={`nav-links ${isMenuOpen ? 'active' : ''}`}>
             <Link to="/" onClick={() => setIsMenuOpen(false)}>Trang Chủ</Link>
+            <Link to="/gioi-thieu" onClick={() => setIsMenuOpen(false)}>Giới Thiệu</Link>
             <Link to="/gia-pha" onClick={() => setIsMenuOpen(false)}>Gia Phả</Link>
             <Link to="/thu-chi" onClick={() => setIsMenuOpen(false)}>Quản Lý Thu Chi</Link>
             <Link to="/tin-tuc" onClick={() => setIsMenuOpen(false)}>Tin Tức & Hoạt Động</Link>
+            <Link to="/thu-vien" onClick={() => setIsMenuOpen(false)}>Thư Viện Ảnh</Link>
           </div>
 
           <button className="mobile-menu-btn" onClick={() => setIsMenuOpen(!isMenuOpen)}>
@@ -43,9 +47,11 @@ function App() {
       <main className="main-content">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/gioi-thieu" element={<About />} />
           <Route path="/gia-pha" element={<FamilyTreePage />} />
           <Route path="/thu-chi" element={<Finance />} />
           <Route path="/tin-tuc" element={<NewsGallery />} />
+          <Route path="/thu-vien" element={<Gallery />} />
           <Route path="/login" element={<Login />} />
           <Route path="/admin" element={<AdminDashboard />} />
         </Routes>

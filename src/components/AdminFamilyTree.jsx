@@ -1,7 +1,7 @@
 import React, { useState, useContext, useRef, useMemo } from 'react';
 import { AppContext } from '../store';
 import * as XLSX from 'xlsx';
-import { flattenFamily, EDUCATION_LEVELS } from '../utils/family';
+import { flattenFamily, EDUCATION_LEVELS, buildFamilyCodeMap } from '../utils/family';
 
 const emptyFormData = {
   id: '',
@@ -37,6 +37,7 @@ const AdminFamilyTree = () => {
 
   // 1. Flatten Tree for Table & Excel
   const flatList = familyData ? flattenFamily(familyData) : [];
+  const codeMap = useMemo(() => familyData ? buildFamilyCodeMap(familyData) : {}, [familyData]);
 
   const provinceSuggestions = useMemo(
     () => [...new Set(flatList.map(m => m.currentProvince).filter(Boolean))],
@@ -340,6 +341,7 @@ const AdminFamilyTree = () => {
           <thead style={{ background: 'var(--surface-color)' }}>
             <tr>
               <th style={{ padding: '15px', borderBottom: '2px solid var(--border-color)' }}>Họ tên</th>
+              <th style={{ padding: '15px', borderBottom: '2px solid var(--border-color)' }}>Mã ĐD</th>
               <th style={{ padding: '15px', borderBottom: '2px solid var(--border-color)' }}>Đời</th>
               <th style={{ padding: '15px', borderBottom: '2px solid var(--border-color)' }}>Là con của</th>
               <th style={{ padding: '15px', borderBottom: '2px solid var(--border-color)' }}>Tình trạng</th>
@@ -358,6 +360,7 @@ const AdminFamilyTree = () => {
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{member.birthDate || '?'} - {member.deathDate || '?'}</div>
                   </div>
                 </td>
+                <td style={{ padding: '12px 15px', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{codeMap[member.id] || '—'}</td>
                 <td style={{ padding: '12px 15px' }}>Đời {member.generation}</td>
                 <td style={{ padding: '12px 15px', color: 'var(--text-secondary)' }}>{member.parentName}</td>
                 <td style={{ padding: '12px 15px' }}>
@@ -400,9 +403,8 @@ const AdminFamilyTree = () => {
                       if(!file) return;
                       const fd = new FormData();
                       fd.append('image', file);
-                      fd.append('type', 'avatar');
                       try {
-                        const res = await fetch('http://localhost:3001/api/upload', { method: 'POST', body: fd });
+                        const res = await fetch('http://localhost:3001/api/upload?type=avatar', { method: 'POST', body: fd });
                         const data = await res.json();
                         if(data.success) {
                           setFormData({...formData, avatar: data.url});

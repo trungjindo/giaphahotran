@@ -1,7 +1,54 @@
-import React, { useContext, useMemo } from 'react';
+import React, { useContext, useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AppContext } from '../store';
 import { computeFamilyStats, getMaxGeneration } from '../utils/family';
+import { computeFinanceSummary, formatCurrency } from '../utils/finance';
+
+const BannerSlideshow = ({ images }) => {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (!images || images.length <= 1) return;
+    const timer = setInterval(() => setIndex(i => (i + 1) % images.length), 5000);
+    return () => clearInterval(timer);
+  }, [images]);
+
+  if (!images || images.length === 0) return null;
+
+  const prev = () => setIndex(i => (i - 1 + images.length) % images.length);
+  const next = () => setIndex(i => (i + 1) % images.length);
+
+  return (
+    <div className="banner-slideshow">
+      {images.map((img, i) => (
+        <div
+          key={img.id}
+          className={`banner-slide ${i === index ? 'active' : ''}`}
+          style={{ backgroundImage: `url(${img.url})` }}
+        >
+          {img.caption && <div className="banner-caption">{img.caption}</div>}
+        </div>
+      ))}
+
+      {images.length > 1 && (
+        <>
+          <button className="banner-nav banner-prev" onClick={prev} aria-label="Ảnh trước">‹</button>
+          <button className="banner-nav banner-next" onClick={next} aria-label="Ảnh sau">›</button>
+          <div className="banner-dots">
+            {images.map((_, i) => (
+              <button
+                key={i}
+                className={`banner-dot ${i === index ? 'active' : ''}`}
+                onClick={() => setIndex(i)}
+                aria-label={`Xem ảnh ${i + 1}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 const StatTile = ({ label, value, color }) => (
   <div className="stat-tile">
@@ -42,10 +89,11 @@ const StatBarList = ({ data, color }) => {
 };
 
 function Home() {
-  const { financeData, newsData, familyData } = useContext(AppContext);
+  const { financeData, newsData, familyData, bannerData } = useContext(AppContext);
 
   const stats = useMemo(() => computeFamilyStats(familyData), [familyData]);
   const totalGenerations = useMemo(() => getMaxGeneration(familyData), [familyData]);
+  const financeSummary = useMemo(() => computeFinanceSummary(financeData), [financeData]);
 
   const ageChartData = useMemo(
     () => Object.fromEntries(stats.ageBrackets.map(b => [b.label, b.count])),
@@ -54,6 +102,8 @@ function Home() {
 
   return (
     <div className="container">
+      <BannerSlideshow images={bannerData} />
+
       <div className="hero-section" style={{ textAlign: 'center', margin: '40px 0' }}>
         <h1 style={{ fontSize: '3rem', marginBottom: '20px' }}>Trần Đình Gia Phả</h1>
         <p style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', maxWidth: '800px', margin: '0 auto' }}>
@@ -84,7 +134,7 @@ function Home() {
           <ul style={{ marginTop: '15px', lineHeight: '2' }}>
             <li><strong>Số đời ghi nhận:</strong> {totalGenerations} đời</li>
             <li><strong>Số lượng thành viên:</strong> {stats.total} thành viên</li>
-            <li><strong>Tổng quỹ dòng họ:</strong> {financeData.totalFund.toLocaleString('vi-VN')} VNĐ</li>
+            <li><strong>Tổng quỹ dòng họ:</strong> {formatCurrency(financeSummary.currentFund)}</li>
           </ul>
           <div style={{ marginTop: '20px' }}>
             <Link to="/gia-pha" className="btn-primary">Xem Phả Hệ</Link>
@@ -149,6 +199,94 @@ function Home() {
       </div>
 
       <style>{`
+        .banner-slideshow {
+          position: relative;
+          width: 100%;
+          height: 420px;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: var(--shadow-lg);
+          margin-top: 20px;
+        }
+
+        .banner-slide {
+          position: absolute;
+          inset: 0;
+          background-size: cover;
+          background-position: center;
+          opacity: 0;
+          transition: opacity 1s ease;
+        }
+
+        .banner-slide.active {
+          opacity: 1;
+        }
+
+        .banner-caption {
+          position: absolute;
+          left: 0; right: 0; bottom: 0;
+          padding: 30px 30px 20px;
+          background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+          color: white;
+          font-family: var(--font-serif);
+          font-size: 1.2rem;
+        }
+
+        .banner-nav {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: none;
+          background: rgba(255,255,255,0.25);
+          color: white;
+          font-size: 1.6rem;
+          line-height: 1;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 0.2s;
+        }
+
+        .banner-nav:hover {
+          background: rgba(255,255,255,0.45);
+        }
+
+        .banner-prev { left: 15px; }
+        .banner-next { right: 15px; }
+
+        .banner-dots {
+          position: absolute;
+          bottom: 15px;
+          left: 0; right: 0;
+          display: flex;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .banner-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          border: 2px solid white;
+          background: transparent;
+          cursor: pointer;
+          padding: 0;
+        }
+
+        .banner-dot.active {
+          background: var(--secondary-color);
+          border-color: var(--secondary-color);
+        }
+
+        @media (max-width: 600px) {
+          .banner-slideshow { height: 220px; }
+          .banner-caption { font-size: 1rem; padding: 15px; }
+        }
+
         .quick-access-cta {
           display: inline-flex;
           align-items: center;
