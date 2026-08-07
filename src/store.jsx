@@ -11,7 +11,7 @@ export const AppProvider = ({ children }) => {
 
   // Data States
   const [familyData, setFamilyData] = useState(() => {
-    const saved = localStorage.getItem('familyData_v2');
+    const saved = localStorage.getItem('familyData_v3');
     return saved ? JSON.parse(saved) : initialFamily;
   });
 
@@ -31,7 +31,7 @@ export const AppProvider = ({ children }) => {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    localStorage.setItem('familyData_v2', JSON.stringify(familyData));
+    localStorage.setItem('familyData_v3', JSON.stringify(familyData));
   }, [familyData]);
 
   useEffect(() => {

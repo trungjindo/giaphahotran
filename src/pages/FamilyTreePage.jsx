@@ -1,5 +1,6 @@
-import React, { useState, useContext, useRef } from 'react';
+import React, { useState, useContext, useRef, useMemo } from 'react';
 import { AppContext } from '../store';
+import { flattenFamily, calculateAge, formatDateVN } from '../utils/family';
 
 // Lấy danh sách con cái
 const getChildrenNames = (children) => {
@@ -7,48 +8,55 @@ const getChildrenNames = (children) => {
   return children.map(c => c.name).join(', ');
 };
 
-const TreeNode = ({ node, onSelect }) => {
+const TreeNode = ({ node, onSelect, filterProvince }) => {
   // Mặc định chỉ mở rộng 2 đời đầu, các đời sau sẽ bị ẩn đi để tiết kiệm không gian
-  const [isExpanded, setIsExpanded] = useState(node.generation < 2); 
+  const [isExpanded, setIsExpanded] = useState(node.generation < 2);
   const hasChildren = node.children && node.children.length > 0;
 
   const isMain = node.isMainLineage;
   const isAlive = node.isAlive;
-  
+  const isFilterMatch = filterProvince && node.currentProvince === filterProvince;
+
   const borderColor = isMain ? 'var(--primary-color)' : '#7f8c8d';
   const avatarBorder = isAlive ? '#2ecc71' : '#95a5a6';
 
   return (
     <div className="tree-node-wrapper">
-      <div 
-        className="tree-node" 
-        style={{ borderColor: borderColor }}
+      <div
+        className="tree-node"
+        style={{
+          borderColor: isFilterMatch ? 'var(--secondary-color)' : borderColor,
+          boxShadow: isFilterMatch ? '0 0 0 3px rgba(209,169,62,0.4)' : undefined,
+          opacity: filterProvince && !isFilterMatch ? 0.4 : 1
+        }}
       >
-        <div 
-          className="node-content" 
+        <div
+          className="node-content"
           onClick={() => onSelect(node)}
           title="Bấm để xem hồ sơ"
         >
           <div className="node-avatar-container">
-            <img 
-              src={node.avatar || 'https://via.placeholder.com/150'} 
+            <img
+              src={node.avatar || 'https://via.placeholder.com/150'}
               alt={node.name}
               className="node-avatar-img"
-              style={{ 
+              style={{
                 border: `2px solid ${avatarBorder}`,
                 filter: isAlive ? 'none' : 'grayscale(100%)'
               }}
             />
           </div>
           <div className="node-info">
-            <h4 style={{ color: isMain ? 'var(--primary-color)' : 'var(--text-primary)' }}>{node.name}</h4>
+            <h4 style={{ color: isMain ? 'var(--primary-color)' : 'var(--text-primary)' }}>
+              {node.name} {node.gender === 'Nam' ? '♂' : node.gender === 'Nữ' ? '♀' : ''}
+            </h4>
             <span className="generation">Đời {node.generation}</span>
           </div>
         </div>
-        
+
         {hasChildren && (
-          <button 
-            className="expand-btn" 
+          <button
+            className="expand-btn"
             onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
             title={isExpanded ? "Thu gọn nhánh" : "Mở rộng nhánh"}
           >
@@ -56,11 +64,11 @@ const TreeNode = ({ node, onSelect }) => {
           </button>
         )}
       </div>
-      
+
       {hasChildren && isExpanded && (
         <div className="tree-children">
           {node.children.map(child => (
-            <TreeNode key={child.id} node={child} onSelect={onSelect} />
+            <TreeNode key={child.id} node={child} onSelect={onSelect} filterProvince={filterProvince} />
           ))}
         </div>
       )}
@@ -71,7 +79,13 @@ const TreeNode = ({ node, onSelect }) => {
 function FamilyTreePage() {
   const { familyData } = useContext(AppContext);
   const [selectedMember, setSelectedMember] = useState(null);
-  
+  const [filterProvince, setFilterProvince] = useState('');
+
+  const provinceOptions = useMemo(() => {
+    const members = flattenFamily(familyData);
+    return [...new Set(members.map(m => m.currentProvince).filter(Boolean))].sort();
+  }, [familyData]);
+
   // Trạng thái cho tính năng Zoom và Pan (Kéo thả)
   const [zoom, setZoom] = useState(1);
   const containerRef = useRef(null);
@@ -131,22 +145,32 @@ function FamilyTreePage() {
         <span style={{ marginLeft: '15px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
           💡 Dùng chuột nhấn giữ và kéo để di chuyển sơ đồ
         </span>
+        {provinceOptions.length > 0 && (
+          <select
+            value={filterProvince}
+            onChange={e => setFilterProvince(e.target.value)}
+            style={{ marginLeft: '15px', padding: '7px 10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+          >
+            <option value="">Lọc theo khu vực...</option>
+            {provinceOptions.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        )}
       </div>
 
-      <div 
-        className="tree-scroll-container" 
+      <div
+        className="tree-scroll-container"
         ref={containerRef}
         onMouseDown={handleMouseDown}
         onMouseLeave={handleMouseLeave}
         onMouseUp={handleMouseUp}
         onMouseMove={handleMouseMove}
       >
-        <div 
-          className="tree-scale-wrapper" 
+        <div
+          className="tree-scale-wrapper"
           style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}
         >
           <div className="tree-container">
-            {familyData ? <TreeNode node={familyData} onSelect={setSelectedMember} /> : <p>Không có dữ liệu</p>}
+            {familyData ? <TreeNode node={familyData} onSelect={setSelectedMember} filterProvince={filterProvince} /> : <p>Không có dữ liệu</p>}
           </div>
         </div>
       </div>
@@ -467,10 +491,37 @@ function FamilyTreePage() {
               <span className="generation" style={{ display: 'inline-block', marginBottom: '25px', padding: '5px 15px', fontSize: '0.9rem' }}>Đời thứ {selectedMember.generation}</span>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', textAlign: 'left', background: 'var(--bg-color)', padding: '20px', borderRadius: '8px' }}>
-                <div><strong>Năm sinh:</strong> {selectedMember.birthDate || 'Chưa rõ'}</div>
-                <div><strong>Tình trạng:</strong> {selectedMember.isAlive ? <span style={{color: '#27ae60', fontWeight: 'bold'}}>Đang sống</span> : <span style={{color: '#7f8c8d'}}>Đã mất ({selectedMember.deathDate || 'Chưa rõ'})</span>}</div>
-                <div><strong>Nơi ở/Quê quán:</strong> {selectedMember.location || 'Chưa rõ'}</div>
+                <div><strong>Giới tính:</strong> {selectedMember.gender || 'Chưa rõ'}</div>
+                <div>
+                  <strong>Tình trạng:</strong> {selectedMember.isAlive ? <span style={{color: '#27ae60', fontWeight: 'bold'}}>Đang sống</span> : <span style={{color: '#7f8c8d'}}>Đã mất</span>}
+                  {(() => {
+                    const age = calculateAge(selectedMember.birthDate, selectedMember.deathDate, selectedMember.isAlive);
+                    return age !== null ? <span style={{ color: 'var(--text-secondary)' }}> ({selectedMember.isAlive ? `${age} tuổi` : `hưởng thọ ${age} tuổi`})</span> : null;
+                  })()}
+                </div>
+                <div><strong>Ngày sinh:</strong> {formatDateVN(selectedMember.birthDate) || 'Chưa rõ'}</div>
+                <div><strong>Ngày mất:</strong> {selectedMember.isAlive ? '—' : (formatDateVN(selectedMember.deathDate) || 'Chưa rõ')}</div>
+                <div><strong>Học vấn:</strong> {selectedMember.education || 'Chưa rõ'}</div>
                 <div><strong>Nghề nghiệp:</strong> {selectedMember.occupation || 'Chưa rõ'}</div>
+
+                <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
+                  <strong>Địa chỉ hiện nay:</strong> {[selectedMember.currentWard, selectedMember.currentProvince].filter(Boolean).join(', ') || 'Chưa rõ'}
+                  {selectedMember.oldAddress && (
+                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                      Địa chỉ cũ: {selectedMember.oldAddress}
+                    </div>
+                  )}
+                </div>
+
+                {(selectedMember.phone || selectedMember.zalo) && (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <strong>Liên hệ:</strong>{' '}
+                    {selectedMember.phone && <span>ĐT: {selectedMember.phone}</span>}
+                    {selectedMember.phone && selectedMember.zalo && ' — '}
+                    {selectedMember.zalo && <span>Zalo: {selectedMember.zalo}</span>}
+                  </div>
+                )}
+
                 <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
                   <strong>Phu nhân / Phu quân:</strong> {selectedMember.spouse || 'Chưa rõ'}
                 </div>
@@ -478,7 +529,7 @@ function FamilyTreePage() {
                   <strong>Con cái:</strong> {getChildrenNames(selectedMember.children)}
                 </div>
               </div>
-              
+
               {selectedMember.description && (
                 <div style={{ marginTop: '25px', textAlign: 'left', lineHeight: '1.7', color: 'var(--text-primary)' }}>
                   <h3 style={{ borderBottom: '2px solid var(--primary-light)', display: 'inline-block', paddingBottom: '5px', marginBottom: '15px' }}>Tiểu sử</h3>

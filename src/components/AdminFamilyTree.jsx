@@ -1,6 +1,29 @@
-import React, { useState, useContext, useRef } from 'react';
+import React, { useState, useContext, useRef, useMemo } from 'react';
 import { AppContext } from '../store';
 import * as XLSX from 'xlsx';
+import { flattenFamily, EDUCATION_LEVELS } from '../utils/family';
+
+const emptyFormData = {
+  id: '',
+  name: '',
+  avatar: '',
+  generation: 1,
+  gender: 'Nam',
+  birthDate: '',
+  deathDate: '',
+  isAlive: true,
+  isMainLineage: false,
+  spouse: '',
+  education: 'Chưa rõ',
+  currentProvince: '',
+  currentWard: '',
+  oldAddress: '',
+  phone: '',
+  zalo: '',
+  occupation: '',
+  description: '',
+  achievementsStr: ''
+};
 
 const AdminFamilyTree = () => {
   const { familyData, setFamilyData } = useContext(AppContext);
@@ -9,42 +32,20 @@ const AdminFamilyTree = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
   const [targetParentId, setTargetParentId] = useState(null);
-  
-  const [formData, setFormData] = useState({
-    id: '',
-    name: '',
-    avatar: '',
-    generation: 1,
-    birthDate: '',
-    deathDate: '',
-    isAlive: true,
-    isMainLineage: false,
-    spouse: '',
-    location: '',
-    occupation: '',
-    description: '',
-    achievementsStr: ''
-  });
+
+  const [formData, setFormData] = useState(emptyFormData);
 
   // 1. Flatten Tree for Table & Excel
-  const flattenTree = (node, parentId = "", parentName = "Thủy tổ") => {
-    if (!node) return [];
-    
-    let list = [{ 
-      ...node, 
-      parentId: parentId,
-      parentName: parentName 
-    }];
+  const flatList = familyData ? flattenFamily(familyData) : [];
 
-    if (node.children && node.children.length > 0) {
-      node.children.forEach(child => {
-        list = list.concat(flattenTree(child, node.id, node.name));
-      });
-    }
-    return list;
-  };
-
-  const flatList = familyData ? flattenTree(familyData) : [];
+  const provinceSuggestions = useMemo(
+    () => [...new Set(flatList.map(m => m.currentProvince).filter(Boolean))],
+    [flatList]
+  );
+  const wardSuggestions = useMemo(
+    () => [...new Set(flatList.map(m => m.currentWard).filter(Boolean))],
+    [flatList]
+  );
 
   // 2. EXCEL EXPORT / IMPORT
   const handleDownloadTemplate = () => {
@@ -54,13 +55,19 @@ const AdminFamilyTree = () => {
         "ParentID (Mã Cha)": "",
         "Họ Tên": "Trần Đình Khởi",
         "Đời": 1,
+        "Giới Tính (Nam/Nữ)": "Nam",
         "Tình Trạng (Sống/Mất)": "Mất",
         "Đích Tôn (Có/Không)": "Có",
-        "Năm Sinh": "1850",
-        "Năm Mất": "1920",
+        "Ngày Sinh (YYYY-MM-DD)": "1850-01-01",
+        "Ngày Mất (YYYY-MM-DD)": "1920-01-01",
         "Vợ/Chồng": "Nguyễn Thị Hoa",
+        "Học Vấn": "Chưa rõ",
         "Nghề Nghiệp": "Hương sư",
-        "Nơi Ở": "Nam Định",
+        "Tỉnh/Thành Hiện Nay": "Nam Định",
+        "Phường/Xã Hiện Nay": "Phường Vị Hoàng",
+        "Địa Chỉ Cũ": "Làng Vị Xuyên, phủ Xuân Trường, tỉnh Nam Định (địa danh xưa)",
+        "Số Điện Thoại": "",
+        "Zalo": "",
         "Tiểu Sử": "Thủy tổ dòng họ",
         "Thành Tựu (cách nhau bởi ;)": "Khai sáng dòng họ",
         "Hình Đại Diện (Link)": "https://..."
@@ -70,13 +77,19 @@ const AdminFamilyTree = () => {
         "ParentID (Mã Cha)": "root_1",
         "Họ Tên": "Trần Đình A",
         "Đời": 2,
+        "Giới Tính (Nam/Nữ)": "Nam",
         "Tình Trạng (Sống/Mất)": "Mất",
         "Đích Tôn (Có/Không)": "Có",
-        "Năm Sinh": "1880",
-        "Năm Mất": "1950",
+        "Ngày Sinh (YYYY-MM-DD)": "1880-03-12",
+        "Ngày Mất (YYYY-MM-DD)": "1950-06-20",
         "Vợ/Chồng": "Lê Thị Bích",
+        "Học Vấn": "Chưa rõ",
         "Nghề Nghiệp": "Trưởng tộc",
-        "Nơi Ở": "Nam Định",
+        "Tỉnh/Thành Hiện Nay": "Nam Định",
+        "Phường/Xã Hiện Nay": "Phường Vị Hoàng",
+        "Địa Chỉ Cũ": "Làng Vị Xuyên, phủ Xuân Trường, tỉnh Nam Định (địa danh xưa)",
+        "Số Điện Thoại": "",
+        "Zalo": "",
         "Tiểu Sử": "Người xây nhà thờ họ",
         "Thành Tựu (cách nhau bởi ;)": "Đỗ tú tài",
         "Hình Đại Diện (Link)": ""
@@ -98,13 +111,19 @@ const AdminFamilyTree = () => {
       "ParentID (Mã Cha)": member.parentId || "",
       "Họ Tên": member.name || "",
       "Đời": member.generation || 1,
+      "Giới Tính (Nam/Nữ)": member.gender || "",
       "Tình Trạng (Sống/Mất)": member.isAlive ? "Sống" : "Mất",
       "Đích Tôn (Có/Không)": member.isMainLineage ? "Có" : "Không",
-      "Năm Sinh": member.birthDate || "",
-      "Năm Mất": member.deathDate || "",
+      "Ngày Sinh (YYYY-MM-DD)": member.birthDate || "",
+      "Ngày Mất (YYYY-MM-DD)": member.deathDate || "",
       "Vợ/Chồng": member.spouse || "",
+      "Học Vấn": member.education || "",
       "Nghề Nghiệp": member.occupation || "",
-      "Nơi Ở": member.location || "",
+      "Tỉnh/Thành Hiện Nay": member.currentProvince || "",
+      "Phường/Xã Hiện Nay": member.currentWard || "",
+      "Địa Chỉ Cũ": member.oldAddress || "",
+      "Số Điện Thoại": member.phone || "",
+      "Zalo": member.zalo || "",
       "Tiểu Sử": member.description || "",
       "Thành Tựu (cách nhau bởi ;)": member.achievements ? member.achievements.join(';') : "",
       "Hình Đại Diện (Link)": member.avatar || ""
@@ -143,13 +162,19 @@ const AdminFamilyTree = () => {
             parentId: row["ParentID (Mã Cha)"] ? row["ParentID (Mã Cha)"].toString() : "",
             name: row["Họ Tên"] || "Không tên",
             generation: parseInt(row["Đời"]) || 1,
+            gender: row["Giới Tính (Nam/Nữ)"] === "Nữ" ? "Nữ" : (row["Giới Tính (Nam/Nữ)"] === "Nam" ? "Nam" : ""),
             isAlive: row["Tình Trạng (Sống/Mất)"] === "Sống",
             isMainLineage: row["Đích Tôn (Có/Không)"] === "Có",
-            birthDate: row["Năm Sinh"] || "",
-            deathDate: row["Năm Mất"] || "",
+            birthDate: row["Ngày Sinh (YYYY-MM-DD)"] || row["Năm Sinh"] || "",
+            deathDate: row["Ngày Mất (YYYY-MM-DD)"] || row["Năm Mất"] || "",
             spouse: row["Vợ/Chồng"] || "",
+            education: row["Học Vấn"] || "Chưa rõ",
             occupation: row["Nghề Nghiệp"] || "",
-            location: row["Nơi Ở"] || "",
+            currentProvince: row["Tỉnh/Thành Hiện Nay"] || row["Nơi Ở"] || "",
+            currentWard: row["Phường/Xã Hiện Nay"] || "",
+            oldAddress: row["Địa Chỉ Cũ"] || "",
+            phone: row["Số Điện Thoại"] ? row["Số Điện Thoại"].toString() : "",
+            zalo: row["Zalo"] ? row["Zalo"].toString() : "",
             description: row["Tiểu Sử"] || "",
             achievements: row["Thành Tựu (cách nhau bởi ;)"] ? row["Thành Tựu (cách nhau bởi ;)"].split(';').map(s => s.trim()) : [],
             avatar: row["Hình Đại Diện (Link)"] || "",
@@ -241,19 +266,9 @@ const AdminFamilyTree = () => {
     setModalMode('add');
     setTargetParentId(parent.id);
     setFormData({
+      ...emptyFormData,
       id: 'gen_' + Date.now(),
-      name: '',
-      avatar: '',
-      generation: parent.generation + 1,
-      birthDate: '',
-      deathDate: '',
-      isAlive: true,
-      isMainLineage: false,
-      spouse: '',
-      location: '',
-      occupation: '',
-      description: '',
-      achievementsStr: ''
+      generation: parent.generation + 1
     });
     setIsModalOpen(true);
   };
@@ -261,6 +276,7 @@ const AdminFamilyTree = () => {
   const openEditModal = (member) => {
     setModalMode('edit');
     setFormData({
+      ...emptyFormData,
       ...member,
       achievementsStr: member.achievements ? member.achievements.join(';') : ''
     });
@@ -403,13 +419,26 @@ const AdminFamilyTree = () => {
               </div>
               
               <div>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Năm sinh</label>
-                <input type="text" value={formData.birthDate} onChange={e => setFormData({...formData, birthDate: e.target.value})} placeholder="VD: 1990" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Giới tính</label>
+                <label style={{ marginRight: '15px' }}><input type="radio" checked={formData.gender === 'Nam'} onChange={() => setFormData({...formData, gender: 'Nam'})} /> Nam</label>
+                <label><input type="radio" checked={formData.gender === 'Nữ'} onChange={() => setFormData({...formData, gender: 'Nữ'})} /> Nữ</label>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Năm mất (Để trống nếu còn sống)</label>
-                <input type="text" value={formData.deathDate} onChange={e => setFormData({...formData, deathDate: e.target.value})} placeholder="VD: 2050" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Học vấn</label>
+                <select value={formData.education} onChange={e => setFormData({...formData, education: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                  {EDUCATION_LEVELS.map(lv => <option key={lv} value={lv}>{lv}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Ngày sinh</label>
+                <input type="date" value={formData.birthDate} onChange={e => setFormData({...formData, birthDate: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Ngày mất (Để trống nếu còn sống)</label>
+                <input type="date" value={formData.deathDate} onChange={e => setFormData({...formData, deathDate: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
               </div>
 
               <div>
@@ -434,9 +463,35 @@ const AdminFamilyTree = () => {
                 <input type="text" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
               </div>
 
+              <div>
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Số điện thoại</label>
+                <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="VD: 0912345678" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Zalo</label>
+                <input type="text" value={formData.zalo} onChange={e => setFormData({...formData, zalo: e.target.value})} placeholder="Số Zalo hoặc link" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Tỉnh/Thành phố (hiện nay)</label>
+                <input type="text" list="province-suggestions" value={formData.currentProvince} onChange={e => setFormData({...formData, currentProvince: e.target.value})} placeholder="VD: Nam Định" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                <datalist id="province-suggestions">
+                  {provinceSuggestions.map(p => <option key={p} value={p} />)}
+                </datalist>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Phường/Xã (hiện nay)</label>
+                <input type="text" list="ward-suggestions" value={formData.currentWard} onChange={e => setFormData({...formData, currentWard: e.target.value})} placeholder="VD: Phường Vị Hoàng" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                <datalist id="ward-suggestions">
+                  {wardSuggestions.map(w => <option key={w} value={w} />)}
+                </datalist>
+              </div>
+
               <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Nơi ở / Quê quán</label>
-                <input type="text" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Địa chỉ cũ (địa danh ngày xưa, nếu có)</label>
+                <input type="text" value={formData.oldAddress} onChange={e => setFormData({...formData, oldAddress: e.target.value})} placeholder="VD: Làng Vị Xuyên, phủ Xuân Trường, tỉnh Nam Định (địa danh xưa)" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
               </div>
 
               <div style={{ gridColumn: '1 / -1' }}>
