@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
+import { AppContext } from './store';
 import Home from './pages/Home';
 import About from './pages/About';
 import FamilyTreePage from './pages/FamilyTreePage';
+import DescendantList from './pages/DescendantList';
 import Finance from './pages/Finance';
 import NewsGallery from './pages/NewsGallery';
 import Gallery from './pages/Gallery';
@@ -11,6 +13,26 @@ import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { isLoading, loadError } = useContext(AppContext);
+
+  if (loadError) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', textAlign: 'center', padding: '20px' }}>
+        <div>
+          <h2 style={{ marginBottom: '10px' }}>Không thể kết nối máy chủ</h2>
+          <p style={{ color: 'var(--text-secondary)' }}>{loadError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <p style={{ color: 'var(--text-secondary)' }}>Đang tải dữ liệu...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">
@@ -26,6 +48,7 @@ function App() {
             <Link to="/" onClick={() => setIsMenuOpen(false)}>Trang Chủ</Link>
             <Link to="/gioi-thieu" onClick={() => setIsMenuOpen(false)}>Giới Thiệu</Link>
             <Link to="/gia-pha" onClick={() => setIsMenuOpen(false)}>Gia Phả</Link>
+            <Link to="/danh-sach" onClick={() => setIsMenuOpen(false)}>Danh Sách Con Cháu</Link>
             <Link to="/thu-chi" onClick={() => setIsMenuOpen(false)}>Quản Lý Thu Chi</Link>
             <Link to="/tin-tuc" onClick={() => setIsMenuOpen(false)}>Tin Tức & Hoạt Động</Link>
             <Link to="/thu-vien" onClick={() => setIsMenuOpen(false)}>Thư Viện Ảnh</Link>
@@ -49,6 +72,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/gioi-thieu" element={<About />} />
           <Route path="/gia-pha" element={<FamilyTreePage />} />
+          <Route path="/danh-sach" element={<DescendantList />} />
           <Route path="/thu-chi" element={<Finance />} />
           <Route path="/tin-tuc" element={<NewsGallery />} />
           <Route path="/thu-vien" element={<Gallery />} />

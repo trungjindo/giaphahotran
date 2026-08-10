@@ -1,0 +1,47 @@
+name: Build and publish to deploy branch
+
+# Hostinger (gói Premium Web Hosting, không có Node.js) sẽ dùng tính năng Git tích hợp
+# để tự "git pull" nhánh "deploy" mỗi khi có commit mới — giống cách leanai.vn đang làm.
+# Nhánh "deploy" chỉ chứa: file tĩnh đã build (dist/) ở gốc + mã nguồn PHP trong api/.
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      # Gom file tĩnh đã build + mã nguồn PHP (trừ config.php và storage/) vào 1 thư mục
+      # để publish thành nội dung của nhánh "deploy".
+      - name: Assemble deploy folder
+        run: |
+          mkdir -p publish
+          cp -r dist/. publish/
+          mkdir -p publish/api
+          rsync -a --exclude 'config.php' --exclude 'storage' api/ publish/api/
+
+      - name: Publish to deploy branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: deploy
+          publish_dir: ./publish
+          force_orphan: true

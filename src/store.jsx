@@ -1,96 +1,98 @@
 import React, { createContext, useState, useEffect } from 'react';
-import {
-  familyData as initialFamily,
-  financeData as initialFinance,
-  newsData as initialNews,
-  aboutData as initialAbout,
-  bannerData as initialBanner,
-  galleryData as initialGallery
-} from './data';
+import { apiGet, apiSave, apiLogin, apiLogout } from './api';
 
 export const AppContext = createContext();
 
+const DATA_DEFAULTS = {
+  familyData: null,
+  financeData: { openingBalance: 0, transactions: [] },
+  newsData: [],
+  aboutData: { image: '', content: '', highlights: [] },
+  bannerData: [],
+  galleryData: []
+};
+
 export const AppProvider = ({ children }) => {
-  // Authentication
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('isAuth') === 'true';
-  });
+  const [token, setToken] = useState(() => localStorage.getItem('authToken') || null);
+  const isAuthenticated = !!token;
 
-  // Data States
-  const [familyData, setFamilyData] = useState(() => {
-    const saved = localStorage.getItem('familyData_v3');
-    return saved ? JSON.parse(saved) : initialFamily;
-  });
+  const [familyData, setFamilyDataState] = useState(null);
+  const [financeData, setFinanceDataState] = useState(null);
+  const [newsData, setNewsDataState] = useState(null);
+  const [aboutData, setAboutDataState] = useState(null);
+  const [bannerData, setBannerDataState] = useState(null);
+  const [galleryData, setGalleryDataState] = useState(null);
 
-  const [financeData, setFinanceData] = useState(() => {
-    const saved = localStorage.getItem('financeData_v2');
-    return saved ? JSON.parse(saved) : initialFinance;
-  });
-
-  const [newsData, setNewsData] = useState(() => {
-    const saved = localStorage.getItem('newsData');
-    return saved ? JSON.parse(saved) : initialNews;
-  });
-
-  const [aboutData, setAboutData] = useState(() => {
-    const saved = localStorage.getItem('aboutData');
-    return saved ? JSON.parse(saved) : initialAbout;
-  });
-
-  const [bannerData, setBannerData] = useState(() => {
-    const saved = localStorage.getItem('bannerData');
-    return saved ? JSON.parse(saved) : initialBanner;
-  });
-
-  const [galleryData, setGalleryData] = useState(() => {
-    const saved = localStorage.getItem('galleryData');
-    return saved ? JSON.parse(saved) : initialGallery;
-  });
-
-  // Save to LocalStorage whenever state changes
-  useEffect(() => {
-    localStorage.setItem('isAuth', isAuthenticated);
-  }, [isAuthenticated]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
-    localStorage.setItem('familyData_v3', JSON.stringify(familyData));
-  }, [familyData]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const [family, finance, news, about, banner, gallery] = await Promise.all([
+          apiGet('familyData'),
+          apiGet('financeData'),
+          apiGet('newsData'),
+          apiGet('aboutData'),
+          apiGet('bannerData'),
+          apiGet('galleryData')
+        ]);
+        if (cancelled) return;
+        setFamilyDataState(family ?? DATA_DEFAULTS.familyData);
+        setFinanceDataState(finance ?? DATA_DEFAULTS.financeData);
+        setNewsDataState(news ?? DATA_DEFAULTS.newsData);
+        setAboutDataState(about ?? DATA_DEFAULTS.aboutData);
+        setBannerDataState(banner ?? DATA_DEFAULTS.bannerData);
+        setGalleryDataState(gallery ?? DATA_DEFAULTS.galleryData);
+      } catch (err) {
+        if (!cancelled) setLoadError(err.message || 'Không thể kết nối tới máy chủ.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem('financeData_v2', JSON.stringify(financeData));
-  }, [financeData]);
+  // Tạo hàm setter: cập nhật giao diện ngay (optimistic) + lưu lên server qua API.
+  // Nếu lưu lỗi, báo cho người dùng biết dữ liệu chưa thực sự được lưu.
+  const makeSetter = (setState, key) => (updater) => {
+    setState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      apiSave(key, next, token).catch(err => {
+        alert(`Lỗi lưu dữ liệu lên máy chủ: ${err.message}\nVui lòng thử lại — thay đổi này có thể chưa được lưu.`);
+      });
+      return next;
+    });
+  };
 
-  useEffect(() => {
-    localStorage.setItem('newsData', JSON.stringify(newsData));
-  }, [newsData]);
+  const setFamilyData = makeSetter(setFamilyDataState, 'familyData');
+  const setFinanceData = makeSetter(setFinanceDataState, 'financeData');
+  const setNewsData = makeSetter(setNewsDataState, 'newsData');
+  const setAboutData = makeSetter(setAboutDataState, 'aboutData');
+  const setBannerData = makeSetter(setBannerDataState, 'bannerData');
+  const setGalleryData = makeSetter(setGalleryDataState, 'galleryData');
 
-  useEffect(() => {
-    localStorage.setItem('aboutData', JSON.stringify(aboutData));
-  }, [aboutData]);
-
-  useEffect(() => {
-    localStorage.setItem('bannerData', JSON.stringify(bannerData));
-  }, [bannerData]);
-
-  useEffect(() => {
-    localStorage.setItem('galleryData', JSON.stringify(galleryData));
-  }, [galleryData]);
-
-  const login = (username, password) => {
-    if (username === 'admin' && password === 'admin123') {
-      setIsAuthenticated(true);
+  const login = async (username, password) => {
+    const result = await apiLogin(username, password);
+    if (result.ok && result.success) {
+      setToken(result.token);
+      localStorage.setItem('authToken', result.token);
       return true;
     }
     return false;
   };
 
   const logout = () => {
-    setIsAuthenticated(false);
+    apiLogout(token);
+    setToken(null);
+    localStorage.removeItem('authToken');
   };
 
   return (
     <AppContext.Provider value={{
-      isAuthenticated, login, logout,
+      isAuthenticated, login, logout, token,
+      isLoading, loadError,
       familyData, setFamilyData,
       financeData, setFinanceData,
       newsData, setNewsData,

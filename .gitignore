@@ -9,6 +9,11 @@ dist-ssr/
 public/storage/*
 !public/storage/.gitkeep
 
+# PHP backend: real credentials and uploaded files never go into Git
+api/config.php
+api/storage/*
+!api/storage/.gitkeep
+
 # Env files
 .env
 .env.local

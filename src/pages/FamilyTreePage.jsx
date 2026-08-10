@@ -1,21 +1,24 @@
 import React, { useState, useContext, useRef, useMemo } from 'react';
 import { AppContext } from '../store';
-import { flattenFamily, calculateAge, formatDateVN, buildFamilyCodeMap } from '../utils/family';
+import { flattenFamily, buildFamilyCodeMap, buildDescendantList } from '../utils/family';
+import MemberProfileModal from '../components/MemberProfileModal';
 
-// Lấy danh sách con cái
-const getChildrenNames = (children) => {
-  if (!children || children.length === 0) return 'Chưa có thông tin';
-  return children.map(c => c.name).join(', ');
+const matchesFilters = (node, filterProvince, filterRegistered) => {
+  if (filterProvince && node.currentProvince !== filterProvince) return false;
+  if (filterRegistered === 'yes' && !node.isRegistered) return false;
+  if (filterRegistered === 'no' && node.isRegistered) return false;
+  return true;
 };
 
-const TreeNode = ({ node, onSelect, filterProvince, codeMap }) => {
+const TreeNode = ({ node, onSelect, filterProvince, filterRegistered, codeMap }) => {
   // Mặc định chỉ mở rộng 2 đời đầu, các đời sau sẽ bị ẩn đi để tiết kiệm không gian
   const [isExpanded, setIsExpanded] = useState(node.generation < 2);
   const hasChildren = node.children && node.children.length > 0;
 
   const isMain = node.isMainLineage;
   const isAlive = node.isAlive;
-  const isFilterMatch = filterProvince && node.currentProvince === filterProvince;
+  const hasActiveFilter = !!filterProvince || !!filterRegistered;
+  const isFilterMatch = hasActiveFilter && matchesFilters(node, filterProvince, filterRegistered);
 
   const borderColor = isMain ? 'var(--primary-color)' : '#7f8c8d';
   const avatarBorder = isAlive ? '#2ecc71' : '#95a5a6';
@@ -27,7 +30,7 @@ const TreeNode = ({ node, onSelect, filterProvince, codeMap }) => {
         style={{
           borderColor: isFilterMatch ? 'var(--secondary-color)' : borderColor,
           boxShadow: isFilterMatch ? '0 0 0 3px rgba(209,169,62,0.4)' : undefined,
-          opacity: filterProvince && !isFilterMatch ? 0.4 : 1
+          opacity: hasActiveFilter && !isFilterMatch ? 0.4 : 1
         }}
       >
         <div
@@ -71,7 +74,7 @@ const TreeNode = ({ node, onSelect, filterProvince, codeMap }) => {
       {hasChildren && isExpanded && (
         <div className="tree-children">
           {node.children.map(child => (
-            <TreeNode key={child.id} node={child} onSelect={onSelect} filterProvince={filterProvince} codeMap={codeMap} />
+            <TreeNode key={child.id} node={child} onSelect={onSelect} filterProvince={filterProvince} filterRegistered={filterRegistered} codeMap={codeMap} />
           ))}
         </div>
       )}
@@ -81,8 +84,9 @@ const TreeNode = ({ node, onSelect, filterProvince, codeMap }) => {
 
 function FamilyTreePage() {
   const { familyData } = useContext(AppContext);
-  const [selectedMember, setSelectedMember] = useState(null);
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [filterProvince, setFilterProvince] = useState('');
+  const [filterRegistered, setFilterRegistered] = useState('');
 
   const provinceOptions = useMemo(() => {
     const members = flattenFamily(familyData);
@@ -90,6 +94,12 @@ function FamilyTreePage() {
   }, [familyData]);
 
   const codeMap = useMemo(() => buildFamilyCodeMap(familyData), [familyData]);
+
+  const descendantList = useMemo(() => buildDescendantList(familyData), [familyData]);
+  const selectedMember = useMemo(
+    () => descendantList.find(m => m.id === selectedMemberId) || null,
+    [descendantList, selectedMemberId]
+  );
 
   // Trạng thái cho tính năng Zoom và Pan (Kéo thả)
   const [zoom, setZoom] = useState(1);
@@ -160,6 +170,15 @@ function FamilyTreePage() {
             {provinceOptions.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         )}
+        <select
+          value={filterRegistered}
+          onChange={e => setFilterRegistered(e.target.value)}
+          style={{ marginLeft: '10px', padding: '7px 10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+        >
+          <option value="">Lọc theo suất đinh...</option>
+          <option value="yes">Đã đăng ký</option>
+          <option value="no">Chưa đăng ký</option>
+        </select>
       </div>
 
       <div
@@ -175,7 +194,15 @@ function FamilyTreePage() {
           style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}
         >
           <div className="tree-container">
-            {familyData ? <TreeNode node={familyData} onSelect={setSelectedMember} filterProvince={filterProvince} codeMap={codeMap} /> : <p>Không có dữ liệu</p>}
+            {familyData ? (
+              <TreeNode
+                node={familyData}
+                onSelect={node => setSelectedMemberId(node.id)}
+                filterProvince={filterProvince}
+                filterRegistered={filterRegistered}
+                codeMap={codeMap}
+              />
+            ) : <p>Không có dữ liệu</p>}
           </div>
         </div>
       </div>
@@ -397,175 +424,9 @@ function FamilyTreePage() {
         .tree-children .tree-node-wrapper:first-child:last-child::after {
           display: none;
         }
-
-        /* Modal Styles */
-        .modal-overlay {
-          position: fixed; 
-          top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(0,0,0,0.6); 
-          backdrop-filter: blur(5px);
-          display: flex; 
-          align-items: center; 
-          justify-content: center;
-          z-index: 2000; 
-          padding: 20px;
-        }
-
-        .modal-content {
-          max-width: 700px; 
-          width: 100%; 
-          position: relative;
-          background: white;
-          border-radius: 16px;
-          overflow: hidden;
-          box-shadow: var(--shadow-lg);
-          max-height: 90vh;
-          overflow-y: auto;
-        }
-
-        .modal-header {
-          background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
-          padding: 30px 20px;
-          color: white;
-          text-align: center;
-          position: relative;
-        }
-
-        .modal-avatar {
-          width: 120px;
-          height: 120px;
-          border-radius: 50%;
-          border: 4px solid white;
-          object-fit: cover;
-          margin-top: -80px;
-          box-shadow: var(--shadow-md);
-          background: white;
-        }
-
-        .close-btn {
-          position: absolute;
-          top: 15px; 
-          right: 20px; 
-          background: rgba(255,255,255,0.2); 
-          border: none; 
-          color: white;
-          width: 35px;
-          height: 35px;
-          border-radius: 50%;
-          font-size: 1.2rem; 
-          cursor: pointer;
-          transition: background 0.2s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .close-btn:hover {
-          background: rgba(255,255,255,0.4);
-        }
-
-        .achievements-box {
-          background: linear-gradient(135deg, #fff9c4, #fff59d);
-          border-left: 5px solid var(--secondary-color);
-          padding: 20px;
-          border-radius: 8px;
-          margin-top: 25px;
-          box-shadow: var(--shadow-sm);
-        }
-
-        .achievements-box h3 {
-          color: #d35400;
-          margin-top: 0;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
       `}</style>
 
-      {/* Member Profile Modal */}
-      {selectedMember && (
-        <div className="modal-overlay" onClick={() => setSelectedMember(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <button className="close-btn" onClick={() => setSelectedMember(null)}>✕</button>
-              <div style={{ height: '40px' }}></div>
-            </div>
-
-            <div style={{ padding: '0 30px 30px', textAlign: 'center' }}>
-              <img 
-                src={selectedMember.avatar || 'https://via.placeholder.com/150'} 
-                alt={selectedMember.name} 
-                className="modal-avatar"
-                style={{ filter: selectedMember.isAlive ? 'none' : 'grayscale(100%)' }}
-              />
-              <h2 style={{ margin: '15px 0 5px', fontFamily: 'var(--font-serif)', color: 'var(--primary-color)' }}>
-                {selectedMember.name}
-              </h2>
-              <span className="generation" style={{ display: 'inline-block', marginBottom: '25px', padding: '5px 15px', fontSize: '0.9rem' }}>
-                Đời thứ {selectedMember.generation}
-                {codeMap[selectedMember.id] && <> · Mã: <span style={{ fontFamily: 'monospace' }}>{codeMap[selectedMember.id]}</span></>}
-              </span>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', textAlign: 'left', background: 'var(--bg-color)', padding: '20px', borderRadius: '8px' }}>
-                <div><strong>Giới tính:</strong> {selectedMember.gender || 'Chưa rõ'}</div>
-                <div>
-                  <strong>Tình trạng:</strong> {selectedMember.isAlive ? <span style={{color: '#27ae60', fontWeight: 'bold'}}>Đang sống</span> : <span style={{color: '#7f8c8d'}}>Đã mất</span>}
-                  {(() => {
-                    const age = calculateAge(selectedMember.birthDate, selectedMember.deathDate, selectedMember.isAlive);
-                    return age !== null ? <span style={{ color: 'var(--text-secondary)' }}> ({selectedMember.isAlive ? `${age} tuổi` : `hưởng thọ ${age} tuổi`})</span> : null;
-                  })()}
-                </div>
-                <div><strong>Ngày sinh:</strong> {formatDateVN(selectedMember.birthDate) || 'Chưa rõ'}</div>
-                <div><strong>Ngày mất:</strong> {selectedMember.isAlive ? '—' : (formatDateVN(selectedMember.deathDate) || 'Chưa rõ')}</div>
-                <div><strong>Học vấn:</strong> {selectedMember.education || 'Chưa rõ'}</div>
-                <div><strong>Nghề nghiệp:</strong> {selectedMember.occupation || 'Chưa rõ'}</div>
-
-                <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
-                  <strong>Địa chỉ hiện nay:</strong> {[selectedMember.currentWard, selectedMember.currentProvince].filter(Boolean).join(', ') || 'Chưa rõ'}
-                  {selectedMember.oldAddress && (
-                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      Địa chỉ cũ: {selectedMember.oldAddress}
-                    </div>
-                  )}
-                </div>
-
-                {(selectedMember.phone || selectedMember.zalo) && (
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <strong>Liên hệ:</strong>{' '}
-                    {selectedMember.phone && <span>ĐT: {selectedMember.phone}</span>}
-                    {selectedMember.phone && selectedMember.zalo && ' — '}
-                    {selectedMember.zalo && <span>Zalo: {selectedMember.zalo}</span>}
-                  </div>
-                )}
-
-                <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
-                  <strong>Phu nhân / Phu quân:</strong> {selectedMember.spouse || 'Chưa rõ'}
-                </div>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <strong>Con cái:</strong> {getChildrenNames(selectedMember.children)}
-                </div>
-              </div>
-
-              {selectedMember.description && (
-                <div style={{ marginTop: '25px', textAlign: 'left', lineHeight: '1.7', color: 'var(--text-primary)' }}>
-                  <h3 style={{ borderBottom: '2px solid var(--primary-light)', display: 'inline-block', paddingBottom: '5px', marginBottom: '15px' }}>Tiểu sử</h3>
-                  <p>{selectedMember.description}</p>
-                </div>
-              )}
-              
-              {selectedMember.achievements && selectedMember.achievements.length > 0 && (
-                <div className="achievements-box" style={{ textAlign: 'left' }}>
-                  <h3>🏆 Thành Tựu Nổi Bật</h3>
-                  <p style={{ fontStyle: 'italic', color: '#555', marginBottom: '15px' }}>Tấm gương sáng cho con cháu dòng họ noi theo:</p>
-                  <ul style={{ paddingLeft: '25px', listStyleType: 'square', lineHeight: '1.8', fontSize: '1.05rem', fontWeight: '500' }}>
-                    {selectedMember.achievements.map((ach, idx) => <li key={idx}>{ach}</li>)}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <MemberProfileModal member={selectedMember} onClose={() => setSelectedMemberId(null)} />
     </div>
   );
 }

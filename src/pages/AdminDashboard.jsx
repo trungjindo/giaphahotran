@@ -3,12 +3,13 @@ import { Navigate } from 'react-router-dom';
 import { AppContext } from '../store';
 import AdminFamilyTree from '../components/AdminFamilyTree';
 import { INCOME_CATEGORIES, formatCurrency, computeFinanceSummary, getAvailableYears, getYear } from '../utils/finance';
+import { apiUpload } from '../api';
 
 const MAX_UPLOAD_MB = 10;
 
 function AdminDashboard() {
   const {
-    isAuthenticated, logout,
+    isAuthenticated, logout, token,
     financeData, setFinanceData,
     newsData, setNewsData,
     aboutData, setAboutData,
@@ -115,12 +116,9 @@ function AdminDashboard() {
     if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
       return alert(`File quá lớn! Vui lòng chọn ảnh dưới ${MAX_UPLOAD_MB}MB.`);
     }
-    const fd = new FormData();
-    fd.append('image', file);
     setUploadingProof(true);
     try {
-      const res = await fetch('http://localhost:3001/api/upload?type=receipt', { method: 'POST', body: fd });
-      const data = await res.json();
+      const data = await apiUpload(file, 'receipt', token);
       if (data.success) {
         setNewTx(prev => ({ ...prev, proof: data.url }));
         alert('Tải minh chứng thành công!');
@@ -128,7 +126,7 @@ function AdminDashboard() {
         alert('Lỗi: ' + data.error);
       }
     } catch (err) {
-      alert('Lỗi kết nối Server Tải ảnh!');
+      alert('Lỗi kết nối Server Tải ảnh: ' + err.message);
     } finally {
       setUploadingProof(false);
     }
@@ -185,17 +183,14 @@ function AdminDashboard() {
       alert(`File quá lớn! Vui lòng chọn ảnh dưới ${MAX_UPLOAD_MB}MB.`);
       return null;
     }
-    const fd = new FormData();
-    fd.append('image', file);
     setUploading(true);
     try {
-      const res = await fetch(`http://localhost:3001/api/upload?type=${type}`, { method: 'POST', body: fd });
-      const data = await res.json();
+      const data = await apiUpload(file, type, token);
       if (data.success) return data.url;
       alert('Lỗi: ' + data.error);
       return null;
     } catch (err) {
-      alert('Lỗi kết nối Server Tải ảnh!');
+      alert('Lỗi kết nối Server Tải ảnh: ' + err.message);
       return null;
     } finally {
       setUploading(false);
@@ -512,11 +507,8 @@ function AdminDashboard() {
                     <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
                       const file = e.target.files[0];
                       if(!file) return;
-                      const fd = new FormData();
-                      fd.append('image', file);
                       try {
-                        const res = await fetch('http://localhost:3001/api/upload?type=news', { method: 'POST', body: fd });
-                        const data = await res.json();
+                        const data = await apiUpload(file, 'news', token);
                         if(data.success) {
                           setNewNews({...newNews, image: data.url});
                           alert('Tải ảnh thành công!');
@@ -524,7 +516,7 @@ function AdminDashboard() {
                           alert('Lỗi: ' + data.error);
                         }
                       } catch(err) {
-                        alert('Lỗi kết nối Server Tải ảnh!');
+                        alert('Lỗi kết nối Server Tải ảnh: ' + err.message);
                       }
                     }} />
                   </label>

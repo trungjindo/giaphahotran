@@ -2,6 +2,7 @@ import React, { useState, useContext, useRef, useMemo } from 'react';
 import { AppContext } from '../store';
 import * as XLSX from 'xlsx';
 import { flattenFamily, EDUCATION_LEVELS, buildFamilyCodeMap } from '../utils/family';
+import { apiUpload } from '../api';
 
 const emptyFormData = {
   id: '',
@@ -13,6 +14,7 @@ const emptyFormData = {
   deathDate: '',
   isAlive: true,
   isMainLineage: false,
+  isRegistered: false,
   spouse: '',
   education: 'Chưa rõ',
   currentProvince: '',
@@ -26,7 +28,7 @@ const emptyFormData = {
 };
 
 const AdminFamilyTree = () => {
-  const { familyData, setFamilyData } = useContext(AppContext);
+  const { familyData, setFamilyData, token } = useContext(AppContext);
   const fileInputRef = useRef(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,6 +61,7 @@ const AdminFamilyTree = () => {
         "Giới Tính (Nam/Nữ)": "Nam",
         "Tình Trạng (Sống/Mất)": "Mất",
         "Đích Tôn (Có/Không)": "Có",
+        "Đã Đăng Ký Suất Đinh (Có/Không)": "Có",
         "Ngày Sinh (YYYY-MM-DD)": "1850-01-01",
         "Ngày Mất (YYYY-MM-DD)": "1920-01-01",
         "Vợ/Chồng": "Nguyễn Thị Hoa",
@@ -81,6 +84,7 @@ const AdminFamilyTree = () => {
         "Giới Tính (Nam/Nữ)": "Nam",
         "Tình Trạng (Sống/Mất)": "Mất",
         "Đích Tôn (Có/Không)": "Có",
+        "Đã Đăng Ký Suất Đinh (Có/Không)": "Có",
         "Ngày Sinh (YYYY-MM-DD)": "1880-03-12",
         "Ngày Mất (YYYY-MM-DD)": "1950-06-20",
         "Vợ/Chồng": "Lê Thị Bích",
@@ -115,6 +119,7 @@ const AdminFamilyTree = () => {
       "Giới Tính (Nam/Nữ)": member.gender || "",
       "Tình Trạng (Sống/Mất)": member.isAlive ? "Sống" : "Mất",
       "Đích Tôn (Có/Không)": member.isMainLineage ? "Có" : "Không",
+      "Đã Đăng Ký Suất Đinh (Có/Không)": member.isRegistered ? "Có" : "Không",
       "Ngày Sinh (YYYY-MM-DD)": member.birthDate || "",
       "Ngày Mất (YYYY-MM-DD)": member.deathDate || "",
       "Vợ/Chồng": member.spouse || "",
@@ -166,6 +171,7 @@ const AdminFamilyTree = () => {
             gender: row["Giới Tính (Nam/Nữ)"] === "Nữ" ? "Nữ" : (row["Giới Tính (Nam/Nữ)"] === "Nam" ? "Nam" : ""),
             isAlive: row["Tình Trạng (Sống/Mất)"] === "Sống",
             isMainLineage: row["Đích Tôn (Có/Không)"] === "Có",
+            isRegistered: row["Đã Đăng Ký Suất Đinh (Có/Không)"] === "Có",
             birthDate: row["Ngày Sinh (YYYY-MM-DD)"] || row["Năm Sinh"] || "",
             deathDate: row["Ngày Mất (YYYY-MM-DD)"] || row["Năm Mất"] || "",
             spouse: row["Vợ/Chồng"] || "",
@@ -345,6 +351,7 @@ const AdminFamilyTree = () => {
               <th style={{ padding: '15px', borderBottom: '2px solid var(--border-color)' }}>Đời</th>
               <th style={{ padding: '15px', borderBottom: '2px solid var(--border-color)' }}>Là con của</th>
               <th style={{ padding: '15px', borderBottom: '2px solid var(--border-color)' }}>Tình trạng</th>
+              <th style={{ padding: '15px', borderBottom: '2px solid var(--border-color)' }}>Suất đinh</th>
               <th style={{ padding: '15px', borderBottom: '2px solid var(--border-color)' }}>Thao tác</th>
             </tr>
           </thead>
@@ -365,6 +372,13 @@ const AdminFamilyTree = () => {
                 <td style={{ padding: '12px 15px', color: 'var(--text-secondary)' }}>{member.parentName}</td>
                 <td style={{ padding: '12px 15px' }}>
                   {member.isAlive ? <span style={{ color: '#27ae60' }}>Đang sống</span> : <span style={{ color: '#7f8c8d' }}>Đã mất</span>}
+                </td>
+                <td style={{ padding: '12px 15px' }}>
+                  {member.isRegistered ? (
+                    <span style={{ padding: '3px 8px', borderRadius: '10px', background: '#e8f5e9', color: '#2e7d32', fontSize: '0.8rem', fontWeight: '600' }}>Đã ĐK</span>
+                  ) : (
+                    <span style={{ padding: '3px 8px', borderRadius: '10px', background: '#f5f5f5', color: '#7f8c8d', fontSize: '0.8rem' }}>Chưa ĐK</span>
+                  )}
                 </td>
                 <td style={{ padding: '12px 15px' }}>
                   <button onClick={() => openEditModal(member)} style={{ padding: '5px 10px', background: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' }}>Sửa</button>
@@ -401,11 +415,8 @@ const AdminFamilyTree = () => {
                     <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
                       const file = e.target.files[0];
                       if(!file) return;
-                      const fd = new FormData();
-                      fd.append('image', file);
                       try {
-                        const res = await fetch('http://localhost:3001/api/upload?type=avatar', { method: 'POST', body: fd });
-                        const data = await res.json();
+                        const data = await apiUpload(file, 'avatar', token);
                         if(data.success) {
                           setFormData({...formData, avatar: data.url});
                           alert('Tải ảnh thành công!');
@@ -413,7 +424,7 @@ const AdminFamilyTree = () => {
                           alert('Lỗi: ' + data.error);
                         }
                       } catch(err) {
-                        alert('Lỗi kết nối Server Tải ảnh!');
+                        alert('Lỗi kết nối Server Tải ảnh: ' + err.message);
                       }
                     }} />
                   </label>
@@ -453,6 +464,12 @@ const AdminFamilyTree = () => {
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Tình trạng</label>
                 <label style={{ marginRight: '15px' }}><input type="radio" checked={formData.isAlive} onChange={() => setFormData({...formData, isAlive: true})} /> Còn sống</label>
                 <label><input type="radio" checked={!formData.isAlive} onChange={() => setFormData({...formData, isAlive: false})} /> Đã mất</label>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Đã đăng ký suất đinh trong dòng họ?</label>
+                <label style={{ marginRight: '15px' }}><input type="radio" checked={formData.isRegistered} onChange={() => setFormData({...formData, isRegistered: true})} /> Đã đăng ký</label>
+                <label><input type="radio" checked={!formData.isRegistered} onChange={() => setFormData({...formData, isRegistered: false})} /> Chưa đăng ký</label>
               </div>
 
               <div>

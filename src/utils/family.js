@@ -51,6 +51,37 @@ export const flattenFamily = (node, parentId = '', parentName = 'Thủy tổ') =
   return list;
 };
 
+// Danh sách đầy đủ từng thành viên kèm Cha/Mẹ suy ra từ người cha/mẹ trong cây (huyết thống)
+// và vợ/chồng ghi trên hồ sơ người đó, cùng mã định danh và danh sách tên các con.
+export const buildDescendantList = (root) => {
+  if (!root) return [];
+  const flat = flattenFamily(root);
+  const codeMap = buildFamilyCodeMap(root);
+  const byId = Object.fromEntries(flat.map(m => [m.id, m]));
+
+  return flat.map(m => {
+    const parent = byId[m.parentId];
+    let father = '';
+    let mother = '';
+    if (parent) {
+      if (parent.gender === 'Nữ') {
+        mother = parent.name;
+        father = parent.spouse || '';
+      } else {
+        father = parent.name;
+        mother = parent.spouse || '';
+      }
+    }
+    return {
+      ...m,
+      code: codeMap[m.id] || '',
+      father,
+      mother,
+      childrenNames: (m.children || []).map(c => c.name).join(', ')
+    };
+  });
+};
+
 // birthDate/deathDate dạng 'YYYY-MM-DD'. Dữ liệu cũ chỉ có năm sẽ không parse được -> trả về null.
 export const calculateAge = (birthDate, deathDate, isAlive) => {
   if (!birthDate) return null;
