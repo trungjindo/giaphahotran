@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $header = get_authorization_header();
 if (preg_match('/Bearer\s+(\S+)/i', $header, $m)) {
   $pdo = get_db();
-  $stmt = $pdo->prepare('DELETE FROM admin_sessions WHERE token = ?');
+  $stmt = $pdo->prepare('DELETE FROM user_sessions WHERE token = ?');
   $stmt->execute([$m[1]]);
 }
 

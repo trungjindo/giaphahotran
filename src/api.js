@@ -65,3 +65,19 @@ export async function apiUpload(file, type, token) {
   });
   return parseJsonOrThrow(res);
 }
+
+// Gọi chung cho các endpoint quản lý (chi.php, users.php...): tự thêm token + JSON body.
+export async function apiRequest(path, { method = 'GET', body, token, params } = {}) {
+  const query = params
+    ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null)).toString()
+    : '';
+  const res = await fetch(`${API_URL}/${path}${query}`, {
+    method,
+    headers: {
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {})
+  });
+  return parseJsonOrThrow(res);
+}

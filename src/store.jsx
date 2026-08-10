@@ -14,7 +14,13 @@ const DATA_DEFAULTS = {
 
 export const AppProvider = ({ children }) => {
   const [token, setToken] = useState(() => localStorage.getItem('authToken') || null);
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('authUser');
+    return saved ? JSON.parse(saved) : null;
+  });
   const isAuthenticated = !!token;
+  const role = user?.role || null;
+  const chiId = user?.chiId ?? null;
 
   const [familyData, setFamilyDataState] = useState(null);
   const [financeData, setFinanceDataState] = useState(null);
@@ -77,7 +83,9 @@ export const AppProvider = ({ children }) => {
     const result = await apiLogin(username, password);
     if (result.ok && result.success) {
       setToken(result.token);
+      setUser(result.user || null);
       localStorage.setItem('authToken', result.token);
+      localStorage.setItem('authUser', JSON.stringify(result.user || null));
       return true;
     }
     return false;
@@ -86,12 +94,15 @@ export const AppProvider = ({ children }) => {
   const logout = () => {
     apiLogout(token);
     setToken(null);
+    setUser(null);
     localStorage.removeItem('authToken');
+    localStorage.removeItem('authUser');
   };
 
   return (
     <AppContext.Provider value={{
       isAuthenticated, login, logout, token,
+      user, role, chiId,
       isLoading, loadError,
       familyData, setFamilyData,
       financeData, setFinanceData,

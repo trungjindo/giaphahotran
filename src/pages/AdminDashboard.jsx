@@ -2,6 +2,8 @@ import React, { useContext, useState, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import { AppContext } from '../store';
 import AdminFamilyTree from '../components/AdminFamilyTree';
+import AdminChiManager from '../components/AdminChiManager';
+import AdminUserManager from '../components/AdminUserManager';
 import { INCOME_CATEGORIES, formatCurrency, computeFinanceSummary, getAvailableYears, getYear } from '../utils/finance';
 import { apiUpload } from '../api';
 
@@ -9,13 +11,14 @@ const MAX_UPLOAD_MB = 10;
 
 function AdminDashboard() {
   const {
-    isAuthenticated, logout, token,
+    isAuthenticated, logout, token, role,
     financeData, setFinanceData,
     newsData, setNewsData,
     aboutData, setAboutData,
     bannerData, setBannerData,
     galleryData, setGalleryData
   } = useContext(AppContext);
+  const isSuperAdmin = role === 'admin' || role === null; // role null: tài khoản cũ trước khi có hệ thống phân quyền
   const [activeTab, setActiveTab] = useState('family'); // Default to family management
 
   // Form states for Finance
@@ -296,6 +299,24 @@ function AdminDashboard() {
           >
             Banner & Thư Viện Ảnh
           </button>
+          {isSuperAdmin && (
+            <>
+              <button
+                onClick={() => setActiveTab('chi')}
+                className={`btn-primary ${activeTab === 'chi' ? '' : 'inactive-tab'}`}
+                style={{ background: activeTab === 'chi' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'chi' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+              >
+                Quản Lý Chi
+              </button>
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`btn-primary ${activeTab === 'users' ? '' : 'inactive-tab'}`}
+                style={{ background: activeTab === 'users' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'users' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+              >
+                Quản Lý Tài Khoản
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -664,6 +685,9 @@ function AdminDashboard() {
           </div>
         </>
       )}
+
+      {activeTab === 'chi' && isSuperAdmin && <AdminChiManager />}
+      {activeTab === 'users' && isSuperAdmin && <AdminUserManager />}
     </div>
   );
 }

@@ -15,7 +15,7 @@ if ($username === '' || $password === '') {
 }
 
 $pdo = get_db();
-$stmt = $pdo->prepare('SELECT id, password_hash FROM admin_users WHERE username = ?');
+$stmt = $pdo->prepare('SELECT id, password_hash, full_name, role, chi_id, year_assigned FROM users WHERE username = ?');
 $stmt->execute([$username]);
 $user = $stmt->fetch();
 
@@ -27,7 +27,18 @@ if (!$user || !password_verify($password, $user['password_hash'])) {
 $token = bin2hex(random_bytes(32));
 $expiresAt = date('Y-m-d H:i:s', strtotime('+30 days'));
 
-$stmt = $pdo->prepare('INSERT INTO admin_sessions (token, admin_id, expires_at) VALUES (?, ?, ?)');
+$stmt = $pdo->prepare('INSERT INTO user_sessions (token, user_id, expires_at) VALUES (?, ?, ?)');
 $stmt->execute([$token, $user['id'], $expiresAt]);
 
-json_response(['success' => true, 'token' => $token]);
+json_response([
+  'success' => true,
+  'token' => $token,
+  'user' => [
+    'id' => (int)$user['id'],
+    'username' => $username,
+    'fullName' => $user['full_name'],
+    'role' => $user['role'],
+    'chiId' => $user['chi_id'] !== null ? (int)$user['chi_id'] : null,
+    'yearAssigned' => $user['year_assigned'] !== null ? (int)$user['year_assigned'] : null,
+  ],
+]);
