@@ -491,6 +491,53 @@ img {
   transform: scale(1.06);
 }
 
+/* Icon mở bản đồ / gọi điện cạnh các trường địa chỉ, số điện thoại trong hồ sơ thành viên */
+.map-link-btn,
+.call-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--color-sand);
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-micro), border-color var(--transition-fast);
+}
+
+.map-link-btn {
+  color: var(--primary-color);
+}
+
+.call-btn {
+  color: var(--accent-teal);
+}
+
+.map-link-btn:hover,
+.map-link-btn:focus-visible {
+  background: var(--primary-color);
+  color: #fff;
+  border-color: var(--primary-color);
+  transform: scale(1.08);
+}
+
+.call-btn:hover,
+.call-btn:focus-visible {
+  background: var(--accent-teal);
+  color: #fff;
+  border-color: var(--accent-teal);
+  transform: scale(1.08);
+}
+
+@media (max-width: 480px) {
+  .map-link-btn,
+  .call-btn {
+    width: 30px;
+    height: 30px;
+  }
+}
+
 /* Badges — dùng cho trạng thái thu/chi, đã đăng ký/chưa, còn sống/đã mất... */
 .badge {
   display: inline-block;

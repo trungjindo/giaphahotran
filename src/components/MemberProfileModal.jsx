@@ -1,5 +1,7 @@
 import React from 'react';
 import { calculateAge, formatDateVN } from '../utils/family';
+import MapLinkButton from './MapLinkButton';
+import CallButton from './CallButton';
 
 const getChildrenNames = (children) => {
   if (!children || children.length === 0) return 'Chưa có thông tin';
@@ -58,20 +60,32 @@ const MemberProfileModal = ({ member, onClose }) => {
             <div><strong>Nghề nghiệp:</strong> {member.occupation || 'Chưa rõ'}</div>
 
             <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
-              <strong>Địa chỉ hiện nay:</strong> {[member.currentWard, member.currentProvince].filter(Boolean).join(', ') || 'Chưa rõ'}
-              {member.oldAddress && (
-                <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                  Địa chỉ cũ: {member.oldAddress}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+                <div>
+                  <strong>Địa chỉ hiện nay:</strong> {[member.currentWard, member.currentProvince].filter(Boolean).join(', ') || 'Chưa rõ'}
+                  {member.oldAddress && (
+                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                      Địa chỉ cũ: {member.oldAddress}
+                    </div>
+                  )}
                 </div>
-              )}
+                <MapLinkButton
+                  address={[member.currentWard, member.currentProvince].filter(Boolean).join(', ')}
+                  lat={member.latitude}
+                  lng={member.longitude}
+                />
+              </div>
             </div>
 
             {(member.phone || member.zalo) && (
-              <div style={{ gridColumn: '1 / -1' }}>
-                <strong>Liên hệ:</strong>{' '}
-                {member.phone && <span>ĐT: {member.phone}</span>}
-                {member.phone && member.zalo && ' — '}
-                {member.zalo && <span>Zalo: {member.zalo}</span>}
+              <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                <div>
+                  <strong>Liên hệ:</strong>{' '}
+                  {member.phone && <span>ĐT: {member.phone}</span>}
+                  {member.phone && member.zalo && ' — '}
+                  {member.zalo && <span>Zalo: {member.zalo}</span>}
+                </div>
+                <CallButton phone={member.phone} />
               </div>
             )}
 
