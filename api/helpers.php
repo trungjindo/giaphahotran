@@ -103,3 +103,24 @@ function require_chi_access(array $user, ?int $chiId): void {
     json_error('Bạn không có quyền truy cập dữ liệu của chi này.', 403);
   }
 }
+
+// Giống require_chi_access, nhưng với tài khoản bãi biện còn kiểm tra thêm: chỉ được
+// ghi dữ liệu của đúng năm mình đang được phân công phụ trách (bảng bai_bien_assignments,
+// status='active'). admin/chi_admin/dich_ton không bị giới hạn theo năm.
+function require_chi_year_access(array $user, ?int $chiId, int $year): void {
+  require_chi_access($user, $chiId);
+
+  if ($user['role'] !== 'bai_bien') {
+    return;
+  }
+
+  $pdo = get_db();
+  $stmt = $pdo->prepare(
+    "SELECT id FROM bai_bien_assignments
+     WHERE user_id = ? AND chi_id <=> ? AND year = ? AND status = 'active'"
+  );
+  $stmt->execute([$user['id'], $chiId, $year]);
+  if (!$stmt->fetch()) {
+    json_error('Bạn chỉ được ghi dữ liệu của năm mình đang được phân công phụ trách (bãi biện).', 403);
+  }
+}

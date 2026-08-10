@@ -6,13 +6,27 @@ $pdo = get_db();
 $VALID_ROLES = ['admin', 'chi_admin', 'dich_ton', 'bai_bien'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-  require_role(['admin']);
-  $stmt = $pdo->query(
-    'SELECT u.id, u.username, u.full_name, u.role, u.chi_id, u.year_assigned, c.name AS chi_name
-     FROM users u
-     LEFT JOIN chi c ON c.id = u.chi_id
-     ORDER BY u.role, u.full_name'
-  );
+  // admin xem toàn bộ tài khoản; chi_admin/dich_ton chỉ xem được tài khoản trong đúng chi mình
+  // (cần thiết để chọn người phân công bãi biện); bai_bien không được xem danh sách này.
+  $currentUser = require_role(['admin', 'chi_admin', 'dich_ton']);
+
+  if ($currentUser['role'] === 'admin') {
+    $stmt = $pdo->query(
+      'SELECT u.id, u.username, u.full_name, u.role, u.chi_id, u.year_assigned, c.name AS chi_name
+       FROM users u
+       LEFT JOIN chi c ON c.id = u.chi_id
+       ORDER BY u.role, u.full_name'
+    );
+  } else {
+    $stmt = $pdo->prepare(
+      'SELECT u.id, u.username, u.full_name, u.role, u.chi_id, u.year_assigned, c.name AS chi_name
+       FROM users u
+       LEFT JOIN chi c ON c.id = u.chi_id
+       WHERE u.chi_id = ?
+       ORDER BY u.role, u.full_name'
+    );
+    $stmt->execute([(int)$currentUser['chi_id']]);
+  }
   $rows = $stmt->fetchAll();
   $result = array_map(function ($row) {
     return [

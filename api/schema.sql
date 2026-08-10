@@ -47,6 +47,21 @@ CREATE TABLE IF NOT EXISTS user_sessions (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Lịch sử phân công "bãi biện" theo năm — nguồn xác thực duy nhất cho việc 1 tài khoản
+-- bai_bien được phép ghi dữ liệu của năm nào. status='active' là đang đương nhiệm;
+-- 'handed_over' là đã bàn giao (giữ lại để lưu lịch sử, không xóa).
+CREATE TABLE IF NOT EXISTS bai_bien_assignments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  chi_id INT NULL,
+  year INT NOT NULL,
+  user_id INT NOT NULL,
+  status ENUM('active', 'handed_over') NOT NULL DEFAULT 'active',
+  assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  handed_over_at TIMESTAMP NULL,
+  FOREIGN KEY (chi_id) REFERENCES chi(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Hoạt động theo năm. chi_id = NULL nghĩa là hoạt động của dòng họ lớn (không thuộc chi nào).
 CREATE TABLE IF NOT EXISTS activities (
   id INT AUTO_INCREMENT PRIMARY KEY,

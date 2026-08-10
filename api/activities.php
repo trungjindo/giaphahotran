@@ -4,9 +4,9 @@ send_cors_headers();
 
 $pdo = get_db();
 
-// Lấy chi_id của 1 hoạt động theo id, dùng để kiểm tra quyền trước khi sửa/xóa.
-function get_activity_chi_id($pdo, int $id): ?array {
-  $stmt = $pdo->prepare('SELECT chi_id FROM activities WHERE id = ?');
+// Lấy chi_id + year của 1 hoạt động theo id, dùng để kiểm tra quyền trước khi sửa/xóa.
+function get_activity_scope($pdo, int $id): ?array {
+  $stmt = $pdo->prepare('SELECT chi_id, year FROM activities WHERE id = ?');
   $stmt->execute([$id]);
   $row = $stmt->fetch();
   return $row ?: null;
@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     json_error('Vui lòng nhập năm và tiêu đề hoạt động.');
   }
 
-  require_chi_access($currentUser, $chiId);
+  require_chi_year_access($currentUser, $chiId, $year);
 
   $stmt = $pdo->prepare('INSERT INTO activities (chi_id, year, title, description, created_by) VALUES (?, ?, ?, ?, ?)');
   $stmt->execute([$chiId, $year, $title, $description, $currentUser['id']]);
@@ -81,9 +81,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
   $id = (int)($_GET['id'] ?? 0);
   if ($id <= 0) json_error('Thiếu id hoạt động cần cập nhật.');
 
-  $existing = get_activity_chi_id($pdo, $id);
+  $existing = get_activity_scope($pdo, $id);
   if ($existing === null) json_error('Không tìm thấy hoạt động.', 404);
-  require_chi_access($currentUser, $existing['chi_id'] !== null ? (int)$existing['chi_id'] : null);
+  $existingChiId = $existing['chi_id'] !== null ? (int)$existing['chi_id'] : null;
+  // Kiểm tra quyền trên năm HIỆN TẠI của bản ghi (không được đụng vào năm không phụ trách)
+  require_chi_year_access($currentUser, $existingChiId, (int)$existing['year']);
 
   $body = read_json_body();
   $year = (int)($body['year'] ?? 0);
@@ -92,6 +94,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 
   if ($year <= 0 || $title === '') {
     json_error('Vui lòng nhập năm và tiêu đề hoạt động.');
+  }
+  // Nếu đổi sang năm khác, năm MỚI cũng phải nằm trong phạm vi phụ trách
+  if ($year !== (int)$existing['year']) {
+    require_chi_year_access($currentUser, $existingChiId, $year);
   }
 
   $stmt = $pdo->prepare('UPDATE activities SET year = ?, title = ?, description = ? WHERE id = ?');
@@ -105,9 +111,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
   $id = (int)($_GET['id'] ?? 0);
   if ($id <= 0) json_error('Thiếu id hoạt động cần xóa.');
 
-  $existing = get_activity_chi_id($pdo, $id);
+  $existing = get_activity_scope($pdo, $id);
   if ($existing === null) json_error('Không tìm thấy hoạt động.', 404);
-  require_chi_access($currentUser, $existing['chi_id'] !== null ? (int)$existing['chi_id'] : null);
+  require_chi_year_access($currentUser, $existing['chi_id'] !== null ? (int)$existing['chi_id'] : null, (int)$existing['year']);
 
   $stmt = $pdo->prepare('DELETE FROM activities WHERE id = ?');
   $stmt->execute([$id]);

@@ -6,6 +6,7 @@ import AdminChiManager from '../components/AdminChiManager';
 import AdminUserManager from '../components/AdminUserManager';
 import AdminActivities from '../components/AdminActivities';
 import AdminChiFinance from '../components/AdminChiFinance';
+import AdminBaiBien from '../components/AdminBaiBien';
 import { INCOME_CATEGORIES, formatCurrency, computeFinanceSummary, getAvailableYears, getYear } from '../utils/finance';
 import { apiUpload, apiRequest } from '../api';
 
@@ -13,9 +14,10 @@ const MAX_UPLOAD_MB = 10;
 
 // Giao diện quản trị thu gọn dành cho chi_admin / dich_ton / bai_bien: chỉ thấy đúng
 // 2 mục thuộc phạm vi chi của mình, không thấy gia phả/tin tức/chi khác trong dòng họ.
-function ChiScopedDashboard({ chiId, fullName, logout }) {
+function ChiScopedDashboard({ chiId, fullName, role, yearAssigned, logout }) {
   const [chiName, setChiName] = useState('');
   const [scopedTab, setScopedTab] = useState('finance');
+  const canManageBaiBien = role === 'chi_admin' || role === 'dich_ton';
 
   useEffect(() => {
     apiRequest('chi.php')
@@ -36,6 +38,14 @@ function ChiScopedDashboard({ chiId, fullName, logout }) {
         <button onClick={logout} className="btn-primary" style={{ background: '#576574' }}>Đăng Xuất</button>
       </div>
 
+      {role === 'bai_bien' && (
+        <div className="card" style={{ marginBottom: '30px', background: '#fff8e1', border: '1px solid #f1c40f' }}>
+          {yearAssigned
+            ? <p style={{ margin: 0 }}>Bạn đang được phân công làm <strong>bãi biện</strong> phụ trách năm <strong>{yearAssigned}</strong>. Bạn chỉ có thể ghi thu chi/hoạt động của năm này.</p>
+            : <p style={{ margin: 0 }}>Bạn hiện chưa được phân công phụ trách năm nào. Vui lòng liên hệ chi trưởng/đích tôn để được phân công.</p>}
+        </div>
+      )}
+
       <div className="card" style={{ marginBottom: '30px', padding: '10px' }}>
         <div style={{ display: 'flex', gap: '10px', overflowX: 'auto' }}>
           <button
@@ -52,11 +62,21 @@ function ChiScopedDashboard({ chiId, fullName, logout }) {
           >
             Hoạt Động Của Chi
           </button>
+          {canManageBaiBien && (
+            <button
+              onClick={() => setScopedTab('baibien')}
+              className={`btn-primary ${scopedTab === 'baibien' ? '' : 'inactive-tab'}`}
+              style={{ background: scopedTab === 'baibien' ? 'var(--primary-color)' : 'transparent', color: scopedTab === 'baibien' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+            >
+              Bãi Biện
+            </button>
+          )}
         </div>
       </div>
 
       {scopedTab === 'finance' && <AdminChiFinance chiId={chiId} chiName={chiName} />}
       {scopedTab === 'activities' && <AdminActivities chiId={chiId} title={chiName} />}
+      {scopedTab === 'baibien' && canManageBaiBien && <AdminBaiBien chiId={chiId} title={chiName} />}
     </div>
   );
 }
@@ -113,7 +133,7 @@ function AdminDashboard() {
   }
 
   if (isChiScoped) {
-    return <ChiScopedDashboard chiId={chiId} fullName={user?.fullName} logout={logout} />;
+    return <ChiScopedDashboard chiId={chiId} fullName={user?.fullName} role={role} yearAssigned={user?.yearAssigned} logout={logout} />;
   }
 
   const handleSubmitTransaction = (e) => {
@@ -364,6 +384,13 @@ function AdminDashboard() {
                 style={{ background: activeTab === 'activities' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'activities' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
               >
                 Hoạt Động Dòng Họ
+              </button>
+              <button
+                onClick={() => setActiveTab('baibien')}
+                className={`btn-primary ${activeTab === 'baibien' ? '' : 'inactive-tab'}`}
+                style={{ background: activeTab === 'baibien' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'baibien' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+              >
+                Bãi Biện Dòng Họ
               </button>
               <button
                 onClick={() => setActiveTab('chi')}
@@ -751,6 +778,7 @@ function AdminDashboard() {
       )}
 
       {activeTab === 'activities' && isSuperAdmin && <AdminActivities chiId={null} title="Dòng Họ" />}
+      {activeTab === 'baibien' && isSuperAdmin && <AdminBaiBien chiId={null} title="Dòng Họ" />}
       {activeTab === 'chi' && isSuperAdmin && <AdminChiManager />}
       {activeTab === 'users' && isSuperAdmin && <AdminUserManager />}
     </div>
