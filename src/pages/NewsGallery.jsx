@@ -7,7 +7,11 @@ function NewsGallery() {
 
   return (
     <div className="container">
-      <h2 style={{ textAlign: 'center', marginBottom: '40px' }}>Tin Tức & Hoạt Động</h2>
+      <div className="section-header">
+        <span className="section-eyebrow">Dòng Họ Trần Đình</span>
+        <h2>Tin Tức & Hoạt Động</h2>
+        <p>Cập nhật các sự kiện, lễ giỗ và hoạt động mới nhất của dòng họ.</p>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '30px' }}>
         {newsData.map(news => (
@@ -16,12 +20,13 @@ function NewsGallery() {
               <img
                 src={news.image}
                 alt={news.title}
+                loading="lazy"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             </div>
             <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <small style={{ color: 'var(--primary-color)', fontWeight: 'bold', marginBottom: '10px' }}>{news.date}</small>
-              <h3 style={{ margin: '0 0 15px 0' }}>{news.title}</h3>
+              <small className="badge-date">{news.date}</small>
+              <h3 style={{ margin: '10px 0 15px 0' }}>{news.title}</h3>
               <p style={{
                 color: 'var(--text-secondary)',
                 marginBottom: '20px',
@@ -40,6 +45,9 @@ function NewsGallery() {
       {selectedNews && (
         <div
           onClick={() => setSelectedNews(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={selectedNews.title}
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)',
@@ -56,20 +64,17 @@ function NewsGallery() {
               <img
                 src={selectedNews.image}
                 alt={selectedNews.title}
+                loading="lazy"
                 style={{ width: '100%', height: '280px', objectFit: 'cover' }}
               />
               <button
                 onClick={() => setSelectedNews(null)}
-                style={{
-                  position: 'absolute', top: '15px', right: '15px',
-                  background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white',
-                  width: '35px', height: '35px', borderRadius: '50%',
-                  fontSize: '1.2rem', cursor: 'pointer'
-                }}
+                aria-label="Đóng"
+                className="modal-close-btn"
               >✕</button>
             </div>
             <div style={{ padding: '30px' }}>
-              <small style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{selectedNews.date}</small>
+              <small className="badge-date">{selectedNews.date}</small>
               <h2 style={{ margin: '10px 0 20px' }}>{selectedNews.title}</h2>
               <p style={{ lineHeight: '1.8', whiteSpace: 'pre-wrap' }}>{selectedNews.content}</p>
             </div>

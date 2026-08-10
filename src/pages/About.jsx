@@ -6,11 +6,15 @@ function About() {
 
   return (
     <div className="container">
-      <h2 style={{ textAlign: 'center', marginBottom: '30px' }}>Giới Thiệu Dòng Họ</h2>
+      <div className="section-header">
+        <span className="section-eyebrow">Dòng Họ Trần Đình</span>
+        <h2>Giới Thiệu Dòng Họ</h2>
+        <p>Nguồn cội, truyền thống và những dấu mốc đã làm nên dòng họ hôm nay.</p>
+      </div>
 
       {aboutData.image && (
-        <div style={{ borderRadius: '12px', overflow: 'hidden', marginBottom: '30px', boxShadow: 'var(--shadow-md)' }}>
-          <img src={aboutData.image} alt="Giới thiệu dòng họ" style={{ width: '100%', maxHeight: '420px', objectFit: 'cover', display: 'block' }} />
+        <div style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: '30px', boxShadow: 'var(--shadow-lg)' }}>
+          <img src={aboutData.image} alt="Giới thiệu dòng họ" loading="lazy" style={{ width: '100%', maxHeight: '420px', objectFit: 'cover', display: 'block' }} />
         </div>
       )}
 

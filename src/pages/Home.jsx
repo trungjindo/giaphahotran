@@ -3,6 +3,34 @@ import { Link } from 'react-router-dom';
 import { AppContext } from '../store';
 import { computeFamilyStats, getMaxGeneration } from '../utils/family';
 import { computeFinanceSummary, formatCurrency } from '../utils/finance';
+import OceanScene from '../components/OceanScene';
+
+// Đặt ảnh thật (biển Quỳnh Lập, nhà thờ họ...) vào public/storage/hero/hero-main.jpg
+// để tự động thay thế minh họa vector bên dưới — không cần sửa code.
+const HERO_PHOTO_SRC = '/media/hero/hero-main.jpg';
+
+const OceanHero = ({ children }) => {
+  const [photoLoaded, setPhotoLoaded] = useState(false);
+  const [photoFailed, setPhotoFailed] = useState(false);
+
+  return (
+    <div className="ocean-hero">
+      <OceanScene variant="hero" className="ocean-hero-scene" />
+      {!photoFailed && (
+        <img
+          src={HERO_PHOTO_SRC}
+          alt=""
+          loading="lazy"
+          className={`ocean-hero-photo ${photoLoaded ? 'is-loaded' : ''}`}
+          onLoad={() => setPhotoLoaded(true)}
+          onError={() => setPhotoFailed(true)}
+        />
+      )}
+      <div className="ocean-hero-overlay" />
+      <div className="ocean-hero-content">{children}</div>
+    </div>
+  );
+};
 
 const BannerSlideshow = ({ images }) => {
   const [index, setIndex] = useState(0);
@@ -104,9 +132,9 @@ function Home() {
     <div className="container">
       <BannerSlideshow images={bannerData} />
 
-      <div className="hero-section" style={{ textAlign: 'center', margin: '40px 0' }}>
-        <h1 style={{ fontSize: '3rem', marginBottom: '20px' }}>Trần Đình Gia Phả</h1>
-        <p style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', maxWidth: '800px', margin: '0 auto' }}>
+      <OceanHero>
+        <h1>Trần Đình Gia Phả</h1>
+        <p>
           "Mộc bản thủy nguyên" - Cây có cội, nước có nguồn. Website lưu giữ và truyền lại những giá trị truyền thống tốt đẹp của dòng họ Trần Đình cho muôn đời sau.
         </p>
 
@@ -126,7 +154,7 @@ function Home() {
             <small>Truy cập nhanh danh sách & phả hệ dòng họ</small>
           </span>
         </Link>
-      </div>
+      </OceanHero>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
         <div className="card">
@@ -158,41 +186,42 @@ function Home() {
         </div>
       </div>
 
-      <div style={{ marginTop: '50px' }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '10px' }}>Thống Kê Dòng Họ</h2>
-        <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '30px' }}>
-          Tổng hợp nhanh từ hồ sơ chi tiết của từng thành viên trong gia phả.
-        </p>
+      <div style={{ marginTop: '60px' }}>
+        <div className="section-header">
+          <span className="section-eyebrow">Dòng Họ Trần Đình</span>
+          <h2>Thống Kê Dòng Họ</h2>
+          <p>Tổng hợp nhanh từ hồ sơ chi tiết của từng thành viên trong gia phả.</p>
+        </div>
 
         <div className="stat-tile-grid">
           <StatTile label="Tổng thành viên" value={stats.total} />
-          <StatTile label="Đang sống" value={stats.alive} color="#27ae60" />
-          <StatTile label="Đã mất" value={stats.deceased} color="#7f8c8d" />
-          <StatTile label="Nam" value={stats.genderCounts['Nam']} color="#2980b9" />
-          <StatTile label="Nữ" value={stats.genderCounts['Nữ']} color="#c0392b" />
-          <StatTile label="Con dâu" value={stats.inLawCounts['Con dâu']} color="#d1a93e" />
-          <StatTile label="Con rể" value={stats.inLawCounts['Con rể']} color="#d1a93e" />
+          <StatTile label="Đang sống" value={stats.alive} color="#1E8449" />
+          <StatTile label="Đã mất" value={stats.deceased} color="var(--text-secondary)" />
+          <StatTile label="Nam" value={stats.genderCounts['Nam']} color="var(--primary-color)" />
+          <StatTile label="Nữ" value={stats.genderCounts['Nữ']} color="#C0577A" />
+          <StatTile label="Con dâu" value={stats.inLawCounts['Con dâu']} color="var(--secondary-color)" />
+          <StatTile label="Con rể" value={stats.inLawCounts['Con rể']} color="var(--secondary-color)" />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px', marginTop: '30px' }}>
           <div className="card">
             <h3>Học Vấn</h3>
             <div style={{ marginTop: '15px' }}>
-              <StatBarList data={stats.educationCounts} color="#8b1c1c" />
+              <StatBarList data={stats.educationCounts} color="var(--primary-color)" />
             </div>
           </div>
 
           <div className="card">
             <h3>Độ Tuổi</h3>
             <div style={{ marginTop: '15px' }}>
-              <StatBarList data={ageChartData} color="#2980b9" />
+              <StatBarList data={ageChartData} color="var(--accent-teal)" />
             </div>
           </div>
 
           <div className="card">
             <h3>Khu Vực Sinh Sống</h3>
             <div style={{ marginTop: '15px' }}>
-              <StatBarList data={stats.regionCounts} color="#27ae60" />
+              <StatBarList data={stats.regionCounts} color="#B8862E" />
             </div>
           </div>
         </div>

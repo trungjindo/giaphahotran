@@ -7,32 +7,33 @@ function Gallery() {
 
   return (
     <div className="container">
-      <h2 style={{ textAlign: 'center', marginBottom: '40px' }}>Thư Viện Ảnh</h2>
+      <div className="section-header">
+        <span className="section-eyebrow">Dòng Họ Trần Đình</span>
+        <h2>Thư Viện Ảnh</h2>
+        <p>Những khoảnh khắc lễ hội, quê hương và con cháu dòng họ qua các năm.</p>
+      </div>
 
       {galleryData.length === 0 ? (
         <p style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Chưa có ảnh nào trong thư viện.</p>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px' }}>
+        <div className="gallery-grid">
           {galleryData.map(photo => (
-            <div
+            <button
               key={photo.id}
               onClick={() => setSelectedPhoto(photo)}
-              style={{
-                borderRadius: '10px', overflow: 'hidden', cursor: 'pointer',
-                boxShadow: 'var(--shadow-sm)', background: 'var(--surface-color)',
-                border: '1px solid var(--border-color)'
-              }}
+              className="gallery-tile"
+              aria-label={photo.caption ? `Xem ảnh: ${photo.caption}` : 'Xem ảnh'}
             >
-              <div style={{ height: '160px', overflow: 'hidden' }}>
-                <img src={photo.url} alt={photo.caption} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <div className="gallery-tile-image">
+                <img src={photo.url} alt={photo.caption || ''} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
               {(photo.caption || photo.date) && (
-                <div style={{ padding: '10px 12px' }}>
+                <div className="gallery-tile-caption">
                   {photo.caption && <div style={{ fontSize: '0.9rem', fontWeight: '500' }}>{photo.caption}</div>}
                   {photo.date && <small style={{ color: 'var(--text-secondary)' }}>{photo.date}</small>}
                 </div>
               )}
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -40,6 +41,9 @@ function Gallery() {
       {selectedPhoto && (
         <div
           onClick={() => setSelectedPhoto(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={selectedPhoto.caption || 'Xem ảnh'}
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column',
@@ -48,17 +52,15 @@ function Gallery() {
         >
           <button
             onClick={() => setSelectedPhoto(null)}
-            style={{
-              position: 'absolute', top: '20px', right: '25px',
-              background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white',
-              width: '40px', height: '40px', borderRadius: '50%', fontSize: '1.3rem', cursor: 'pointer'
-            }}
+            aria-label="Đóng"
+            className="modal-close-btn"
+            style={{ top: '20px', right: '25px' }}
           >✕</button>
           <img
             src={selectedPhoto.url}
-            alt={selectedPhoto.caption}
+            alt={selectedPhoto.caption || ''}
             onClick={e => e.stopPropagation()}
-            style={{ maxWidth: '90vw', maxHeight: '80vh', objectFit: 'contain', borderRadius: '8px' }}
+            style={{ maxWidth: '90vw', maxHeight: '80vh', objectFit: 'contain', borderRadius: 'var(--radius-md)' }}
           />
           {selectedPhoto.caption && (
             <div style={{ color: 'white', marginTop: '15px', textAlign: 'center', fontSize: '1.1rem' }}>{selectedPhoto.caption}</div>

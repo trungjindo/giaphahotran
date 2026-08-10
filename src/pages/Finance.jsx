@@ -16,14 +16,7 @@ const TxRow = ({ tx }) => (
   <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
     <td style={{ padding: '12px' }}>{tx.date}</td>
     <td style={{ padding: '12px' }}>
-      <span style={{
-        padding: '4px 8px', borderRadius: '4px',
-        background: tx.type === 'Thu' ? '#e8f5e9' : '#ffebee',
-        color: tx.type === 'Thu' ? '#2e7d32' : '#c62828',
-        fontWeight: '500'
-      }}>
-        {tx.type}
-      </span>
+      <span className={`badge ${tx.type === 'Thu' ? 'badge-green' : 'badge-red'}`}>{tx.type}</span>
     </td>
     <td style={{ padding: '12px' }}>{tx.type === 'Thu' ? (tx.category || '—') : '—'}</td>
     <td style={{ padding: '12px', fontWeight: 'bold' }}>{formatCurrency(tx.amount)}</td>
@@ -32,7 +25,7 @@ const TxRow = ({ tx }) => (
     <td style={{ padding: '12px' }}>
       {tx.proof ? (
         <a href={tx.proof} target="_blank" rel="noopener noreferrer" title="Xem minh chứng cỡ đầy đủ">
-          <img src={tx.proof} alt="Minh chứng" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+          <img src={tx.proof} alt="Minh chứng" loading="lazy" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }} />
         </a>
       ) : '—'}
     </td>
@@ -47,9 +40,14 @@ function Finance() {
 
   return (
     <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginBottom: '40px', flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0 }}>Quản Lý Thu Chi</h2>
-        <select value={year} onChange={e => setYear(Number(e.target.value))} style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+      <div className="section-header">
+        <span className="section-eyebrow">Dòng Họ Trần Đình</span>
+        <h2>Quản Lý Thu Chi</h2>
+        <p>Công khai minh bạch thu chi và cân đối ngân sách của dòng họ theo từng năm.</p>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '30px' }}>
+        <select className="select-control" value={year} onChange={e => setYear(Number(e.target.value))}>
           {years.map(y => <option key={y} value={y}>Năm {y}</option>)}
         </select>
       </div>
@@ -62,8 +60,8 @@ function Finance() {
           background="linear-gradient(135deg, var(--secondary-color), var(--secondary-light))"
           color="#000"
         />
-        <SummaryCard title={`Tổng Thu Thực Tế (${year})`} value={formatCurrency(summary.totalActualIncome)} color="#27ae60" />
-        <SummaryCard title={`Tổng Chi Thực Tế (${year})`} value={formatCurrency(summary.totalActualExpense)} color="#c0392b" />
+        <SummaryCard title={`Tổng Thu Thực Tế (${year})`} value={formatCurrency(summary.totalActualIncome)} color="#1E8449" />
+        <SummaryCard title={`Tổng Chi Thực Tế (${year})`} value={formatCurrency(summary.totalActualExpense)} color="#B03A3A" />
         <SummaryCard
           title={`Dự Kiến Cân Đối Cuối Năm ${year}`}
           value={formatCurrency(summary.projectedYearEndBalance)}
@@ -75,9 +73,9 @@ function Finance() {
         <h3>Cơ Cấu Nguồn Thu ({year})</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', marginTop: '15px' }}>
           {Object.entries(summary.incomeByCategory).map(([cat, amount]) => (
-            <div key={cat} style={{ background: 'var(--bg-color)', borderRadius: '8px', padding: '15px' }}>
+            <div key={cat} style={{ background: 'var(--color-sand)', borderRadius: 'var(--radius-sm)', padding: '15px' }}>
               <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{cat}</div>
-              <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#27ae60' }}>{formatCurrency(amount)}</div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#1E8449' }}>{formatCurrency(amount)}</div>
             </div>
           ))}
         </div>

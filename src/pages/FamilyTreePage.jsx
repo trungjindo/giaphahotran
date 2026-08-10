@@ -20,8 +20,8 @@ const TreeNode = ({ node, onSelect, filterProvince, filterRegistered, codeMap })
   const hasActiveFilter = !!filterProvince || !!filterRegistered;
   const isFilterMatch = hasActiveFilter && matchesFilters(node, filterProvince, filterRegistered);
 
-  const borderColor = isMain ? 'var(--primary-color)' : '#7f8c8d';
-  const avatarBorder = isAlive ? '#2ecc71' : '#95a5a6';
+  const borderColor = isMain ? 'var(--primary-color)' : 'var(--text-secondary)';
+  const avatarBorder = isAlive ? '#1E8449' : 'var(--text-secondary)';
 
   return (
     <div className="tree-node-wrapper">
@@ -29,13 +29,17 @@ const TreeNode = ({ node, onSelect, filterProvince, filterRegistered, codeMap })
         className="tree-node"
         style={{
           borderColor: isFilterMatch ? 'var(--secondary-color)' : borderColor,
-          boxShadow: isFilterMatch ? '0 0 0 3px rgba(209,169,62,0.4)' : undefined,
+          boxShadow: isFilterMatch ? '0 0 0 3px rgba(242,196,106,0.4)' : undefined,
           opacity: hasActiveFilter && !isFilterMatch ? 0.4 : 1
         }}
       >
         <div
           className="node-content"
           onClick={() => onSelect(node)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(node); } }}
+          role="button"
+          tabIndex={0}
+          aria-label={`Xem hồ sơ ${node.name}`}
           title="Bấm để xem hồ sơ"
         >
           <div className="node-avatar-container">
@@ -64,6 +68,8 @@ const TreeNode = ({ node, onSelect, filterProvince, filterRegistered, codeMap })
           <button
             className="expand-btn"
             onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? `Thu gọn nhánh của ${node.name}` : `Mở rộng nhánh của ${node.name}`}
             title={isExpanded ? "Thu gọn nhánh" : "Mở rộng nhánh"}
           >
             {isExpanded ? '−' : '+'}
@@ -139,41 +145,51 @@ function FamilyTreePage() {
     <div className="container" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 100px)', padding: '20px' }}>
       <div style={{ textAlign: 'center', marginBottom: '15px' }}>
         <h2 style={{ marginBottom: '5px' }}>Sơ Đồ Gia Phả</h2>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', fontSize: '0.9rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
              <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid var(--primary-color)', borderRadius: '3px' }}></span> Nhánh đích tôn
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-             <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid #2ecc71', borderRadius: '50%' }}></span> Đang sống
+             <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid #1E8449', borderRadius: '50%' }}></span> Đang sống
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-             <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid #95a5a6', borderRadius: '50%', filter: 'grayscale(100%)' }}></span> Đã mất
+             <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid var(--text-secondary)', borderRadius: '50%' }}></span> Đã mất
           </span>
         </div>
       </div>
 
       <div className="tree-toolbar">
-        <button className="btn-icon" onClick={handleZoomOut} title="Thu nhỏ">➖</button>
+        <button className="btn-icon" onClick={handleZoomOut} aria-label="Thu nhỏ" title="Thu nhỏ">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round"><path d="M5 12h14" /></svg>
+        </button>
         <span style={{ fontWeight: 'bold', width: '50px', textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
-        <button className="btn-icon" onClick={handleZoomIn} title="Phóng to">➕</button>
-        <button className="btn-icon" onClick={handleResetZoom} title="Mặc định" style={{ marginLeft: '10px' }}>🔄</button>
+        <button className="btn-icon" onClick={handleZoomIn} aria-label="Phóng to" title="Phóng to">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+        </button>
+        <button className="btn-icon" onClick={handleResetZoom} aria-label="Về mặc định" title="Mặc định" style={{ marginLeft: '10px' }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 1 3 6.7" /><path d="M3 20v-6h6" /></svg>
+        </button>
         <span style={{ marginLeft: '15px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-          💡 Dùng chuột nhấn giữ và kéo để di chuyển sơ đồ
+          Dùng chuột nhấn giữ và kéo để di chuyển sơ đồ
         </span>
         {provinceOptions.length > 0 && (
           <select
+            className="select-control"
             value={filterProvince}
             onChange={e => setFilterProvince(e.target.value)}
-            style={{ marginLeft: '15px', padding: '7px 10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+            aria-label="Lọc theo khu vực"
+            style={{ marginLeft: '15px', padding: '7px 12px' }}
           >
             <option value="">Lọc theo khu vực...</option>
             {provinceOptions.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         )}
         <select
+          className="select-control"
           value={filterRegistered}
           onChange={e => setFilterRegistered(e.target.value)}
-          style={{ marginLeft: '10px', padding: '7px 10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+          aria-label="Lọc theo suất đinh"
+          style={{ marginLeft: '10px', padding: '7px 12px' }}
         >
           <option value="">Lọc theo suất đinh...</option>
           <option value="yes">Đã đăng ký</option>
@@ -212,37 +228,44 @@ function FamilyTreePage() {
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-wrap: wrap;
           background: var(--surface-color);
           padding: 10px;
-          border-radius: 8px;
+          border-radius: var(--radius-md);
           box-shadow: var(--shadow-sm);
           margin-bottom: 15px;
           gap: 5px;
         }
 
         .btn-icon {
-          background: #f1f2f6;
+          background: var(--color-sand);
+          color: var(--primary-color);
           border: 1px solid var(--border-color);
-          border-radius: 4px;
+          border-radius: var(--radius-sm);
           width: 36px;
           height: 36px;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: background-color var(--transition-fast), transform var(--transition-micro);
           font-size: 1rem;
         }
 
         .btn-icon:hover {
-          background: #dfe4ea;
+          background: var(--accent-teal-light);
+          color: white;
+        }
+
+        .btn-icon:active {
+          transform: scale(0.94);
         }
 
         .tree-scroll-container {
           flex: 1;
           overflow: auto;
           background: var(--surface-color);
-          border-radius: 12px;
+          border-radius: var(--radius-lg);
           box-shadow: var(--shadow-sm);
           padding: 20px;
           position: relative;
@@ -254,7 +277,7 @@ function FamilyTreePage() {
         }
 
         .tree-scale-wrapper {
-          transition: transform 0.3s ease;
+          transition: transform var(--transition-normal);
           min-width: 100%;
           display: flex;
           justify-content: center;
@@ -276,9 +299,9 @@ function FamilyTreePage() {
         }
         
         .tree-node {
-          background: white;
+          background: var(--surface-color);
           border: 2px solid;
-          border-radius: 8px;
+          border-radius: var(--radius-sm);
           padding: 10px 15px; /* Thu gọn padding */
           display: flex;
           flex-direction: column;
@@ -286,7 +309,12 @@ function FamilyTreePage() {
           position: relative;
           z-index: 2;
           min-width: 120px; /* Thu gọn chiều rộng */
-          box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+          box-shadow: var(--shadow-sm);
+          transition: box-shadow var(--transition-normal);
+        }
+
+        .tree-node:hover {
+          box-shadow: var(--shadow-md);
         }
 
         .node-content {
@@ -294,12 +322,13 @@ function FamilyTreePage() {
           flex-direction: column;
           align-items: center;
           cursor: pointer;
+          border-radius: var(--radius-sm);
         }
-        
+
         .node-content:hover .node-avatar-img {
           transform: scale(1.05);
         }
-        
+
         .node-avatar-container {
           margin-bottom: 8px;
         }
@@ -310,7 +339,7 @@ function FamilyTreePage() {
           border-radius: 50%;
           object-fit: cover;
           background: var(--bg-color);
-          transition: transform 0.2s;
+          transition: transform var(--transition-fast);
         }
         
         .node-info h4 {
@@ -331,10 +360,10 @@ function FamilyTreePage() {
 
         .generation {
           font-size: 0.75rem;
-          color: var(--text-secondary);
-          background: var(--bg-color);
-          padding: 2px 6px;
-          border-radius: 10px;
+          color: var(--primary-color);
+          background: var(--color-sand);
+          padding: 2px 8px;
+          border-radius: var(--radius-pill);
           margin-top: 4px;
           display: inline-block;
           text-align: center;
@@ -346,7 +375,7 @@ function FamilyTreePage() {
           height: 24px;
           border-radius: 50%;
           border: 1px solid var(--border-color);
-          background: white;
+          background: var(--surface-color);
           color: var(--text-primary);
           font-weight: bold;
           cursor: pointer;
@@ -355,12 +384,12 @@ function FamilyTreePage() {
           justify-content: center;
           font-size: 14px;
           line-height: 1;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-          transition: all 0.2s;
+          box-shadow: var(--shadow-sm);
+          transition: background-color var(--transition-fast), transform var(--transition-micro);
         }
 
         .expand-btn:hover {
-          background: var(--bg-color);
+          background: var(--color-sand);
           transform: scale(1.1);
         }
         

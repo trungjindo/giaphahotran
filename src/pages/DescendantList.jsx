@@ -57,10 +57,11 @@ function DescendantList() {
 
   return (
     <div className="container">
-      <h2 style={{ textAlign: 'center', marginBottom: '10px' }}>Danh Sách Con Cháu Qua Các Đời</h2>
-      <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '30px' }}>
-        Tổng hợp đầy đủ {fullList.length} thành viên, kèm cha mẹ, mã định danh và trạng thái đăng ký suất đinh trong dòng họ.
-      </p>
+      <div className="section-header">
+        <span className="section-eyebrow">Dòng Họ Trần Đình</span>
+        <h2>Danh Sách Con Cháu Qua Các Đời</h2>
+        <p>Tổng hợp đầy đủ {fullList.length} thành viên, kèm cha mẹ, mã định danh và trạng thái đăng ký suất đinh trong dòng họ.</p>
+      </div>
 
       <div className="card" style={{ marginBottom: '25px' }}>
         <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -69,20 +70,26 @@ function DescendantList() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Tìm theo họ tên..."
-            style={{ flex: 1, minWidth: '200px', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+            className="input-control"
+            style={{ flex: 1, minWidth: '200px' }}
           />
-          <select value={genFilter} onChange={e => setGenFilter(e.target.value)} style={{ padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+          <select className="select-control" value={genFilter} onChange={e => setGenFilter(e.target.value)}>
             <option value="">Tất cả các đời</option>
             {Array.from({ length: maxGeneration }, (_, i) => i + 1).map(g => (
               <option key={g} value={g}>Đời {g}</option>
             ))}
           </select>
-          <select value={registeredFilter} onChange={e => setRegisteredFilter(e.target.value)} style={{ padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+          <select className="select-control" value={registeredFilter} onChange={e => setRegisteredFilter(e.target.value)}>
             <option value="">Tất cả suất đinh</option>
             <option value="yes">Đã đăng ký</option>
             <option value="no">Chưa đăng ký</option>
           </select>
-          <button className="btn-primary" onClick={handleExportExcel} style={{ background: '#27ae60' }}>📤 Xuất Excel</button>
+          <button className="btn-primary" onClick={handleExportExcel} style={{ background: '#1E8449', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M4 21h16" />
+            </svg>
+            Xuất Excel
+          </button>
         </div>
       </div>
 
@@ -114,19 +121,21 @@ function DescendantList() {
                   <td style={{ padding: '12px 15px', color: 'var(--text-secondary)' }}>{m.mother || '—'}</td>
                   <td style={{ padding: '12px 15px', color: 'var(--text-secondary)' }}>{m.childrenNames || '—'}</td>
                   <td style={{ padding: '12px 15px' }}>
-                    {m.isAlive ? <span style={{ color: '#27ae60' }}>Đang sống</span> : <span style={{ color: '#7f8c8d' }}>Đã mất</span>}
+                    {m.isAlive ? <span className="badge badge-green">Đang sống</span> : <span className="badge badge-gray">Đã mất</span>}
                   </td>
                   <td style={{ padding: '12px 15px' }}>
                     {m.isRegistered ? (
-                      <span style={{ padding: '3px 8px', borderRadius: '10px', background: '#e8f5e9', color: '#2e7d32', fontSize: '0.8rem', fontWeight: '600' }}>Đã ĐK</span>
+                      <span className="badge badge-green">Đã ĐK</span>
                     ) : (
-                      <span style={{ padding: '3px 8px', borderRadius: '10px', background: '#f5f5f5', color: '#7f8c8d', fontSize: '0.8rem' }}>Chưa ĐK</span>
+                      <span className="badge badge-gray">Chưa ĐK</span>
                     )}
                   </td>
                   <td style={{ padding: '12px 15px' }}>
                     <button
                       onClick={() => setSelectedMemberId(m.id)}
-                      style={{ padding: '5px 10px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                      style={{ padding: '6px 12px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 500, transition: 'background-color var(--transition-fast), transform var(--transition-micro)' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-light)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'var(--primary-color)'}
                     >
                       Xem hồ sơ
                     </button>

@@ -50,7 +50,10 @@ function ChiPublic() {
   if (chiList.length === 0 && !isLoading) {
     return (
       <div className="container">
-        <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Các Chi Trong Dòng Họ</h2>
+        <div className="section-header">
+          <span className="section-eyebrow">Dòng Họ Trần Đình</span>
+          <h2>Các Chi Trong Dòng Họ</h2>
+        </div>
         <p style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Dòng họ chưa thiết lập chi nào.</p>
       </div>
     );
@@ -58,17 +61,18 @@ function ChiPublic() {
 
   return (
     <div className="container">
-      <h2 style={{ textAlign: 'center', marginBottom: '10px' }}>Các Chi Trong Dòng Họ</h2>
-      <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '30px' }}>
-        Hoạt động và thu chi riêng của từng chi, công khai minh bạch với toàn thể con cháu.
-      </p>
+      <div className="section-header">
+        <span className="section-eyebrow">Dòng Họ Trần Đình</span>
+        <h2>Các Chi Trong Dòng Họ</h2>
+        <p>Hoạt động và thu chi riêng của từng chi, công khai minh bạch với toàn thể con cháu.</p>
+      </div>
 
       <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginBottom: '30px', flexWrap: 'wrap' }}>
-        <select value={selectedChiId ?? ''} onChange={e => setSelectedChiId(Number(e.target.value))} style={{ padding: '10px 15px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+        <select className="select-control" value={selectedChiId ?? ''} onChange={e => setSelectedChiId(Number(e.target.value))}>
           {chiList.map(c => <option key={c.id} value={c.id}>{c.name} ({c.memberCount} thành viên)</option>)}
         </select>
         {years.length > 0 && (
-          <select value={effectiveYear} onChange={e => setYear(Number(e.target.value))} style={{ padding: '10px 15px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+          <select className="select-control" value={effectiveYear} onChange={e => setYear(Number(e.target.value))}>
             {years.map(y => <option key={y} value={y}>Năm {y}</option>)}
           </select>
         )}
@@ -92,11 +96,11 @@ function ChiPublic() {
             </div>
             <div className="card">
               <h4 style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Thu Thực Tế ({effectiveYear})</h4>
-              <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#27ae60', marginTop: '8px' }}>{formatCurrency(summary.totalActualIncome)}</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#1E8449', marginTop: '8px' }}>{formatCurrency(summary.totalActualIncome)}</div>
             </div>
             <div className="card">
               <h4 style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Chi Thực Tế ({effectiveYear})</h4>
-              <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#c0392b', marginTop: '8px' }}>{formatCurrency(summary.totalActualExpense)}</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#B03A3A', marginTop: '8px' }}>{formatCurrency(summary.totalActualExpense)}</div>
             </div>
           </div>
 
@@ -135,7 +139,7 @@ function ChiPublic() {
                       <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                         <td style={{ padding: '12px' }}>{tx.date}</td>
                         <td style={{ padding: '12px' }}>
-                          <span style={{ padding: '4px 8px', borderRadius: '4px', background: tx.type === 'Thu' ? '#e8f5e9' : '#ffebee', color: tx.type === 'Thu' ? '#2e7d32' : '#c62828' }}>{tx.type}</span>
+                          <span className={`badge ${tx.type === 'Thu' ? 'badge-green' : 'badge-red'}`}>{tx.type}</span>
                         </td>
                         <td style={{ padding: '12px', fontWeight: 'bold' }}>{formatCurrency(tx.amount)}</td>
                         <td style={{ padding: '12px' }}>{tx.description}</td>
