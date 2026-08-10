@@ -75,6 +75,23 @@ CREATE TABLE IF NOT EXISTS activities (
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Vị trí lăng mộ của từng thành viên đã mất, hiển thị trên "Bản đồ lăng mộ tổ tiên".
+-- member_id tham chiếu id của người đó trong familyData JSON (không có khóa ngoại DB
+-- vì cây gia phả là JSON, không phải bảng quan hệ — giống cách chi.root_member_id hoạt động).
+CREATE TABLE IF NOT EXISTS tombs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  member_id VARCHAR(50) NOT NULL UNIQUE,
+  latitude DECIMAL(10,7) NOT NULL,
+  longitude DECIMAL(10,7) NOT NULL,
+  photo VARCHAR(255) NULL,
+  description TEXT NULL,
+  interred_date DATE NULL,
+  created_by INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Khởi tạo 6 dòng dữ liệu rỗng — API sẽ điền dữ liệu mẫu vào lần chạy đầu qua ứng dụng,
 -- hoặc bạn có thể tự import dữ liệu chính thức sau.
 INSERT IGNORE INTO app_data (data_key, data_json) VALUES

@@ -7,6 +7,7 @@ import AdminUserManager from '../components/AdminUserManager';
 import AdminActivities from '../components/AdminActivities';
 import AdminChiFinance from '../components/AdminChiFinance';
 import AdminBaiBien from '../components/AdminBaiBien';
+import AdminTombs from '../components/AdminTombs';
 import { INCOME_CATEGORIES, formatCurrency, computeFinanceSummary, getAvailableYears, getYear } from '../utils/finance';
 import { apiUpload, apiRequest } from '../api';
 
@@ -391,6 +392,13 @@ function AdminDashboard() {
                 style={{ background: activeTab === 'baibien' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'baibien' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
               >
                 Bãi Biện Dòng Họ
+              </button>
+              <button
+                onClick={() => setActiveTab('tombs')}
+                className={`btn-primary ${activeTab === 'tombs' ? '' : 'inactive-tab'}`}
+                style={{ background: activeTab === 'tombs' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'tombs' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+              >
+                Bản Đồ Lăng Mộ
               </button>
               <button
                 onClick={() => setActiveTab('chi')}
@@ -779,6 +787,7 @@ function AdminDashboard() {
 
       {activeTab === 'activities' && isSuperAdmin && <AdminActivities chiId={null} title="Dòng Họ" />}
       {activeTab === 'baibien' && isSuperAdmin && <AdminBaiBien chiId={null} title="Dòng Họ" />}
+      {activeTab === 'tombs' && isSuperAdmin && <AdminTombs />}
       {activeTab === 'chi' && isSuperAdmin && <AdminChiManager />}
       {activeTab === 'users' && isSuperAdmin && <AdminUserManager />}
     </div>

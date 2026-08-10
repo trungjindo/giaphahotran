@@ -17,6 +17,7 @@ const TYPE_FOLDERS = [
   'banner'  => 'banner',
   'gallery' => 'thu_vien',
   'about'   => 'gioi_thieu',
+  'tomb'    => 'mo_phan',
 ];
 
 if (empty($_FILES['image'])) {
