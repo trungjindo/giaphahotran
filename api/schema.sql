@@ -47,6 +47,19 @@ CREATE TABLE IF NOT EXISTS user_sessions (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Hoạt động theo năm. chi_id = NULL nghĩa là hoạt động của dòng họ lớn (không thuộc chi nào).
+CREATE TABLE IF NOT EXISTS activities (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  chi_id INT NULL,
+  year INT NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  description TEXT,
+  created_by INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (chi_id) REFERENCES chi(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Khởi tạo 6 dòng dữ liệu rỗng — API sẽ điền dữ liệu mẫu vào lần chạy đầu qua ứng dụng,
 -- hoặc bạn có thể tự import dữ liệu chính thức sau.
 INSERT IGNORE INTO app_data (data_key, data_json) VALUES

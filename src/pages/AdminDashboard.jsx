@@ -1,17 +1,69 @@
-import React, { useContext, useState, useMemo } from 'react';
+import React, { useContext, useState, useMemo, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { AppContext } from '../store';
 import AdminFamilyTree from '../components/AdminFamilyTree';
 import AdminChiManager from '../components/AdminChiManager';
 import AdminUserManager from '../components/AdminUserManager';
+import AdminActivities from '../components/AdminActivities';
+import AdminChiFinance from '../components/AdminChiFinance';
 import { INCOME_CATEGORIES, formatCurrency, computeFinanceSummary, getAvailableYears, getYear } from '../utils/finance';
-import { apiUpload } from '../api';
+import { apiUpload, apiRequest } from '../api';
 
 const MAX_UPLOAD_MB = 10;
 
+// Giao diện quản trị thu gọn dành cho chi_admin / dich_ton / bai_bien: chỉ thấy đúng
+// 2 mục thuộc phạm vi chi của mình, không thấy gia phả/tin tức/chi khác trong dòng họ.
+function ChiScopedDashboard({ chiId, fullName, logout }) {
+  const [chiName, setChiName] = useState('');
+  const [scopedTab, setScopedTab] = useState('finance');
+
+  useEffect(() => {
+    apiRequest('chi.php')
+      .then(list => {
+        const found = list.find(c => c.id === chiId);
+        setChiName(found ? found.name : `Chi #${chiId}`);
+      })
+      .catch(() => setChiName(`Chi #${chiId}`));
+  }, [chiId]);
+
+  return (
+    <div className="container">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+        <div>
+          <h2 style={{ marginBottom: '5px' }}>Quản Trị {chiName}</h2>
+          <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Đăng nhập với tư cách: {fullName}</p>
+        </div>
+        <button onClick={logout} className="btn-primary" style={{ background: '#576574' }}>Đăng Xuất</button>
+      </div>
+
+      <div className="card" style={{ marginBottom: '30px', padding: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', overflowX: 'auto' }}>
+          <button
+            onClick={() => setScopedTab('finance')}
+            className={`btn-primary ${scopedTab === 'finance' ? '' : 'inactive-tab'}`}
+            style={{ background: scopedTab === 'finance' ? 'var(--primary-color)' : 'transparent', color: scopedTab === 'finance' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+          >
+            Thu Chi Của Chi
+          </button>
+          <button
+            onClick={() => setScopedTab('activities')}
+            className={`btn-primary ${scopedTab === 'activities' ? '' : 'inactive-tab'}`}
+            style={{ background: scopedTab === 'activities' ? 'var(--primary-color)' : 'transparent', color: scopedTab === 'activities' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+          >
+            Hoạt Động Của Chi
+          </button>
+        </div>
+      </div>
+
+      {scopedTab === 'finance' && <AdminChiFinance chiId={chiId} chiName={chiName} />}
+      {scopedTab === 'activities' && <AdminActivities chiId={chiId} title={chiName} />}
+    </div>
+  );
+}
+
 function AdminDashboard() {
   const {
-    isAuthenticated, logout, token, role,
+    isAuthenticated, logout, token, role, user, chiId,
     financeData, setFinanceData,
     newsData, setNewsData,
     aboutData, setAboutData,
@@ -19,6 +71,7 @@ function AdminDashboard() {
     galleryData, setGalleryData
   } = useContext(AppContext);
   const isSuperAdmin = role === 'admin' || role === null; // role null: tài khoản cũ trước khi có hệ thống phân quyền
+  const isChiScoped = !isSuperAdmin && !!chiId;
   const [activeTab, setActiveTab] = useState('family'); // Default to family management
 
   // Form states for Finance
@@ -57,6 +110,10 @@ function AdminDashboard() {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (isChiScoped) {
+    return <ChiScopedDashboard chiId={chiId} fullName={user?.fullName} logout={logout} />;
   }
 
   const handleSubmitTransaction = (e) => {
@@ -301,6 +358,13 @@ function AdminDashboard() {
           </button>
           {isSuperAdmin && (
             <>
+              <button
+                onClick={() => setActiveTab('activities')}
+                className={`btn-primary ${activeTab === 'activities' ? '' : 'inactive-tab'}`}
+                style={{ background: activeTab === 'activities' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'activities' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+              >
+                Hoạt Động Dòng Họ
+              </button>
               <button
                 onClick={() => setActiveTab('chi')}
                 className={`btn-primary ${activeTab === 'chi' ? '' : 'inactive-tab'}`}
@@ -686,6 +750,7 @@ function AdminDashboard() {
         </>
       )}
 
+      {activeTab === 'activities' && isSuperAdmin && <AdminActivities chiId={null} title="Dòng Họ" />}
       {activeTab === 'chi' && isSuperAdmin && <AdminChiManager />}
       {activeTab === 'users' && isSuperAdmin && <AdminUserManager />}
     </div>

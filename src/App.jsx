@@ -8,6 +8,7 @@ import DescendantList from './pages/DescendantList';
 import Finance from './pages/Finance';
 import NewsGallery from './pages/NewsGallery';
 import Gallery from './pages/Gallery';
+import ChiPublic from './pages/ChiPublic';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 
@@ -50,6 +51,7 @@ function App() {
             <Link to="/gia-pha" onClick={() => setIsMenuOpen(false)}>Gia Phả</Link>
             <Link to="/danh-sach" onClick={() => setIsMenuOpen(false)}>Danh Sách Con Cháu</Link>
             <Link to="/thu-chi" onClick={() => setIsMenuOpen(false)}>Quản Lý Thu Chi</Link>
+            <Link to="/cac-chi" onClick={() => setIsMenuOpen(false)}>Các Chi</Link>
             <Link to="/tin-tuc" onClick={() => setIsMenuOpen(false)}>Tin Tức & Hoạt Động</Link>
             <Link to="/thu-vien" onClick={() => setIsMenuOpen(false)}>Thư Viện Ảnh</Link>
           </div>
@@ -74,6 +76,7 @@ function App() {
           <Route path="/gia-pha" element={<FamilyTreePage />} />
           <Route path="/danh-sach" element={<DescendantList />} />
           <Route path="/thu-chi" element={<Finance />} />
+          <Route path="/cac-chi" element={<ChiPublic />} />
           <Route path="/tin-tuc" element={<NewsGallery />} />
           <Route path="/thu-vien" element={<Gallery />} />
           <Route path="/login" element={<Login />} />
