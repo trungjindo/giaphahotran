@@ -99,7 +99,8 @@ function AdminDashboard() {
     aboutData, setAboutData,
     bannerData, setBannerData,
     galleryData, setGalleryData,
-    contactAdminData, setContactAdminData
+    contactAdminData, setContactAdminData,
+    coupletData, setCoupletData
   } = useContext(AppContext);
   const isSuperAdmin = role === 'admin' || role === null; // role null: tài khoản cũ trước khi có hệ thống phân quyền
   const isChiScoped = !isSuperAdmin && !!chiId;
@@ -135,6 +136,12 @@ function AdminDashboard() {
     email: contactAdminData.email || '',
     phone: contactAdminData.phone || '',
     address: contactAdminData.address || ''
+  }));
+
+  // Form state cho Câu Đối 2 bên trang web (chỉ hiện trên màn hình rất rộng)
+  const [coupletForm, setCoupletForm] = useState(() => ({
+    left: coupletData.left || '',
+    right: coupletData.right || ''
   }));
 
   // Form states for Banner (Trang chủ)
@@ -321,6 +328,12 @@ function AdminDashboard() {
     e.preventDefault();
     setContactAdminData({ ...contactForm });
     alert('Đã lưu thông tin Liên Hệ Quản Trị!');
+  };
+
+  const handleSaveCouplet = (e) => {
+    e.preventDefault();
+    setCoupletData({ ...coupletForm });
+    alert('Đã lưu Câu Đối 2 bên trang web!');
   };
 
   const handleAddBanner = (e) => {
@@ -733,6 +746,28 @@ function AdminDashboard() {
             </div>
             <div style={{ gridColumn: '1 / -1', textAlign: 'right' }}>
               <button type="submit" className="btn-primary">Lưu Thông Tin Liên Hệ</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {activeTab === 'about' && (
+        <div className="card" style={{ marginTop: '30px' }}>
+          <h3>Câu Đối 2 Bên Trang Web</h3>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '5px' }}>
+            Hiển thị dạng chữ dọc ở hai viền trái/phải trang web, chỉ trên màn hình rất rộng (máy tính lớn) để không che nội dung chính. Vế trái và vế phải nên đối nhau về ý và số chữ.
+          </p>
+          <form onSubmit={handleSaveCouplet} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Vế Trái</label>
+              <input type="text" className="input-control" style={{ width: '100%' }} value={coupletForm.left} onChange={e => setCoupletForm({ ...coupletForm, left: e.target.value })} placeholder="VD: Uống Nước Nhớ Nguồn, Gia Phong Vững Bền" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Vế Phải</label>
+              <input type="text" className="input-control" style={{ width: '100%' }} value={coupletForm.right} onChange={e => setCoupletForm({ ...coupletForm, right: e.target.value })} placeholder="VD: Học Hành Thành Đạt, Dòng Tộc Vinh Quang" />
+            </div>
+            <div style={{ gridColumn: '1 / -1', textAlign: 'right' }}>
+              <button type="submit" className="btn-primary">Lưu Câu Đối</button>
             </div>
           </form>
         </div>

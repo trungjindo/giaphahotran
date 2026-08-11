@@ -1517,3 +1517,51 @@ img {
     gap: 26px;
   }
 }
+
+/* Câu đối trang trí 2 bên trang web — mặc định ẩn, chỉ hiện trên màn hình rất rộng (từ
+   1600px) để không bao giờ chồng lấn nội dung chính vốn căn giữa với max-width 1280px. */
+.couplet-banner {
+  display: none;
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  max-height: 72vh;
+  padding: 22px 6px;
+  background: linear-gradient(180deg, var(--primary-color), var(--primary-light));
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.couplet-banner-left {
+  left: 16px;
+}
+
+.couplet-banner-right {
+  right: 16px;
+}
+
+.couplet-banner span {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  color: var(--secondary-color);
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  line-height: 1.5;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  display: block;
+  margin: 0 auto;
+  white-space: nowrap;
+}
+
+@media (min-width: 1600px) {
+  .couplet-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

@@ -2,7 +2,7 @@
 require_once __DIR__ . '/helpers.php';
 send_cors_headers();
 
-$ALLOWED_KEYS = ['familyData', 'financeData', 'newsData', 'aboutData', 'bannerData', 'galleryData', 'contactAdminData'];
+$ALLOWED_KEYS = ['familyData', 'financeData', 'newsData', 'aboutData', 'bannerData', 'galleryData', 'contactAdminData', 'coupletData'];
 
 $key = $_GET['key'] ?? '';
 if (!in_array($key, $ALLOWED_KEYS, true)) {

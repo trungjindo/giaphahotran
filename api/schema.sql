@@ -164,7 +164,8 @@ INSERT IGNORE INTO app_data (data_key, data_json) VALUES
   ('aboutData', 'null'),
   ('bannerData', 'null'),
   ('galleryData', 'null'),
-  ('contactAdminData', 'null');
+  ('contactAdminData', 'null'),
+  ('coupletData', 'null');
 
 -- Tạo tài khoản admin (dòng họ lớn) mặc định: username "admin", mật khẩu "admin123"
 -- ĐỔI MẬT KHẨU NÀY NGAY sau khi triển khai — xem hướng dẫn trong DEPLOY.md

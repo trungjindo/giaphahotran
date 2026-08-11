@@ -36,7 +36,7 @@ const NAV_ITEMS = [
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { isLoading, loadError } = useContext(AppContext);
+  const { isLoading, loadError, coupletData } = useContext(AppContext);
   const menuButtonRef = useRef(null);
 
   useEffect(() => {
@@ -76,6 +76,19 @@ function App() {
 
   return (
     <div className="app-container">
+      {/* Câu đối trang trí hai bên trang web — chỉ hiện trên màn hình rất rộng để không bao
+          giờ chồng lấn nội dung chính (vốn giới hạn max-width 1280px, luôn căn giữa). */}
+      {coupletData?.left && (
+        <aside className="couplet-banner couplet-banner-left" aria-hidden="true">
+          <span>{coupletData.left}</span>
+        </aside>
+      )}
+      {coupletData?.right && (
+        <aside className="couplet-banner couplet-banner-right" aria-hidden="true">
+          <span>{coupletData.right}</span>
+        </aside>
+      )}
+
       {/* Navbar */}
       <nav className="navbar">
         <div className="nav-container">
