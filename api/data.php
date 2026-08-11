@@ -26,14 +26,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
   $stmt->execute([$key]);
   $row = $stmt->fetch();
 
-  // Số điện thoại thành viên chỉ hiển thị đầy đủ cho người đã đăng nhập (mọi role quản trị
-  // trong hệ thống này đều là tài khoản quản trị ở cấp nào đó) — người xem công khai/chưa
-  // đăng nhập chỉ nhận bản đã che số (VD "09•••••123"), không phải toàn quyền che ở
-  // frontend vì familyData vẫn có thể xem trực tiếp qua Network tab nếu không che tại đây.
+  // Số điện thoại và Zalo thành viên chỉ hiển thị đầy đủ cho người đã đăng nhập (mọi role
+  // quản trị trong hệ thống này đều là tài khoản quản trị ở cấp nào đó) — người xem công
+  // khai/chưa đăng nhập chỉ nhận bản đã che số (VD "09•••••123"), không phải toàn quyền che
+  // ở frontend vì familyData vẫn có thể xem trực tiếp qua Network tab nếu không che tại đây.
   if ($key === 'familyData' && $row && get_authenticated_user() === null) {
     $tree = json_decode($row['data_json'], true);
     if (is_array($tree)) {
-      mask_family_phones($tree);
+      mask_family_contacts($tree);
       json_response($tree);
     }
   }

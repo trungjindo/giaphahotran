@@ -163,15 +163,19 @@ function mask_phone(string $phone): string {
   return $prefix . str_repeat('•', $maskLen) . $suffix;
 }
 
-// Che số điện thoại của TOÀN BỘ cây gia phả (đệ quy qua children), dùng cho response trả
-// về người dùng chưa đăng nhập — không sửa gì khác ngoài field "phone".
-function mask_family_phones(array &$node): void {
+// Che số điện thoại VÀ Zalo (Zalo cũng là số điện thoại, cùng mức nhạy cảm) của TOÀN BỘ
+// cây gia phả (đệ quy qua children), dùng cho response trả về người dùng chưa đăng nhập —
+// không sửa gì khác ngoài 2 field "phone" và "zalo".
+function mask_family_contacts(array &$node): void {
   if (!empty($node['phone']) && is_string($node['phone'])) {
     $node['phone'] = mask_phone($node['phone']);
   }
+  if (!empty($node['zalo']) && is_string($node['zalo'])) {
+    $node['zalo'] = mask_phone($node['zalo']);
+  }
   if (!empty($node['children']) && is_array($node['children'])) {
     foreach ($node['children'] as &$child) {
-      if (is_array($child)) mask_family_phones($child);
+      if (is_array($child)) mask_family_contacts($child);
     }
     unset($child);
   }

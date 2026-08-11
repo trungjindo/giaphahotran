@@ -3,6 +3,7 @@ import { AppContext } from '../store';
 import { calculateAge, formatDateVN } from '../utils/family';
 import MapLinkButton from './MapLinkButton';
 import PhoneRevealButton from './PhoneRevealButton';
+import ZaloRevealButton from './ZaloRevealButton';
 
 const getChildrenNames = (children) => {
   if (!children || children.length === 0) return 'Chưa có thông tin';
@@ -79,19 +80,23 @@ const MemberProfileModal = ({ member, onClose }) => {
               </div>
             </div>
 
-            {(member.phone || member.zalo) && (
+            {member.phone && (
               <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
                 <div>
-                  <strong>Liên hệ:</strong>{' '}
-                  {member.phone && (
-                    <span>
-                      ĐT: <span style={{ userSelect: isAuthenticated ? 'text' : 'none' }}>{member.phone}</span>
-                    </span>
-                  )}
-                  {member.phone && member.zalo && ' — '}
-                  {member.zalo && <span>Zalo: {member.zalo}</span>}
+                  <strong>Điện thoại:</strong>{' '}
+                  <span style={{ userSelect: isAuthenticated ? 'text' : 'none' }}>{member.phone}</span>
                 </div>
-                {member.phone && <PhoneRevealButton memberId={member.id} />}
+                <PhoneRevealButton memberId={member.id} />
+              </div>
+            )}
+
+            {member.zalo && (
+              <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                <div>
+                  <strong>Zalo:</strong>{' '}
+                  <span style={{ userSelect: isAuthenticated ? 'text' : 'none' }}>{member.zalo}</span>
+                </div>
+                <ZaloRevealButton memberId={member.id} />
               </div>
             )}
 

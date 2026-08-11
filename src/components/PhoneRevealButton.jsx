@@ -11,13 +11,13 @@ const PhoneRevealButton = ({ memberId, className = '' }) => {
     if (isLoading || !memberId) return;
     setIsLoading(true);
     try {
-      const data = await apiRequest('reveal_phone.php', { params: { memberId } });
-      if (data?.phone) {
+      const data = await apiRequest('reveal_phone.php', { params: { memberId, field: 'phone' } });
+      if (data?.value) {
         // Một số trình duyệt chỉ kích hoạt được liên kết giao thức đặc biệt (tel:) khi thẻ
         // <a> thực sự có mặt trong DOM lúc bấm — gắn tạm, click, rồi gỡ ngay, không set số
         // vào bất kỳ state nào nên vẫn không hiển thị dạng chữ trên màn hình.
         const link = document.createElement('a');
-        link.href = `tel:${data.phone}`;
+        link.href = `tel:${data.value}`;
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
