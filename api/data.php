@@ -12,6 +12,16 @@ if (!in_array($key, $ALLOWED_KEYS, true)) {
 $pdo = get_db();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  // familyData trả về khác nhau tùy đã đăng nhập hay chưa (số điện thoại che hay không) —
+  // bắt buộc phải chặn cache (trình duyệt lẫn mọi proxy trung gian), nếu không người vừa
+  // đăng xuất (hoặc chưa từng đăng nhập) có thể vẫn nhận lại bản KHÔNG che đã được cache
+  // từ một request trước đó có gửi kèm token, vì phản hồi HTTP mặc định không có
+  // Cache-Control nên trình duyệt được phép tự lưu cache theo suy đoán riêng.
+  if ($key === 'familyData') {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+  }
+
   $stmt = $pdo->prepare('SELECT data_json FROM app_data WHERE data_key = ?');
   $stmt->execute([$key]);
   $row = $stmt->fetch();

@@ -18,6 +18,9 @@ async function parseJsonOrThrow(res) {
 
 export async function apiGet(key, token) {
   const res = await fetch(`${API_URL}/data.php?key=${encodeURIComponent(key)}`, {
+    // familyData trả về khác nhau tùy trạng thái đăng nhập (số điện thoại che hay không) —
+    // không cho trình duyệt tự ý cache lại response theo suy đoán riêng.
+    cache: 'no-store',
     headers: token ? { Authorization: `Bearer ${token}` } : {}
   });
   return parseJsonOrThrow(res);
