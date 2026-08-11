@@ -8,6 +8,7 @@ import AdminActivities from '../components/AdminActivities';
 import AdminChiFinance from '../components/AdminChiFinance';
 import AdminBaiBien from '../components/AdminBaiBien';
 import AdminTombs from '../components/AdminTombs';
+import AssetManagement from '../components/AssetManagement';
 import { INCOME_CATEGORIES, formatCurrency, computeFinanceSummary, getAvailableYears, getYear } from '../utils/finance';
 import { apiUpload, apiRequest } from '../api';
 
@@ -72,12 +73,20 @@ function ChiScopedDashboard({ chiId, fullName, role, yearAssigned, logout }) {
               Bãi Biện
             </button>
           )}
+          <button
+            onClick={() => setScopedTab('assets')}
+            className={`btn-primary ${scopedTab === 'assets' ? '' : 'inactive-tab'}`}
+            style={{ background: scopedTab === 'assets' ? 'var(--primary-color)' : 'transparent', color: scopedTab === 'assets' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+          >
+            Tài Sản Của Chi
+          </button>
         </div>
       </div>
 
       {scopedTab === 'finance' && <AdminChiFinance chiId={chiId} chiName={chiName} />}
       {scopedTab === 'activities' && <AdminActivities chiId={chiId} title={chiName} />}
       {scopedTab === 'baibien' && canManageBaiBien && <AdminBaiBien chiId={chiId} title={chiName} />}
+      {scopedTab === 'assets' && <AssetManagement scopeChiId={chiId} />}
     </div>
   );
 }
@@ -414,6 +423,13 @@ function AdminDashboard() {
                 style={{ background: activeTab === 'tombs' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'tombs' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
               >
                 Bản Đồ Lăng Mộ
+              </button>
+              <button
+                onClick={() => setActiveTab('assets')}
+                className={`btn-primary tab-btn ${activeTab === 'assets' ? '' : 'inactive-tab'}`}
+                style={{ background: activeTab === 'assets' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'assets' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+              >
+                Quản Lý Tài Sản
               </button>
               <button
                 onClick={() => setActiveTab('chi')}
@@ -833,6 +849,7 @@ function AdminDashboard() {
       {activeTab === 'activities' && isSuperAdmin && <AdminActivities chiId={null} title="Dòng Họ" />}
       {activeTab === 'baibien' && isSuperAdmin && <AdminBaiBien chiId={null} title="Dòng Họ" />}
       {activeTab === 'tombs' && isSuperAdmin && <AdminTombs />}
+      {activeTab === 'assets' && isSuperAdmin && <AssetManagement />}
       {activeTab === 'chi' && isSuperAdmin && <AdminChiManager />}
       {activeTab === 'users' && isSuperAdmin && <AdminUserManager />}
     </div>

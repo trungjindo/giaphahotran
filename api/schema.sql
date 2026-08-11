@@ -103,6 +103,58 @@ CREATE TABLE IF NOT EXISTS tombs (
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Tài sản dòng họ: đất đai, nhà cửa, đồ thờ, đồ dùng lễ nghi, vật dụng, tài sản giá trị...
+-- chi_id = NULL nghĩa là tài sản CHUNG của cả họ (giống quy ước chi_id NULL ở bảng activities).
+-- finance_tx_id tham chiếu lỏng tới 1 giao dịch trong financeData JSON (dòng họ nếu chi_id NULL,
+-- financeData_chi_<chi_id> nếu có chi_id) — không có khóa ngoại DB vì thu chi lưu dạng JSON,
+-- giống cách tombs.member_id / chi.root_member_id tham chiếu vào familyData JSON.
+-- images lưu mảng URL ảnh dạng JSON (VD: ["https://.../a.jpg", "https://.../b.jpg"]).
+CREATE TABLE IF NOT EXISTS assets (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  chi_id INT NULL,
+  name VARCHAR(200) NOT NULL,
+  category ENUM('dat_dai', 'nha_cua', 'do_tho', 'le_nghi', 'vat_dung', 'gia_tri', 'khac') NOT NULL DEFAULT 'vat_dung',
+  description TEXT NULL,
+  status ENUM('dang_dung', 'hu_hong', 'can_sua', 'luu_kho') NOT NULL DEFAULT 'dang_dung',
+  address VARCHAR(255) NULL,
+  latitude DECIMAL(10,7) NULL,
+  longitude DECIMAL(10,7) NULL,
+  custodian VARCHAR(150) NULL,
+  acquired_date DATE NULL,
+  finance_tx_id VARCHAR(50) NULL,
+  estimated_value DECIMAL(15,0) NULL,
+  useful_life_years INT NULL,
+  expected_replace_year INT NULL,
+  expected_replace_cost DECIMAL(15,0) NULL,
+  images JSON NULL,
+  created_by INT NULL,
+  updated_by INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (chi_id) REFERENCES chi(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_chi (chi_id),
+  INDEX idx_category (category),
+  INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Lịch sử thay đổi tài sản. Lưu snapshot tên tài sản/người thao tác dạng text (không chỉ
+-- FK) để lịch sử vẫn đọc được ý nghĩa kể cả sau khi tài sản hoặc tài khoản đó bị xóa.
+CREATE TABLE IF NOT EXISTS asset_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  asset_id INT NULL,
+  asset_name VARCHAR(200) NOT NULL,
+  user_id INT NULL,
+  user_name VARCHAR(100) NULL,
+  action ENUM('created', 'updated', 'deleted') NOT NULL,
+  summary TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_asset (asset_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Khởi tạo các dòng dữ liệu rỗng — API sẽ điền dữ liệu mẫu vào lần chạy đầu qua ứng dụng,
 -- hoặc bạn có thể tự import dữ liệu chính thức sau.
 INSERT IGNORE INTO app_data (data_key, data_json) VALUES

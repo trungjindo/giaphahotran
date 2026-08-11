@@ -17,6 +17,7 @@ import NewsGallery from './pages/NewsGallery';
 import Gallery from './pages/Gallery';
 import ChiPublic from './pages/ChiPublic';
 import TombMapPage from './pages/TombMapPage';
+import AssetsPublicPage from './pages/AssetsPublicPage';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { to: '/gia-pha', label: 'Gia Phả' },
   { to: '/danh-sach', label: 'Danh Sách Con Cháu' },
   { to: '/ban-do-lang-mo', label: 'Bản Đồ Lăng Mộ' },
+  { to: '/tai-san', label: 'Tài Sản Dòng Họ' },
   { to: '/thu-chi', label: 'Quản Lý Thu Chi' },
   { to: '/cac-chi', label: 'Các Chi' },
   { to: '/tin-tuc', label: 'Tin Tức & Hoạt Động' },
@@ -127,6 +129,7 @@ function App() {
           <Route path="/gia-pha" element={<FamilyTreePage />} />
           <Route path="/danh-sach" element={<DescendantList />} />
           <Route path="/ban-do-lang-mo" element={<TombMapPage />} />
+          <Route path="/tai-san" element={<AssetsPublicPage />} />
           <Route path="/thu-chi" element={<Finance />} />
           <Route path="/cac-chi" element={<ChiPublic />} />
           <Route path="/tin-tuc" element={<NewsGallery />} />
