@@ -1,7 +1,7 @@
 import React, { useState, useContext, useRef, useMemo, useEffect, useCallback } from 'react';
 import { AppContext } from '../store';
 import { apiRequest } from '../api';
-import { flattenFamily, buildDescendantList } from '../utils/family';
+import { flattenFamily, buildDescendantList, buildFamilyCodeMap } from '../utils/family';
 import MemberProfileModal from '../components/MemberProfileModal';
 
 // Bảng màu gán cho từng chi lớn để tạo "khối màu" phân biệt các nhánh trên sơ đồ.
@@ -46,9 +46,59 @@ const getShortNameWords = (name) => {
   return parts;
 };
 
+// So sánh mã định danh phả hệ dạng "1.2.3" theo TỪNG SỐ (không phải so chuỗi — "1.10" phải
+// đứng sau "1.9") — dùng để xếp thứ tự trái-phải trong 1 hàng đời sao cho các anh em/con
+// cháu cùng 1 nhánh vẫn đứng cạnh nhau, đúng theo thứ tự khai sinh trong cây.
+const compareDottedCode = (a, b) => {
+  const pa = (a || '').split('.').map(Number);
+  const pb = (b || '').split('.').map(Number);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const na = pa[i] ?? -1;
+    const nb = pb[i] ?? -1;
+    if (na !== nb) return na - nb;
+  }
+  return 0;
+};
+
+// Duyệt cây tính danh sách các ô ĐANG HIỂN THỊ, gom theo TỪNG ĐỜI (mỗi ô chỉ thuộc đúng 1
+// hàng), cùng danh sách cặp cha-con để vẽ đường nối — thay cho đệ quy JSX như bản trước, vì
+// đệ quy lồng nhau không đảm bảo được yêu cầu "1 đời = 1 hàng ngang, mỗi ô chỉ nằm trong 1
+// hàng" khi các nhánh có độ sâu/chiều cao hiển thị khác nhau.
+function computeVisibleTree(root, { chiRootIds, chiPathAncestorIds, expandedChiRootId, manualOverrides }) {
+  const rowsMap = new Map();
+  const edges = [];
+  const nodeState = new Map();
+
+  const walk = (node, forceExpanded) => {
+    if (!rowsMap.has(node.generation)) rowsMap.set(node.generation, []);
+    rowsMap.get(node.generation).push(node);
+
+    const hasChildren = !!(node.children && node.children.length > 0);
+    const isChiRoot = chiRootIds.has(node.id);
+    let isExpanded = false;
+    if (hasChildren) {
+      if (isChiRoot) isExpanded = expandedChiRootId === node.id;
+      else if (manualOverrides.has(node.id)) isExpanded = manualOverrides.get(node.id);
+      else isExpanded = forceExpanded || chiPathAncestorIds.has(node.id) || node.generation < 2;
+    }
+    nodeState.set(node.id, { isChiRoot, isExpanded, hasChildren });
+
+    if (isExpanded) {
+      const childForceExpanded = isChiRoot ? true : forceExpanded;
+      node.children.forEach(child => {
+        edges.push({ parentId: node.id, childId: child.id });
+        walk(child, childForceExpanded);
+      });
+    }
+  };
+
+  if (root) walk(root, false);
+  return { rowsMap, edges, nodeState };
+}
+
 // Đo vị trí 1 phần tử theo hệ tọa độ layout gốc (offsetTop/offsetLeft, không bị ảnh hưởng
-// bởi transform: scale() của zoom) — dùng chung cho cả đường phân cách theo đời lẫn đường
-// nối cha-con.
+// bởi transform: scale() của zoom) — dùng cho việc vẽ đường nối cha-con.
 function getLocalOffset(el, container) {
   let top = 0, left = 0, cur = el, guard = 0;
   while (cur && cur !== container && guard < 300) {
@@ -60,101 +110,49 @@ function getLocalOffset(el, container) {
   return { top, left };
 }
 
-// Đo 2 hệ tọa độ khác nhau cho mỗi "đời": localTop (offsetTop cục bộ, không bị ảnh hưởng
-// bởi transform: scale — dùng để vẽ đường phân cách nằm BÊN TRONG lớp zoom) và screenCenter
-// (tọa độ tương đối theo getBoundingClientRect so với chính overlayRef — vì overlayRef LÀ
-// containing block thật sự của nhãn dính (position:sticky bên trong 1 anchor position:
-// absolute), phép trừ 2 rect nằm CÙNG bối cảnh cuộn nên tự triệt tiêu scrollTop, không cần
-// cộng bù tay; dùng scrollRect của .tree-scroll-container làm mốc — như bản trước — sai vì
-// đó KHÔNG phải containing block của anchor, gây lệch 1 khoảng cố định (đúng bằng phần đệm/
-// margin nằm giữa scroll-container và overlay) mà lại NHÂN THEO SỐ ĐỜI do accumulate encoding
-// nhầm giữa 2 hệ tọa độ ở bản trước đó).
-function useMeasuredBands(overlayRef, contentContainerRef, watch) {
-  const [bands, setBands] = useState([]);
-
-  useEffect(() => {
-    const overlayEl = overlayRef.current;
-    const contentEl = contentContainerRef.current;
-    if (!overlayEl || !contentEl) return;
-
-    const measure = () => {
-      const nodes = contentEl.querySelectorAll('[data-generation]');
-      const overlayRect = overlayEl.getBoundingClientRect();
-      const localTops = {};
-      const screenCenters = {};
-
-      nodes.forEach(el => {
-        const gen = Number(el.dataset.generation);
-
-        const { top: localTop } = getLocalOffset(el, contentEl);
-        if (localTops[gen] === undefined || localTop < localTops[gen]) localTops[gen] = localTop;
-
-        const rect = el.getBoundingClientRect();
-        const screenCenter = (rect.top - overlayRect.top) + rect.height / 2;
-        if (screenCenters[gen] === undefined || screenCenter < screenCenters[gen]) screenCenters[gen] = screenCenter;
-      });
-
-      const gens = [...new Set([...Object.keys(localTops), ...Object.keys(screenCenters)].map(Number))];
-      const next = gens
-        .map(gen => ({ generation: gen, localTop: localTops[gen], screenCenter: screenCenters[gen] }))
-        .sort((a, b) => a.localTop - b.localTop);
-      setBands(next);
-    };
-
-    measure();
-    const observer = new ResizeObserver(() => measure());
-    observer.observe(contentEl);
-    return () => observer.disconnect();
-  }, [overlayRef, contentContainerRef, watch]);
-
-  return bands;
-}
-
-// Vẽ TOÀN BỘ đường nối cha-con bằng 1 lớp SVG duy nhất, tọa độ đo trực tiếp từ vị trí
-// thật của từng ô (không suy đoán qua % như CSS trước đây) — đảm bảo luôn liền mạch, không
-// bao giờ bị đứt quãng ở khoảng cách giữa các ô anh em (margin) như cách vẽ bằng viền cũ.
-function TreeConnectors({ containerRef, watch }) {
-  const [state, setState] = useState({ edges: [], width: 0, height: 0 });
+// Vẽ đường nối cha-con bằng 1 lớp SVG duy nhất, tọa độ đo trực tiếp từ vị trí thật của từng
+// ô qua data-node-id (không còn dựa vào việc lồng cha-con trong DOM như bản trước, vì giờ
+// mỗi ô nằm phẳng trong đúng 1 hàng đời — quan hệ cha-con lấy thẳng từ danh sách "edges").
+function TreeConnectors({ edges, containerRef, watch }) {
+  const [state, setState] = useState({ paths: [], width: 0, height: 0 });
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const measure = () => {
-      const rows = container.querySelectorAll('.tree-children');
-      const edges = [];
-      rows.forEach(row => {
-        const parentCard = row.parentElement?.querySelector(':scope > .tree-node');
-        if (!parentCard) return;
-        const p = getLocalOffset(parentCard, container);
-        const parentX = p.left + parentCard.offsetWidth / 2;
-        const parentY = p.top + parentCard.offsetHeight;
+      const byId = {};
+      container.querySelectorAll('[data-node-id]').forEach(el => { byId[el.dataset.nodeId] = el; });
 
-        row.querySelectorAll(':scope > .tree-node-wrapper').forEach(wrapper => {
-          const childCard = wrapper.querySelector(':scope > .tree-node');
-          if (!childCard) return;
-          const c = getLocalOffset(childCard, container);
-          const childX = c.left + childCard.offsetWidth / 2;
-          const childY = c.top;
-          edges.push({
-            parentX, parentY, childX, childY,
-            color: childCard.dataset.lineColor || '#A9BAC4',
-            width: Number(childCard.dataset.lineWidth || 1.5),
-          });
+      const paths = [];
+      edges.forEach(({ parentId, childId }) => {
+        const parentEl = byId[parentId];
+        const childEl = byId[childId];
+        if (!parentEl || !childEl) return;
+        const p = getLocalOffset(parentEl, container);
+        const c = getLocalOffset(childEl, container);
+        const parentX = p.left + parentEl.offsetWidth / 2;
+        const parentY = p.top + parentEl.offsetHeight;
+        const childX = c.left + childEl.offsetWidth / 2;
+        const childY = c.top;
+        paths.push({
+          parentX, parentY, childX, childY,
+          color: childEl.dataset.lineColor || '#A9BAC4',
+          width: Number(childEl.dataset.lineWidth || 1.5),
         });
       });
-      setState({ edges, width: container.scrollWidth, height: container.scrollHeight });
+      setState({ paths, width: container.scrollWidth, height: container.scrollHeight });
     };
 
     measure();
     const observer = new ResizeObserver(() => measure());
     observer.observe(container);
     return () => observer.disconnect();
-  }, [containerRef, watch]);
+  }, [containerRef, edges, watch]);
 
   return (
     <svg className="tree-connectors-svg" width={state.width} height={state.height} aria-hidden="true">
-      {state.edges.map((e, i) => {
+      {state.paths.map((e, i) => {
         const midY = (e.parentY + e.childY) / 2;
         const d = `M ${e.parentX} ${e.parentY} L ${e.parentX} ${midY} L ${e.childX} ${midY} L ${e.childX} ${e.childY}`;
         return <path key={i} d={d} stroke={e.color} strokeWidth={e.width} fill="none" strokeLinecap="round" />;
@@ -163,94 +161,65 @@ function TreeConnectors({ containerRef, watch }) {
   );
 }
 
-const TreeNode = ({ node, onSelect, filterProvince, chiInfoMap, chiRootIds, chiPathAncestorIds, expandedChiRootId, onToggleChiRoot, forceExpanded }) => {
-  const isChiRoot = chiRootIds.has(node.id);
-  const defaultOpen = !isChiRoot && (forceExpanded || chiPathAncestorIds.has(node.id) || node.generation < 2);
-  const [localExpanded, setLocalExpanded] = useState(defaultOpen);
-  const hasChildren = node.children && node.children.length > 0;
-  const isExpanded = isChiRoot ? expandedChiRootId === node.id : localExpanded;
-  const childForceExpanded = isChiRoot ? isExpanded : forceExpanded;
-
+const TreeNodeCard = ({ node, onSelect, filterProvince, chiInfoMap, isChiRoot, isExpanded, hasChildren, onToggleChiRoot, onToggleNode }) => {
   const isMain = node.isMainLineage;
   const isFilterMatch = !!filterProvince && node.currentProvince === filterProvince;
-
   const chiInfo = chiInfoMap[node.id] || null;
-  // Cấp độ nổi bật của đường nối TỚI ô này: 'main' = đích tôn của cả dòng họ (rõ nhất),
-  // 'chi' = đích tôn riêng của 1 chi (theo màu của chi đó), 'normal' = các nhánh còn lại.
+
+  // Cấp độ nổi bật: 'main' = đích tôn của cả dòng họ (sao đỏ), 'chi' = đích tôn riêng của 1
+  // chi (sao vàng theo màu chi đó), 'normal' = các nhánh còn lại (không có sao).
   const lineTier = !isMain ? 'normal' : (chiInfo ? 'chi' : 'main');
   const lineColor = lineTier === 'main' ? '#0E6FA8' : lineTier === 'chi' ? chiInfo.line : '#A9BAC4';
   const lineWidth = lineTier === 'main' ? 3.5 : lineTier === 'chi' ? 2.5 : 1.5;
-
   const borderColor = chiInfo ? chiInfo.line : (isMain ? 'var(--primary-color)' : 'var(--border-color)');
   const nameWords = useMemo(() => getShortNameWords(node.name), [node.name]);
 
   const handleToggle = (e) => {
     e.stopPropagation();
     if (isChiRoot) onToggleChiRoot(node.id);
-    else setLocalExpanded(prev => !prev);
+    else onToggleNode(node);
   };
 
   return (
-    <div className="tree-node-wrapper">
+    <div
+      className="tree-node"
+      data-node-id={node.id}
+      data-line-color={lineColor}
+      data-line-width={lineWidth}
+      style={{
+        borderColor: isFilterMatch ? 'var(--secondary-color)' : borderColor,
+        background: chiInfo ? chiInfo.bg : undefined,
+        boxShadow: isFilterMatch ? '0 0 0 3px rgba(242,196,106,0.4)' : undefined,
+        opacity: filterProvince && !isFilterMatch ? 0.4 : 1
+      }}
+    >
+      {lineTier === 'main' && <span className="star-badge star-main" title="Đích tôn dòng họ">★</span>}
+      {lineTier === 'chi' && <span className="star-badge star-chi" style={{ color: chiInfo.line }} title={`Đích tôn ${chiInfo.chiName}`}>★</span>}
+
       <div
-        className="tree-node"
-        data-generation={node.generation}
-        data-line-color={lineColor}
-        data-line-width={lineWidth}
-        style={{
-          borderColor: isFilterMatch ? 'var(--secondary-color)' : borderColor,
-          background: chiInfo ? chiInfo.bg : undefined,
-          boxShadow: isFilterMatch ? '0 0 0 3px rgba(242,196,106,0.4)' : undefined,
-          opacity: filterProvince && !isFilterMatch ? 0.4 : 1
-        }}
+        className="node-content"
+        onClick={() => onSelect(node)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(node); } }}
+        role="button"
+        tabIndex={0}
+        aria-label={`Xem hồ sơ ${node.name}`}
+        title={node.name}
       >
-        {lineTier === 'main' && <span className="star-badge star-main" title="Đích tôn dòng họ">★</span>}
-        {lineTier === 'chi' && <span className="star-badge star-chi" style={{ color: chiInfo.line }} title={`Đích tôn ${chiInfo.chiName}`}>★</span>}
-
-        <div
-          className="node-content"
-          onClick={() => onSelect(node)}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(node); } }}
-          role="button"
-          tabIndex={0}
-          aria-label={`Xem hồ sơ ${node.name}`}
-          title={node.name}
-        >
-          <div className="node-name-vertical">
-            {nameWords.map((w, i) => <span key={i}>{w}</span>)}
-          </div>
+        <div className="node-name-vertical">
+          {nameWords.map((w, i) => <span key={i}>{w}</span>)}
         </div>
-
-        {hasChildren && (
-          <button
-            className="expand-btn"
-            onClick={handleToggle}
-            aria-expanded={isExpanded}
-            aria-label={isExpanded ? `Thu gọn nhánh của ${node.name}` : `Mở rộng nhánh của ${node.name}`}
-            title={isChiRoot ? (isExpanded ? 'Thu gọn chi này' : 'Mở chi này (các chi khác sẽ tự thu gọn)') : (isExpanded ? 'Thu gọn nhánh' : 'Mở rộng nhánh')}
-          >
-            {isExpanded ? '−' : '+'}
-          </button>
-        )}
       </div>
 
-      {hasChildren && isExpanded && (
-        <div className="tree-children">
-          {node.children.map(child => (
-            <TreeNode
-              key={child.id}
-              node={child}
-              onSelect={onSelect}
-              filterProvince={filterProvince}
-              chiInfoMap={chiInfoMap}
-              chiRootIds={chiRootIds}
-              chiPathAncestorIds={chiPathAncestorIds}
-              expandedChiRootId={expandedChiRootId}
-              onToggleChiRoot={onToggleChiRoot}
-              forceExpanded={childForceExpanded}
-            />
-          ))}
-        </div>
+      {hasChildren && (
+        <button
+          className="expand-btn"
+          onClick={handleToggle}
+          aria-expanded={isExpanded}
+          aria-label={isExpanded ? `Thu gọn nhánh của ${node.name}` : `Mở rộng nhánh của ${node.name}`}
+          title={isChiRoot ? (isExpanded ? 'Thu gọn chi này' : 'Mở chi này (các chi khác sẽ tự thu gọn)') : (isExpanded ? 'Thu gọn nhánh' : 'Mở rộng nhánh')}
+        >
+          {isExpanded ? '−' : '+'}
+        </button>
       )}
     </div>
   );
@@ -263,6 +232,7 @@ function FamilyTreePage() {
   const [chiList, setChiList] = useState([]);
   const [chiLoaded, setChiLoaded] = useState(false);
   const [expandedChiRootId, setExpandedChiRootId] = useState(null);
+  const [manualOverrides, setManualOverrides] = useState(() => new Map());
 
   useEffect(() => {
     apiRequest('chi.php').then(setChiList).catch(() => {}).finally(() => setChiLoaded(true));
@@ -301,16 +271,43 @@ function FamilyTreePage() {
     setExpandedChiRootId(prev => (prev === id ? null : id));
   }, []);
 
-  // Trạng thái cho tính năng Zoom và Pan (Kéo thả)
+  // Danh sách ô đang hiển thị, gom theo đời (mỗi ô chỉ thuộc đúng 1 hàng) + danh sách cặp
+  // cha-con để vẽ đường nối. sortedGenerations/rowsMap sắp theo mã định danh phả hệ để các
+  // anh em/con cháu cùng nhánh đứng cạnh nhau trong hàng.
+  const { sortedGenerations, rowsMap, edges, nodeState } = useMemo(() => {
+    if (!familyData || !chiLoaded) return { sortedGenerations: [], rowsMap: new Map(), edges: [], nodeState: new Map() };
+    const { rowsMap, edges, nodeState } = computeVisibleTree(familyData, { chiRootIds, chiPathAncestorIds, expandedChiRootId, manualOverrides });
+    const codeMap = buildFamilyCodeMap(familyData);
+    const sortedGenerations = [...rowsMap.keys()].sort((a, b) => a - b);
+    sortedGenerations.forEach(g => {
+      rowsMap.set(g, [...rowsMap.get(g)].sort((a, b) => compareDottedCode(codeMap[a.id], codeMap[b.id])));
+    });
+    return { sortedGenerations, rowsMap, edges, nodeState };
+  }, [familyData, chiLoaded, chiRootIds, chiPathAncestorIds, expandedChiRootId, manualOverrides]);
+
+  const handleToggleNode = useCallback((node) => {
+    setManualOverrides(prev => {
+      const current = nodeState.get(node.id);
+      const next = new Map(prev);
+      next.set(node.id, current ? !current.isExpanded : true);
+      return next;
+    });
+  }, [nodeState]);
+
+  const handleSelectNode = useCallback((node) => setSelectedMemberId(node.id), []);
+
+  // Trạng thái Zoom + Pan (kéo thả) + kéo rộng khung sang trái (bổ sung cho resize:both mặc
+  // định của trình duyệt vốn chỉ kéo được ở góc dưới-phải).
   const [zoom, setZoom] = useState(1);
   const scrollContainerRef = useRef(null);
-  const generationOverlayRef = useRef(null);
   const treeContainerRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [startY, setStartY] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
+  const [extraLeftWidth, setExtraLeftWidth] = useState(0);
+  const leftResizeRef = useRef(null);
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.15, 2));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.15, 0.3));
@@ -336,8 +333,31 @@ function FamilyTreePage() {
     scrollContainerRef.current.scrollTop = scrollTop - walkY;
   };
 
-  const measureWatch = `${expandedChiRootId}-${zoom}-${chiList.length}`;
-  const bands = useMeasuredBands(generationOverlayRef, treeContainerRef, measureWatch);
+  // Kéo mép trái để mở rộng khung sang bên trái — resize:both của CSS chỉ hỗ trợ góc
+  // dưới-phải, nên phần mở rộng sang trái phải tự làm bằng tay: tăng width + kéo margin-left
+  // âm cùng lúc để mép phải đứng yên, chỉ mép trái "chạy" ra xa hơn theo con trỏ chuột.
+  const handleLeftResizeMouseDown = (e) => {
+    e.preventDefault();
+    const startPageX = e.clientX;
+    const startWidth = extraLeftWidth;
+    leftResizeRef.current = { startPageX, startWidth };
+
+    const onMove = (moveEvent) => {
+      if (!leftResizeRef.current) return;
+      const delta = leftResizeRef.current.startPageX - moveEvent.clientX;
+      const next = Math.min(600, Math.max(0, leftResizeRef.current.startWidth + delta));
+      setExtraLeftWidth(next);
+    };
+    const onUp = () => {
+      leftResizeRef.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  const measureWatch = `${expandedChiRootId}-${manualOverrides.size}-${zoom}-${sortedGenerations.length}`;
 
   return (
     <div className="container" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 100px)', padding: '20px' }}>
@@ -362,7 +382,7 @@ function FamilyTreePage() {
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 1 3 6.7" /><path d="M3 20v-6h6" /></svg>
         </button>
         <span style={{ marginLeft: '15px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-          Kéo giữ để di chuyển · Kéo góc dưới-phải khung để phóng to
+          Kéo giữ để di chuyển · Kéo mép trái hoặc góc dưới-phải khung để mở rộng
         </span>
         {provinceOptions.length > 0 && (
           <select
@@ -378,25 +398,17 @@ function FamilyTreePage() {
         )}
       </div>
 
-      <div
-        className="tree-scroll-container"
-        ref={scrollContainerRef}
-        onMouseDown={handleMouseDown}
-        onMouseLeave={handleMouseLeave}
-        onMouseUp={handleMouseUp}
-        onMouseMove={handleMouseMove}
-      >
-        {/* Nhãn "Đời N" — nằm NGOÀI lớp transform: scale() và dùng position:sticky theo
-            trục ngang, nên luôn hiện rõ ở mép trái khung nhìn dù kéo cuộn sang bên nào,
-            không còn bị trôi mất khỏi màn hình như khi đặt trực tiếp trong nội dung cây. */}
-        <div className="tree-generation-overlay" ref={generationOverlayRef}>
-          {bands.map(b => (
-            <div key={b.generation} className="generation-row-anchor" style={{ top: `${b.screenCenter}px` }}>
-              <span className="generation-label">Đời {b.generation}</span>
-            </div>
-          ))}
-        </div>
-
+      <div className="tree-scroll-wrapper">
+        <div className="tree-left-resize-handle" onMouseDown={handleLeftResizeMouseDown} title="Kéo để mở rộng khung sang trái" />
+        <div
+          className="tree-scroll-container"
+          ref={scrollContainerRef}
+          style={{ width: `calc(100% + ${extraLeftWidth}px)`, marginLeft: `${-extraLeftWidth}px` }}
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseLeave}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+        >
         <div
           className="tree-scale-wrapper"
           style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}
@@ -404,24 +416,35 @@ function FamilyTreePage() {
           <div className="tree-container" ref={treeContainerRef}>
             {familyData && chiLoaded ? (
               <>
-                <TreeConnectors containerRef={treeContainerRef} watch={measureWatch} />
-                {bands.map(b => (
-                  <div key={b.generation} className="generation-line" style={{ top: `${b.localTop - 11}px` }} />
+                <TreeConnectors edges={edges} containerRef={treeContainerRef} watch={measureWatch} />
+                {sortedGenerations.map(gen => (
+                  <div key={gen} className="gen-row">
+                    <div className="gen-row-label"><span>Đời {gen}</span></div>
+                    <div className="gen-row-content">
+                      {rowsMap.get(gen).map(node => {
+                        const st = nodeState.get(node.id) || {};
+                        return (
+                          <TreeNodeCard
+                            key={node.id}
+                            node={node}
+                            onSelect={handleSelectNode}
+                            filterProvince={filterProvince}
+                            chiInfoMap={chiInfoMap}
+                            isChiRoot={st.isChiRoot}
+                            isExpanded={st.isExpanded}
+                            hasChildren={st.hasChildren}
+                            onToggleChiRoot={handleToggleChiRoot}
+                            onToggleNode={handleToggleNode}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
                 ))}
-                <TreeNode
-                  node={familyData}
-                  onSelect={node => setSelectedMemberId(node.id)}
-                  filterProvince={filterProvince}
-                  chiInfoMap={chiInfoMap}
-                  chiRootIds={chiRootIds}
-                  chiPathAncestorIds={chiPathAncestorIds}
-                  expandedChiRootId={expandedChiRootId}
-                  onToggleChiRoot={handleToggleChiRoot}
-                  forceExpanded={false}
-                />
               </>
             ) : familyData ? <p>Đang tải dữ liệu chi...</p> : <p>Không có dữ liệu</p>}
           </div>
+        </div>
         </div>
       </div>
 
@@ -496,13 +519,23 @@ function FamilyTreePage() {
           transform: scale(0.94);
         }
 
+        /* Bọc ngoài .tree-scroll-container để đặt tay kéo trái ở NGOÀI vùng cuộn — nếu để bên
+           trong, tay kéo sẽ cuộn trôi theo nội dung, không còn bấm giữ được khi đã cuộn sang
+           phải, khác với hành vi của tay kéo góc dưới-phải (resize:both) vốn luôn cố định. */
+        .tree-scroll-wrapper {
+          flex: 1;
+          position: relative;
+          display: flex;
+          min-height: 420px;
+        }
+
         .tree-scroll-container {
           flex: 1;
           overflow: auto;
           background: var(--surface-color);
           border-radius: var(--radius-lg);
           box-shadow: var(--shadow-sm);
-          padding: 20px;
+          padding: 0;
           position: relative;
           cursor: grab;
           resize: both;
@@ -514,37 +547,23 @@ function FamilyTreePage() {
           cursor: grabbing;
         }
 
-        /* Lớp phủ chứa nhãn "Đời N" — nằm ngoài transform, position:sticky theo left để
-           luôn dính mép trái khung nhìn; vẫn cuộn dọc bình thường theo đúng hàng của nó. */
-        .tree-generation-overlay {
+        .tree-left-resize-handle {
           position: absolute;
-          inset: 0;
-          pointer-events: none;
-          z-index: 4;
+          left: -5px;
+          top: 0;
+          bottom: 0;
+          width: 10px;
+          cursor: ew-resize;
+          z-index: 10;
+          background: transparent;
+          border-radius: var(--radius-sm);
+          transition: background-color var(--transition-fast);
         }
 
-        .generation-row-anchor {
-          position: absolute;
-          left: 0;
-          right: 0;
-          height: 0;
-        }
-
-        .generation-label {
-          position: sticky;
-          left: 8px;
-          display: inline-block;
-          transform: translateY(-50%);
-          background: var(--primary-color);
-          color: white;
-          font-size: 0.72rem;
-          font-weight: 700;
-          -webkit-font-smoothing: antialiased;
-          padding: 3px 10px;
-          border-radius: var(--radius-pill);
-          box-shadow: var(--shadow-sm);
-          white-space: nowrap;
-          pointer-events: auto;
+        .tree-left-resize-handle:hover,
+        .tree-left-resize-handle:active {
+          background: var(--accent-teal-light);
+          opacity: 0.6;
         }
 
         .tree-scale-wrapper {
@@ -552,14 +571,15 @@ function FamilyTreePage() {
           min-width: 100%;
           display: flex;
           justify-content: center;
+          padding: 20px;
         }
 
         .tree-container {
           display: flex;
-          justify-content: center;
+          flex-direction: column;
           min-width: max-content;
-          padding: 20px;
           position: relative;
+          --tree-line-color: #A9BAC4;
         }
 
         .tree-connectors-svg {
@@ -571,22 +591,45 @@ function FamilyTreePage() {
           overflow: visible;
         }
 
-        .generation-line {
-          position: absolute;
-          left: 0;
-          right: 0;
-          height: 0;
-          border-top: 1px dashed var(--border-color);
-          z-index: 1;
-          pointer-events: none;
+        /* Mỗi đời = 1 hàng ngang thật sự (không còn suy đoán từ vị trí render) — 2 đường kẻ
+           song song (border-style: double) ngăn cách rõ ràng giữa các hàng. */
+        .gen-row {
+          display: flex;
+          align-items: stretch;
+          min-width: max-content;
+          border-top: 6px double var(--tree-line-color);
         }
 
-        .tree-node-wrapper {
+        .gen-row:last-child {
+          border-bottom: 6px double var(--tree-line-color);
+        }
+
+        .gen-row-label {
+          position: sticky;
+          left: 0;
+          flex-shrink: 0;
+          width: 46px;
           display: flex;
-          flex-direction: column;
           align-items: center;
-          position: relative;
-          margin: 0 9px;
+          padding: 4px 8px;
+          background: var(--surface-color);
+          border-right: 1px solid var(--border-color);
+          z-index: 5;
+        }
+
+        .gen-row-label span {
+          font-size: 0.7rem;
+          font-weight: 600;
+          color: var(--text-secondary);
+          white-space: nowrap;
+          -webkit-font-smoothing: antialiased;
+        }
+
+        .gen-row-content {
+          display: flex;
+          align-items: center;
+          gap: 20px;
+          padding: 14px 20px;
         }
 
         .tree-node {
@@ -600,6 +643,7 @@ function FamilyTreePage() {
           position: relative;
           z-index: 2;
           min-width: 46px;
+          flex-shrink: 0;
           box-shadow: var(--shadow-sm);
           transition: box-shadow var(--transition-normal), background-color var(--transition-normal);
         }
@@ -667,12 +711,6 @@ function FamilyTreePage() {
         .expand-btn:hover {
           background: var(--color-sand);
           transform: scale(1.1);
-        }
-
-        .tree-children {
-          display: flex;
-          margin-top: 30px;
-          position: relative;
         }
       `}</style>
 
