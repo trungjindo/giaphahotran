@@ -4,23 +4,7 @@ send_cors_headers();
 
 $pdo = get_db();
 
-// Tìm 1 node trong cây gia phả (JSON) theo id — dùng để xác thực memberId khi thêm/sửa mộ.
-function find_family_node($node, string $id) {
-  if (!is_array($node)) return null;
-  if (($node['id'] ?? null) === $id) return $node;
-  foreach ($node['children'] ?? [] as $child) {
-    $found = find_family_node($child, $id);
-    if ($found !== null) return $found;
-  }
-  return null;
-}
-
-function get_family_tree($pdo) {
-  $stmt = $pdo->prepare('SELECT data_json FROM app_data WHERE data_key = ?');
-  $stmt->execute(['familyData']);
-  $row = $stmt->fetch();
-  return $row ? json_decode($row['data_json'], true) : null;
-}
+// find_family_node() và get_family_tree() dùng chung từ helpers.php.
 
 function format_tomb($row) {
   return [

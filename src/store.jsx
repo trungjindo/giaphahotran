@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useRef } from 'react';
 import { apiGet, apiSave, apiLogin, apiLogout } from './api';
 
 export const AppContext = createContext();
@@ -39,7 +39,7 @@ export const AppProvider = ({ children }) => {
     (async () => {
       try {
         const [family, finance, news, about, banner, gallery, contactAdmin] = await Promise.all([
-          apiGet('familyData'),
+          apiGet('familyData', token),
           apiGet('financeData'),
           apiGet('newsData'),
           apiGet('aboutData'),
@@ -63,6 +63,19 @@ export const AppProvider = ({ children }) => {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // familyData là dữ liệu duy nhất bị che (số điện thoại) tùy theo đã đăng nhập hay chưa.
+  // Khi đăng nhập/đăng xuất NGAY TRONG phiên hiện tại (không tải lại trang), tải lại đúng
+  // bản phù hợp quyền hiện tại — bỏ qua lần chạy đầu vì effect tải dữ liệu ở trên đã lo rồi.
+  const isFirstTokenRun = useRef(true);
+  useEffect(() => {
+    if (isFirstTokenRun.current) { isFirstTokenRun.current = false; return; }
+    let cancelled = false;
+    apiGet('familyData', token)
+      .then(family => { if (!cancelled) setFamilyDataState(family ?? DATA_DEFAULTS.familyData); })
+      .catch(() => { /* giữ nguyên dữ liệu đang có nếu tải lại lỗi, không chặn UI */ });
+    return () => { cancelled = true; };
+  }, [token]);
 
   // Tạo hàm setter: cập nhật giao diện ngay (optimistic) + lưu lên server qua API.
   // Nếu lưu lỗi, báo cho người dùng biết dữ liệu chưa thực sự được lưu.

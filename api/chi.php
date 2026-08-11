@@ -4,16 +4,7 @@ send_cors_headers();
 
 $pdo = get_db();
 
-// Tìm 1 node trong cây gia phả (JSON) theo id, trả về node đó (kèm children) hoặc null.
-function find_family_node($node, string $id) {
-  if (!is_array($node)) return null;
-  if (($node['id'] ?? null) === $id) return $node;
-  foreach ($node['children'] ?? [] as $child) {
-    $found = find_family_node($child, $id);
-    if ($found !== null) return $found;
-  }
-  return null;
-}
+// find_family_node() và get_family_tree() dùng chung từ helpers.php.
 
 // Đếm số thành viên trong 1 nhánh cây (gồm chính người gốc)
 function count_family_node($node): int {
@@ -23,13 +14,6 @@ function count_family_node($node): int {
     $count += count_family_node($child);
   }
   return $count;
-}
-
-function get_family_tree($pdo) {
-  $stmt = $pdo->prepare('SELECT data_json FROM app_data WHERE data_key = ?');
-  $stmt->execute(['familyData']);
-  $row = $stmt->fetch();
-  return $row ? json_decode($row['data_json'], true) : null;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {

@@ -831,6 +831,16 @@ img {
   to { transform: rotate(360deg); }
 }
 
+.btn-icon-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-color);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: address-autocomplete-spin 0.7s linear infinite;
+}
+
 .address-autocomplete-results {
   position: absolute;
   z-index: 1200;

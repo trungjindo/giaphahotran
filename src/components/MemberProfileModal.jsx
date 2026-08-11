@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import { AppContext } from '../store';
 import { calculateAge, formatDateVN } from '../utils/family';
 import MapLinkButton from './MapLinkButton';
-import CallButton from './CallButton';
+import PhoneRevealButton from './PhoneRevealButton';
 
 const getChildrenNames = (children) => {
   if (!children || children.length === 0) return 'Chưa có thông tin';
@@ -10,6 +11,7 @@ const getChildrenNames = (children) => {
 
 // Modal hồ sơ chi tiết một thành viên, dùng chung cho Sơ Đồ Gia Phả và Danh Sách Con Cháu.
 const MemberProfileModal = ({ member, onClose }) => {
+  const { isAuthenticated } = useContext(AppContext);
   if (!member) return null;
 
   return (
@@ -81,11 +83,15 @@ const MemberProfileModal = ({ member, onClose }) => {
               <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
                 <div>
                   <strong>Liên hệ:</strong>{' '}
-                  {member.phone && <span>ĐT: {member.phone}</span>}
+                  {member.phone && (
+                    <span>
+                      ĐT: <span style={{ userSelect: isAuthenticated ? 'text' : 'none' }}>{member.phone}</span>
+                    </span>
+                  )}
                   {member.phone && member.zalo && ' — '}
                   {member.zalo && <span>Zalo: {member.zalo}</span>}
                 </div>
-                <CallButton phone={member.phone} />
+                {member.phone && <PhoneRevealButton memberId={member.id} />}
               </div>
             )}
 

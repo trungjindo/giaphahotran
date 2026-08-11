@@ -124,3 +124,55 @@ function require_chi_year_access(array $user, ?int $chiId, int $year): void {
     json_error('Bạn chỉ được ghi dữ liệu của năm mình đang được phân công phụ trách (bãi biện).', 403);
   }
 }
+
+// Tìm 1 node trong cây gia phả (JSON) theo id — dùng chung cho chi.php, tombs.php,
+// reveal_phone.php (mọi nơi cần tra cứu 1 người theo id trong familyData).
+function find_family_node($node, string $id) {
+  if (!is_array($node)) return null;
+  if (($node['id'] ?? null) === $id) return $node;
+  foreach ($node['children'] ?? [] as $child) {
+    $found = find_family_node($child, $id);
+    if ($found !== null) return $found;
+  }
+  return null;
+}
+
+function get_family_tree(PDO $pdo) {
+  $stmt = $pdo->prepare('SELECT data_json FROM app_data WHERE data_key = ?');
+  $stmt->execute(['familyData']);
+  $row = $stmt->fetch();
+  return $row ? json_decode($row['data_json'], true) : null;
+}
+
+// Che số điện thoại: giữ đầu (+mã quốc gia hoặc "0x") và 2-3 số cuối, phần giữa thay bằng
+// dấu chấm tròn. VD: "0987654321" -> "09•••••321", "+84987654321" -> "+84•••••••21".
+function mask_phone(string $phone): string {
+  $phone = trim($phone);
+  $len = mb_strlen($phone);
+  if ($len === 0) return $phone;
+
+  $isIntl = str_starts_with($phone, '+');
+  $prefixLen = $isIntl ? 3 : 2;
+  $suffixLen = $isIntl ? 2 : 3;
+
+  if ($len <= $prefixLen + $suffixLen) return $phone; // số quá ngắn, không đủ để che có ý nghĩa
+
+  $prefix = mb_substr($phone, 0, $prefixLen);
+  $suffix = mb_substr($phone, -$suffixLen);
+  $maskLen = $len - $prefixLen - $suffixLen;
+  return $prefix . str_repeat('•', $maskLen) . $suffix;
+}
+
+// Che số điện thoại của TOÀN BỘ cây gia phả (đệ quy qua children), dùng cho response trả
+// về người dùng chưa đăng nhập — không sửa gì khác ngoài field "phone".
+function mask_family_phones(array &$node): void {
+  if (!empty($node['phone']) && is_string($node['phone'])) {
+    $node['phone'] = mask_phone($node['phone']);
+  }
+  if (!empty($node['children']) && is_array($node['children'])) {
+    foreach ($node['children'] as &$child) {
+      if (is_array($child)) mask_family_phones($child);
+    }
+    unset($child);
+  }
+}

@@ -75,6 +75,17 @@ CREATE TABLE IF NOT EXISTS activities (
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Ghi lại mỗi lần API reveal_phone.php trả về số điện thoại thật của 1 người (dùng khi
+-- người xem công khai bấm nút "Gọi") — chỉ để giới hạn tần suất theo IP, không phục vụ mục
+-- đích thống kê/theo dõi nào khác. Có thể dọn định kỳ các dòng cũ hơn vài ngày nếu cần.
+CREATE TABLE IF NOT EXISTS phone_reveal_log (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  ip VARCHAR(45) NOT NULL,
+  member_id VARCHAR(50) NOT NULL,
+  revealed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ip_time (ip, revealed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Vị trí lăng mộ của từng thành viên đã mất, hiển thị trên "Bản đồ lăng mộ tổ tiên".
 -- member_id tham chiếu id của người đó trong familyData JSON (không có khóa ngoại DB
 -- vì cây gia phả là JSON, không phải bảng quan hệ — giống cách chi.root_member_id hoạt động).

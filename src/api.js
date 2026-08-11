@@ -16,8 +16,10 @@ async function parseJsonOrThrow(res) {
   return body;
 }
 
-export async function apiGet(key) {
-  const res = await fetch(`${API_URL}/data.php?key=${encodeURIComponent(key)}`);
+export async function apiGet(key, token) {
+  const res = await fetch(`${API_URL}/data.php?key=${encodeURIComponent(key)}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
   return parseJsonOrThrow(res);
 }
 
