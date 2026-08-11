@@ -78,11 +78,13 @@ img {
   border-radius: 4px;
 }
 
+/* Tắt hẳn animation/transition thay vì rút xuống gần 0ms — một số trình duyệt "kẹt"
+   ở giá trị ban đầu của các thuộc tính hình học (VD: clip-path) khi transition-duration
+   gần 0 nhưng khác 0, khiến phần tử trông như không đổi trạng thái dù class đã đổi đúng. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    animation: none !important;
+    transition: none !important;
     scroll-behavior: auto !important;
   }
 }
@@ -166,7 +168,8 @@ img {
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  flex-shrink: 0;
   border-radius: var(--radius-sm);
 }
 
@@ -194,15 +197,16 @@ img {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 26px;
+  gap: 18px;
 }
 
 .nav-links a {
   font-weight: 500;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-primary);
   position: relative;
   padding: 4px 2px;
+  white-space: nowrap;
   transition: color var(--transition-fast);
 }
 
@@ -883,7 +887,9 @@ img {
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+/* Menu ngang cần đủ chỗ cho 9 mục — dưới ngưỡng này chuyển sang menu rút gọn (hamburger)
+   thay vì để chữ bị bó hẹp/xuống dòng giữa chừng. */
+@media (max-width: 1200px) {
   .mobile-menu-btn {
     display: block;
   }
@@ -897,16 +903,40 @@ img {
     flex-direction: column;
     align-items: flex-start;
     padding: 20px;
-    gap: 15px;
+    gap: 6px;
     box-shadow: var(--shadow-md);
     clip-path: polygon(0 0, 100% 0, 100% 0, 0 0);
     transition: clip-path var(--transition-normal);
+    max-height: calc(100vh - var(--nav-height));
+    overflow-y: auto;
+  }
+
+  .nav-links li {
+    width: 100%;
+  }
+
+  .nav-links a {
+    display: block;
+    width: 100%;
+    padding: 12px 10px;
+    font-size: 1rem;
+    border-radius: var(--radius-sm);
+  }
+
+  .nav-links a:hover {
+    background-color: var(--color-sand);
+  }
+
+  .nav-links a::after {
+    display: none;
   }
 
   .nav-links.active {
     clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
   }
+}
 
+@media (max-width: 768px) {
   .footer-inner {
     flex-direction: column;
     gap: 26px;
