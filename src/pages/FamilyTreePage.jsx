@@ -60,32 +60,52 @@ function getLocalOffset(el, container) {
   return { top, left };
 }
 
-function useMeasuredBands(containerRef, watch) {
+// Đo 2 hệ tọa độ khác nhau cho mỗi "đời": localTop (offsetTop cục bộ, không bị ảnh hưởng
+// bởi transform: scale — dùng để vẽ đường phân cách nằm BÊN TRONG lớp zoom) và screenCenter
+// (tọa độ tương đối theo getBoundingClientRect so với chính overlayRef — vì overlayRef LÀ
+// containing block thật sự của nhãn dính (position:sticky bên trong 1 anchor position:
+// absolute), phép trừ 2 rect nằm CÙNG bối cảnh cuộn nên tự triệt tiêu scrollTop, không cần
+// cộng bù tay; dùng scrollRect của .tree-scroll-container làm mốc — như bản trước — sai vì
+// đó KHÔNG phải containing block của anchor, gây lệch 1 khoảng cố định (đúng bằng phần đệm/
+// margin nằm giữa scroll-container và overlay) mà lại NHÂN THEO SỐ ĐỜI do accumulate encoding
+// nhầm giữa 2 hệ tọa độ ở bản trước đó).
+function useMeasuredBands(overlayRef, contentContainerRef, watch) {
   const [bands, setBands] = useState([]);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    const overlayEl = overlayRef.current;
+    const contentEl = contentContainerRef.current;
+    if (!overlayEl || !contentEl) return;
 
     const measure = () => {
-      const nodes = container.querySelectorAll('[data-generation]');
-      const tops = {};
+      const nodes = contentEl.querySelectorAll('[data-generation]');
+      const overlayRect = overlayEl.getBoundingClientRect();
+      const localTops = {};
+      const screenCenters = {};
+
       nodes.forEach(el => {
         const gen = Number(el.dataset.generation);
-        const { top } = getLocalOffset(el, container);
-        if (tops[gen] === undefined || top < tops[gen]) tops[gen] = top;
+
+        const { top: localTop } = getLocalOffset(el, contentEl);
+        if (localTops[gen] === undefined || localTop < localTops[gen]) localTops[gen] = localTop;
+
+        const rect = el.getBoundingClientRect();
+        const screenCenter = (rect.top - overlayRect.top) + rect.height / 2;
+        if (screenCenters[gen] === undefined || screenCenter < screenCenters[gen]) screenCenters[gen] = screenCenter;
       });
-      const next = Object.entries(tops)
-        .map(([gen, top]) => ({ generation: Number(gen), top }))
-        .sort((a, b) => a.top - b.top);
+
+      const gens = [...new Set([...Object.keys(localTops), ...Object.keys(screenCenters)].map(Number))];
+      const next = gens
+        .map(gen => ({ generation: gen, localTop: localTops[gen], screenCenter: screenCenters[gen] }))
+        .sort((a, b) => a.localTop - b.localTop);
       setBands(next);
     };
 
     measure();
     const observer = new ResizeObserver(() => measure());
-    observer.observe(container);
+    observer.observe(contentEl);
     return () => observer.disconnect();
-  }, [containerRef, watch]);
+  }, [overlayRef, contentContainerRef, watch]);
 
   return bands;
 }
@@ -171,9 +191,10 @@ const TreeNode = ({ node, onSelect, filterProvince, chiInfoMap, chiRootIds, chiP
   };
 
   return (
-    <div className="tree-node-wrapper" data-generation={node.generation}>
+    <div className="tree-node-wrapper">
       <div
         className="tree-node"
+        data-generation={node.generation}
         data-line-color={lineColor}
         data-line-width={lineWidth}
         style={{
@@ -283,6 +304,7 @@ function FamilyTreePage() {
   // Trạng thái cho tính năng Zoom và Pan (Kéo thả)
   const [zoom, setZoom] = useState(1);
   const scrollContainerRef = useRef(null);
+  const generationOverlayRef = useRef(null);
   const treeContainerRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -315,7 +337,7 @@ function FamilyTreePage() {
   };
 
   const measureWatch = `${expandedChiRootId}-${zoom}-${chiList.length}`;
-  const bands = useMeasuredBands(treeContainerRef, measureWatch);
+  const bands = useMeasuredBands(generationOverlayRef, treeContainerRef, measureWatch);
 
   return (
     <div className="container" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 100px)', padding: '20px' }}>
@@ -367,9 +389,9 @@ function FamilyTreePage() {
         {/* Nhãn "Đời N" — nằm NGOÀI lớp transform: scale() và dùng position:sticky theo
             trục ngang, nên luôn hiện rõ ở mép trái khung nhìn dù kéo cuộn sang bên nào,
             không còn bị trôi mất khỏi màn hình như khi đặt trực tiếp trong nội dung cây. */}
-        <div className="tree-generation-overlay">
+        <div className="tree-generation-overlay" ref={generationOverlayRef}>
           {bands.map(b => (
-            <div key={b.generation} className="generation-row-anchor" style={{ top: `${b.top * zoom}px` }}>
+            <div key={b.generation} className="generation-row-anchor" style={{ top: `${b.screenCenter}px` }}>
               <span className="generation-label">Đời {b.generation}</span>
             </div>
           ))}
@@ -384,7 +406,7 @@ function FamilyTreePage() {
               <>
                 <TreeConnectors containerRef={treeContainerRef} watch={measureWatch} />
                 {bands.map(b => (
-                  <div key={b.generation} className="generation-line" style={{ top: `${b.top - 11}px` }} />
+                  <div key={b.generation} className="generation-line" style={{ top: `${b.localTop - 11}px` }} />
                 ))}
                 <TreeNode
                   node={familyData}
