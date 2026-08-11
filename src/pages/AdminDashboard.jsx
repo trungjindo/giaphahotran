@@ -359,35 +359,35 @@ function AdminDashboard() {
         <div style={{ display: 'flex', gap: '10px', overflowX: 'auto' }}>
           <button 
             onClick={() => setActiveTab('family')} 
-            className={`btn-primary ${activeTab === 'family' ? '' : 'inactive-tab'}`}
+            className={`btn-primary tab-btn ${activeTab === 'family' ? '' : 'inactive-tab'}`}
             style={{ background: activeTab === 'family' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'family' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
           >
             Quản Lý Gia Phả
           </button>
           <button 
             onClick={() => setActiveTab('finance')} 
-            className={`btn-primary ${activeTab === 'finance' ? '' : 'inactive-tab'}`}
+            className={`btn-primary tab-btn ${activeTab === 'finance' ? '' : 'inactive-tab'}`}
             style={{ background: activeTab === 'finance' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'finance' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
           >
             Quản Lý Thu Chi
           </button>
           <button
             onClick={() => setActiveTab('news')}
-            className={`btn-primary ${activeTab === 'news' ? '' : 'inactive-tab'}`}
+            className={`btn-primary tab-btn ${activeTab === 'news' ? '' : 'inactive-tab'}`}
             style={{ background: activeTab === 'news' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'news' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
           >
             Quản Lý Tin Tức
           </button>
           <button
             onClick={() => setActiveTab('about')}
-            className={`btn-primary ${activeTab === 'about' ? '' : 'inactive-tab'}`}
+            className={`btn-primary tab-btn ${activeTab === 'about' ? '' : 'inactive-tab'}`}
             style={{ background: activeTab === 'about' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'about' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
           >
             Giới Thiệu
           </button>
           <button
             onClick={() => setActiveTab('media')}
-            className={`btn-primary ${activeTab === 'media' ? '' : 'inactive-tab'}`}
+            className={`btn-primary tab-btn ${activeTab === 'media' ? '' : 'inactive-tab'}`}
             style={{ background: activeTab === 'media' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'media' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
           >
             Banner & Thư Viện Ảnh
@@ -396,35 +396,35 @@ function AdminDashboard() {
             <>
               <button
                 onClick={() => setActiveTab('activities')}
-                className={`btn-primary ${activeTab === 'activities' ? '' : 'inactive-tab'}`}
+                className={`btn-primary tab-btn ${activeTab === 'activities' ? '' : 'inactive-tab'}`}
                 style={{ background: activeTab === 'activities' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'activities' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
               >
                 Hoạt Động Dòng Họ
               </button>
               <button
                 onClick={() => setActiveTab('baibien')}
-                className={`btn-primary ${activeTab === 'baibien' ? '' : 'inactive-tab'}`}
+                className={`btn-primary tab-btn ${activeTab === 'baibien' ? '' : 'inactive-tab'}`}
                 style={{ background: activeTab === 'baibien' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'baibien' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
               >
                 Bãi Biện Dòng Họ
               </button>
               <button
                 onClick={() => setActiveTab('tombs')}
-                className={`btn-primary ${activeTab === 'tombs' ? '' : 'inactive-tab'}`}
+                className={`btn-primary tab-btn ${activeTab === 'tombs' ? '' : 'inactive-tab'}`}
                 style={{ background: activeTab === 'tombs' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'tombs' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
               >
                 Bản Đồ Lăng Mộ
               </button>
               <button
                 onClick={() => setActiveTab('chi')}
-                className={`btn-primary ${activeTab === 'chi' ? '' : 'inactive-tab'}`}
+                className={`btn-primary tab-btn ${activeTab === 'chi' ? '' : 'inactive-tab'}`}
                 style={{ background: activeTab === 'chi' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'chi' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
               >
                 Quản Lý Chi
               </button>
               <button
                 onClick={() => setActiveTab('users')}
-                className={`btn-primary ${activeTab === 'users' ? '' : 'inactive-tab'}`}
+                className={`btn-primary tab-btn ${activeTab === 'users' ? '' : 'inactive-tab'}`}
                 style={{ background: activeTab === 'users' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'users' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
               >
                 Quản Lý Tài Khoản
@@ -693,7 +693,37 @@ function AdminDashboard() {
       )}
 
       {activeTab === 'about' && (
-        <div className="card">
+        <div className="card" style={{ border: '2px solid var(--primary-light)' }}>
+          <h3>📇 Liên Hệ Quản Trị Website</h3>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '5px' }}>
+            Hiển thị ở cuối trang để con cháu liên hệ khi cần hỗ trợ hoặc báo lỗi website. Để trống trường nào thì dòng đó (và icon tương ứng) sẽ tự ẩn.
+          </p>
+          <form onSubmit={handleSaveContact} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Họ Tên Quản Trị</label>
+              <input type="text" className="input-control" style={{ width: '100%' }} value={contactForm.name} onChange={e => setContactForm({ ...contactForm, name: e.target.value })} placeholder="VD: Trần Đình Trung" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Email Liên Hệ</label>
+              <input type="email" className="input-control" style={{ width: '100%' }} value={contactForm.email} onChange={e => setContactForm({ ...contactForm, email: e.target.value })} placeholder="VD: contact@hotrandinh.com" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Số Điện Thoại</label>
+              <input type="text" className="input-control" style={{ width: '100%' }} value={contactForm.phone} onChange={e => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="VD: 0912345678" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Địa Chỉ Liên Hệ (tùy chọn)</label>
+              <input type="text" className="input-control" style={{ width: '100%' }} value={contactForm.address} onChange={e => setContactForm({ ...contactForm, address: e.target.value })} placeholder="VD: Nam Định" />
+            </div>
+            <div style={{ gridColumn: '1 / -1', textAlign: 'right' }}>
+              <button type="submit" className="btn-primary">Lưu Thông Tin Liên Hệ</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {activeTab === 'about' && (
+        <div className="card" style={{ marginTop: '30px' }}>
           <h3>Nội Dung Trang Giới Thiệu</h3>
           <form onSubmit={handleSaveAbout} style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '20px' }}>
             <div>
@@ -728,36 +758,6 @@ function AdminDashboard() {
 
             <div style={{ textAlign: 'right' }}>
               <button type="submit" className="btn-primary">Lưu Nội Dung</button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {activeTab === 'about' && (
-        <div className="card" style={{ marginTop: '30px' }}>
-          <h3>Liên Hệ Quản Trị Website</h3>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '5px' }}>
-            Hiển thị ở cuối trang để con cháu liên hệ khi cần hỗ trợ hoặc báo lỗi website. Để trống trường nào thì dòng đó (và icon tương ứng) sẽ tự ẩn.
-          </p>
-          <form onSubmit={handleSaveContact} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
-            <div>
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Họ Tên Quản Trị</label>
-              <input type="text" className="input-control" style={{ width: '100%' }} value={contactForm.name} onChange={e => setContactForm({ ...contactForm, name: e.target.value })} placeholder="VD: Trần Đình Trung" />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Email Liên Hệ</label>
-              <input type="email" className="input-control" style={{ width: '100%' }} value={contactForm.email} onChange={e => setContactForm({ ...contactForm, email: e.target.value })} placeholder="VD: contact@hotrandinh.com" />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Số Điện Thoại</label>
-              <input type="text" className="input-control" style={{ width: '100%' }} value={contactForm.phone} onChange={e => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="VD: 0912345678" />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Địa Chỉ Liên Hệ (tùy chọn)</label>
-              <input type="text" className="input-control" style={{ width: '100%' }} value={contactForm.address} onChange={e => setContactForm({ ...contactForm, address: e.target.value })} placeholder="VD: Nam Định" />
-            </div>
-            <div style={{ gridColumn: '1 / -1', textAlign: 'right' }}>
-              <button type="submit" className="btn-primary">Lưu Thông Tin Liên Hệ</button>
             </div>
           </form>
         </div>

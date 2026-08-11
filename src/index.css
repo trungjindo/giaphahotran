@@ -1146,6 +1146,14 @@ img {
   transform: scale(0.98);
 }
 
+/* Nút chuyển tab trong khu vực quản trị: bỏ transform khi hover — dãy tab nằm trong hàng
+   overflow-x: auto với nhiều nút sát nhau, scale() làm layout giật/rung khi rê chuột qua
+   nhiều nút liên tiếp. Vẫn giữ hiệu ứng đổi màu nền từ .btn-primary:hover. */
+.tab-btn:hover,
+.tab-btn:active {
+  transform: none;
+}
+
 /* Responsive */
 /* Menu ngang cần đủ chỗ cho 9 mục — dưới ngưỡng này chuyển sang menu rút gọn (hamburger)
    thay vì để chữ bị bó hẹp/xuống dòng giữa chừng. */
