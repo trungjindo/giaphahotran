@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS tombs (
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Khởi tạo 6 dòng dữ liệu rỗng — API sẽ điền dữ liệu mẫu vào lần chạy đầu qua ứng dụng,
+-- Khởi tạo các dòng dữ liệu rỗng — API sẽ điền dữ liệu mẫu vào lần chạy đầu qua ứng dụng,
 -- hoặc bạn có thể tự import dữ liệu chính thức sau.
 INSERT IGNORE INTO app_data (data_key, data_json) VALUES
   ('familyData', 'null'),
@@ -100,7 +100,8 @@ INSERT IGNORE INTO app_data (data_key, data_json) VALUES
   ('newsData', 'null'),
   ('aboutData', 'null'),
   ('bannerData', 'null'),
-  ('galleryData', 'null');
+  ('galleryData', 'null'),
+  ('contactAdminData', 'null');
 
 -- Tạo tài khoản admin (dòng họ lớn) mặc định: username "admin", mật khẩu "admin123"
 -- ĐỔI MẬT KHẨU NÀY NGAY sau khi triển khai — xem hướng dẫn trong DEPLOY.md

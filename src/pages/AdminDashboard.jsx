@@ -89,7 +89,8 @@ function AdminDashboard() {
     newsData, setNewsData,
     aboutData, setAboutData,
     bannerData, setBannerData,
-    galleryData, setGalleryData
+    galleryData, setGalleryData,
+    contactAdminData, setContactAdminData
   } = useContext(AppContext);
   const isSuperAdmin = role === 'admin' || role === null; // role null: tài khoản cũ trước khi có hệ thống phân quyền
   const isChiScoped = !isSuperAdmin && !!chiId;
@@ -118,6 +119,14 @@ function AdminDashboard() {
     highlightsStr: (aboutData.highlights || []).map(h => `${h.year}|${h.text}`).join('\n')
   }));
   const [uploadingAboutImage, setUploadingAboutImage] = useState(false);
+
+  // Form state cho Liên Hệ Quản Trị (hiển thị ở footer công khai)
+  const [contactForm, setContactForm] = useState(() => ({
+    name: contactAdminData.name || '',
+    email: contactAdminData.email || '',
+    phone: contactAdminData.phone || '',
+    address: contactAdminData.address || ''
+  }));
 
   // Form states for Banner (Trang chủ)
   const emptyBanner = { url: '', caption: '' };
@@ -297,6 +306,12 @@ function AdminDashboard() {
   const handleUploadAboutImage = async (file) => {
     const url = await uploadImage(file, 'about', setUploadingAboutImage);
     if (url) setAboutForm(prev => ({ ...prev, image: url }));
+  };
+
+  const handleSaveContact = (e) => {
+    e.preventDefault();
+    setContactAdminData({ ...contactForm });
+    alert('Đã lưu thông tin Liên Hệ Quản Trị!');
   };
 
   const handleAddBanner = (e) => {
@@ -713,6 +728,36 @@ function AdminDashboard() {
 
             <div style={{ textAlign: 'right' }}>
               <button type="submit" className="btn-primary">Lưu Nội Dung</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {activeTab === 'about' && (
+        <div className="card" style={{ marginTop: '30px' }}>
+          <h3>Liên Hệ Quản Trị Website</h3>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '5px' }}>
+            Hiển thị ở cuối trang để con cháu liên hệ khi cần hỗ trợ hoặc báo lỗi website. Để trống trường nào thì dòng đó (và icon tương ứng) sẽ tự ẩn.
+          </p>
+          <form onSubmit={handleSaveContact} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Họ Tên Quản Trị</label>
+              <input type="text" className="input-control" style={{ width: '100%' }} value={contactForm.name} onChange={e => setContactForm({ ...contactForm, name: e.target.value })} placeholder="VD: Trần Đình Trung" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Email Liên Hệ</label>
+              <input type="email" className="input-control" style={{ width: '100%' }} value={contactForm.email} onChange={e => setContactForm({ ...contactForm, email: e.target.value })} placeholder="VD: contact@hotrandinh.com" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Số Điện Thoại</label>
+              <input type="text" className="input-control" style={{ width: '100%' }} value={contactForm.phone} onChange={e => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="VD: 0912345678" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Địa Chỉ Liên Hệ (tùy chọn)</label>
+              <input type="text" className="input-control" style={{ width: '100%' }} value={contactForm.address} onChange={e => setContactForm({ ...contactForm, address: e.target.value })} placeholder="VD: Nam Định" />
+            </div>
+            <div style={{ gridColumn: '1 / -1', textAlign: 'right' }}>
+              <button type="submit" className="btn-primary">Lưu Thông Tin Liên Hệ</button>
             </div>
           </form>
         </div>

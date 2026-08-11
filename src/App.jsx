@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect, useRef } from 'react';
 import { Routes, Route, Link, NavLink } from 'react-router-dom';
 import { AppContext } from './store';
 import OceanScene from './components/OceanScene';
+import ContactAdminBox from './components/ContactAdminBox';
 
 const LOGO_SRC = '/media/brand/logo-icon.png';
 const LogoMark = ({ size = 44, className = '' }) => (
@@ -152,6 +153,8 @@ function App() {
               <Link key={item.to} to={item.to}>{item.label}</Link>
             ))}
           </nav>
+
+          <ContactAdminBox />
         </div>
 
         <div className="footer-bottom">

@@ -9,7 +9,8 @@ const DATA_DEFAULTS = {
   newsData: [],
   aboutData: { image: '', content: '', highlights: [] },
   bannerData: [],
-  galleryData: []
+  galleryData: [],
+  contactAdminData: { name: '', email: '', phone: '', address: '' }
 };
 
 export const AppProvider = ({ children }) => {
@@ -28,6 +29,7 @@ export const AppProvider = ({ children }) => {
   const [aboutData, setAboutDataState] = useState(null);
   const [bannerData, setBannerDataState] = useState(null);
   const [galleryData, setGalleryDataState] = useState(null);
+  const [contactAdminData, setContactAdminDataState] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -36,13 +38,14 @@ export const AppProvider = ({ children }) => {
     let cancelled = false;
     (async () => {
       try {
-        const [family, finance, news, about, banner, gallery] = await Promise.all([
+        const [family, finance, news, about, banner, gallery, contactAdmin] = await Promise.all([
           apiGet('familyData'),
           apiGet('financeData'),
           apiGet('newsData'),
           apiGet('aboutData'),
           apiGet('bannerData'),
-          apiGet('galleryData')
+          apiGet('galleryData'),
+          apiGet('contactAdminData')
         ]);
         if (cancelled) return;
         setFamilyDataState(family ?? DATA_DEFAULTS.familyData);
@@ -51,6 +54,7 @@ export const AppProvider = ({ children }) => {
         setAboutDataState(about ?? DATA_DEFAULTS.aboutData);
         setBannerDataState(banner ?? DATA_DEFAULTS.bannerData);
         setGalleryDataState(gallery ?? DATA_DEFAULTS.galleryData);
+        setContactAdminDataState(contactAdmin ?? DATA_DEFAULTS.contactAdminData);
       } catch (err) {
         if (!cancelled) setLoadError(err.message || 'Không thể kết nối tới máy chủ.');
       } finally {
@@ -78,6 +82,7 @@ export const AppProvider = ({ children }) => {
   const setAboutData = makeSetter(setAboutDataState, 'aboutData');
   const setBannerData = makeSetter(setBannerDataState, 'bannerData');
   const setGalleryData = makeSetter(setGalleryDataState, 'galleryData');
+  const setContactAdminData = makeSetter(setContactAdminDataState, 'contactAdminData');
 
   const login = async (username, password) => {
     const result = await apiLogin(username, password);
@@ -109,7 +114,8 @@ export const AppProvider = ({ children }) => {
       newsData, setNewsData,
       aboutData, setAboutData,
       bannerData, setBannerData,
-      galleryData, setGalleryData
+      galleryData, setGalleryData,
+      contactAdminData, setContactAdminData
     }}>
       {children}
     </AppContext.Provider>

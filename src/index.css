@@ -530,11 +530,74 @@ img {
   transform: scale(1.08);
 }
 
+.mail-link-btn {
+  color: var(--secondary-color);
+}
+
+.mail-link-btn:hover,
+.mail-link-btn:focus-visible {
+  background: var(--secondary-color);
+  color: #08324A;
+  border-color: var(--secondary-color);
+  transform: scale(1.08);
+}
+
 @media (max-width: 480px) {
   .map-link-btn,
-  .call-btn {
+  .call-btn,
+  .mail-link-btn {
     width: 30px;
     height: 30px;
+  }
+}
+
+/* Khối liên hệ quản trị viên ở footer */
+.footer-contact {
+  max-width: 260px;
+}
+
+.footer-contact-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--secondary-color);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.footer-contact-name {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.footer-contact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.footer-contact-value {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.82);
+  word-break: break-word;
+}
+
+.footer-contact-icon.map-link-btn,
+.footer-contact-icon.call-btn,
+.footer-contact-icon.mail-link-btn {
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+@media (max-width: 768px) {
+  .footer-contact {
+    max-width: 100%;
   }
 }
 
