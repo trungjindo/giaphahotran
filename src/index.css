@@ -703,6 +703,27 @@ img {
   box-shadow: var(--shadow-md);
 }
 
+/* Tooltip nhỏ khi hover ghim — tên, đời, mã phả hệ, không che nội dung quan trọng */
+.tomb-map-wrap .leaflet-tooltip {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sm);
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.tomb-map-wrap .leaflet-tooltip-top::before {
+  border-top-color: var(--surface-color);
+}
+
+.tomb-hover-tip-name {
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
 .tomb-map-wrap .leaflet-control-zoom a {
   border-radius: var(--radius-sm) !important;
   color: var(--primary-color) !important;
@@ -786,6 +807,66 @@ img {
 .tomb-directions-btn:hover {
   background: var(--primary-color);
   color: #fff;
+}
+
+/* Ô tìm địa chỉ có gợi ý (Nominatim) — dùng trong form quản trị lăng mộ */
+.address-autocomplete {
+  position: relative;
+}
+
+.address-autocomplete-spinner {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: address-autocomplete-spin 0.7s linear infinite;
+}
+
+@keyframes address-autocomplete-spin {
+  to { transform: rotate(360deg); }
+}
+
+.address-autocomplete-results {
+  position: absolute;
+  z-index: 1200;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+}
+
+.address-autocomplete-results li {
+  list-style: none;
+}
+
+.address-autocomplete-results button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.address-autocomplete-results button:hover,
+.address-autocomplete-results button:focus-visible {
+  background: var(--color-sand);
 }
 
 /* Chọn tọa độ trên bản đồ nhỏ trong form quản trị */

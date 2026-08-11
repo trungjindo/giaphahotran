@@ -1,10 +1,11 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { AppContext } from '../store';
 import { apiRequest, apiUpload } from '../api';
 import { buildDescendantList, formatDateVN } from '../utils/family';
+import AddressAutocomplete from './AddressAutocomplete';
 
 const MAX_UPLOAD_MB = 10;
 const VIETNAM_CENTER = [16.0, 106.0];
@@ -37,6 +38,16 @@ const CoordinatePicker = ({ position, onChange }) => {
   ) : null;
 };
 
+// Bay bản đồ tới vị trí vừa chọn từ ô tìm địa chỉ. MapContainer chỉ đọc center/zoom lúc
+// khởi tạo, nên cần gọi map.flyTo() theo cách này để di chuyển bản đồ sau khi đã mount.
+const MapFlyTo = ({ target }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (target) map.flyTo([target.lat, target.lng], 16, { duration: 1 });
+  }, [target, map]);
+  return null;
+};
+
 const AdminTombs = () => {
   const { familyData, token } = useContext(AppContext);
   const [tombs, setTombs] = useState([]);
@@ -45,6 +56,7 @@ const AdminTombs = () => {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [flyTarget, setFlyTarget] = useState(null);
 
   const descendantList = useMemo(() => buildDescendantList(familyData), [familyData]);
   const membersById = useMemo(() => Object.fromEntries(descendantList.map(m => [m.id, m])), [descendantList]);
@@ -66,6 +78,13 @@ const AdminTombs = () => {
 
   const setCoords = (lat, lng) => {
     setForm(prev => ({ ...prev, latitude: lat.toFixed(6), longitude: lng.toFixed(6) }));
+  };
+
+  // Chọn 1 gợi ý từ ô tìm địa chỉ: đưa bản đồ tới đó và đặt sẵn ghim — vẫn có thể kéo/bấm
+  // lại trên bản đồ để chỉnh chính xác tọa độ cuối cùng trước khi lưu.
+  const handleAddressSelect = ({ lat, lng }) => {
+    setCoords(lat, lng);
+    setFlyTarget({ lat, lng });
   };
 
   const handleUploadPhoto = async (file) => {
@@ -112,6 +131,7 @@ const AdminTombs = () => {
       }
       setForm(emptyForm);
       setEditingId(null);
+      setFlyTarget(null);
       loadTombs();
     } catch (err) {
       alert('Lỗi: ' + err.message);
@@ -133,6 +153,7 @@ const AdminTombs = () => {
   const handleCancel = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setFlyTarget(null);
   };
 
   const handleDelete = async (id, name) => {
@@ -173,6 +194,11 @@ const AdminTombs = () => {
             </div>
 
             <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Tìm Địa Chỉ (tùy chọn, để định vị nhanh)</label>
+              <AddressAutocomplete onSelect={handleAddressSelect} placeholder="VD: Nghĩa trang xã..., huyện..., tỉnh Nam Định" />
+            </div>
+
+            <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Bấm vào bản đồ để chọn tọa độ (có thể kéo ghim để chỉnh)</label>
               <div className="tomb-picker-map">
                 <MapContainer center={pickerPosition || VIETNAM_CENTER} zoom={pickerPosition ? 15 : 5.5} style={{ height: '100%', width: '100%' }}>
@@ -181,6 +207,7 @@ const AdminTombs = () => {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
                   <CoordinatePicker position={pickerPosition} onChange={setCoords} />
+                  <MapFlyTo target={flyTarget} />
                 </MapContainer>
               </div>
             </div>

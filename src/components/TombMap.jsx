@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -111,6 +111,11 @@ function TombMap({ tombs, onViewProfile, center, zoom = 7 }) {
         <MarkerClusterGroup iconCreateFunction={createClusterIcon} chunkedLoading maxClusterRadius={50}>
           {tombs.map(t => (
             <Marker key={t.id} position={[t.latitude, t.longitude]} icon={tombIcon}>
+              <Tooltip direction="top" offset={[0, -38]} opacity={1}>
+                <span className="tomb-hover-tip-name">{t.member?.name || 'Không rõ'}</span>
+                {t.member?.generation && <span> · Đời {t.member.generation}</span>}
+                {t.code && <span> · #{t.code}</span>}
+              </Tooltip>
               <Popup minWidth={230} maxWidth={260}>
                 <TombPopupCard tomb={t} onViewProfile={onViewProfile} />
               </Popup>
