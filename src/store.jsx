@@ -12,8 +12,8 @@ const DATA_DEFAULTS = {
   galleryData: [],
   contactAdminData: { name: '', email: '', phone: '', address: '' },
   coupletData: {
-    left: 'Uống Nước Nhớ Nguồn, Gia Phong Vững Bền',
-    right: 'Học Hành Thành Đạt, Dòng Tộc Vinh Quang'
+    left: 'Uống Nước Nhớ Nguồn',
+    right: 'Ăn Quả Nhớ Kẻ Trồng Cây'
   }
 };
 

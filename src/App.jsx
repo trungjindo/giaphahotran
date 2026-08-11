@@ -80,12 +80,14 @@ function App() {
           giờ chồng lấn nội dung chính (vốn giới hạn max-width 1280px, luôn căn giữa). */}
       {coupletData?.left && (
         <aside className="couplet-banner couplet-banner-left" aria-hidden="true">
-          <span>{coupletData.left}</span>
+          <i className="couplet-emblem" />
+          <span className="couplet-text">{coupletData.left}</span>
         </aside>
       )}
       {coupletData?.right && (
         <aside className="couplet-banner couplet-banner-right" aria-hidden="true">
-          <span>{coupletData.right}</span>
+          <i className="couplet-emblem" />
+          <span className="couplet-text">{coupletData.right}</span>
         </aside>
       )}
 

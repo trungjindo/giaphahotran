@@ -755,16 +755,16 @@ function AdminDashboard() {
         <div className="card" style={{ marginTop: '30px' }}>
           <h3>Câu Đối 2 Bên Trang Web</h3>
           <p style={{ color: 'var(--text-secondary)', marginTop: '5px' }}>
-            Hiển thị dạng chữ dọc ở hai viền trái/phải trang web, chỉ trên màn hình rất rộng (máy tính lớn) để không che nội dung chính. Vế trái và vế phải nên đối nhau về ý và số chữ.
+            Hiển thị dạng trục cuốn chữ dọc ở hai viền trái/phải trang web, chỉ trên màn hình rất rộng (máy tính lớn) để không che nội dung chính. Nên viết NGẮN GỌN (khoảng 4-8 chữ mỗi vế) để vừa khung hiển thị theo chiều dọc — câu càng dài, chữ càng phải thu nhỏ. Vế trái và vế phải nên đối nhau về ý và số chữ.
           </p>
           <form onSubmit={handleSaveCouplet} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
             <div>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Vế Trái</label>
-              <input type="text" className="input-control" style={{ width: '100%' }} value={coupletForm.left} onChange={e => setCoupletForm({ ...coupletForm, left: e.target.value })} placeholder="VD: Uống Nước Nhớ Nguồn, Gia Phong Vững Bền" />
+              <input type="text" className="input-control" style={{ width: '100%' }} value={coupletForm.left} onChange={e => setCoupletForm({ ...coupletForm, left: e.target.value })} placeholder="VD: Uống Nước Nhớ Nguồn" />
             </div>
             <div>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Vế Phải</label>
-              <input type="text" className="input-control" style={{ width: '100%' }} value={coupletForm.right} onChange={e => setCoupletForm({ ...coupletForm, right: e.target.value })} placeholder="VD: Học Hành Thành Đạt, Dòng Tộc Vinh Quang" />
+              <input type="text" className="input-control" style={{ width: '100%' }} value={coupletForm.right} onChange={e => setCoupletForm({ ...coupletForm, right: e.target.value })} placeholder="VD: Ăn Quả Nhớ Kẻ Trồng Cây" />
             </div>
             <div style={{ gridColumn: '1 / -1', textAlign: 'right' }}>
               <button type="submit" className="btn-primary">Lưu Câu Đối</button>
