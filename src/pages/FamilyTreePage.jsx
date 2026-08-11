@@ -1,6 +1,6 @@
 import React, { useState, useContext, useRef, useMemo } from 'react';
 import { AppContext } from '../store';
-import { flattenFamily, buildFamilyCodeMap, buildDescendantList } from '../utils/family';
+import { flattenFamily, buildDescendantList } from '../utils/family';
 import MemberProfileModal from '../components/MemberProfileModal';
 
 const matchesFilters = (node, filterProvince, filterRegistered) => {
@@ -10,18 +10,18 @@ const matchesFilters = (node, filterProvince, filterRegistered) => {
   return true;
 };
 
-const TreeNode = ({ node, onSelect, filterProvince, filterRegistered, codeMap }) => {
+const TreeNode = ({ node, onSelect, filterProvince, filterRegistered }) => {
   // Mặc định chỉ mở rộng 2 đời đầu, các đời sau sẽ bị ẩn đi để tiết kiệm không gian
   const [isExpanded, setIsExpanded] = useState(node.generation < 2);
   const hasChildren = node.children && node.children.length > 0;
 
   const isMain = node.isMainLineage;
-  const isAlive = node.isAlive;
   const hasActiveFilter = !!filterProvince || !!filterRegistered;
   const isFilterMatch = hasActiveFilter && matchesFilters(node, filterProvince, filterRegistered);
 
+  // Màu viền là dấu hiệu duy nhất cho nhánh đích tôn hay không — thẻ chỉ giữ họ tên + đời
+  // để chiếm ít không gian nhất, hiển thị được nhiều thành viên hơn trên cùng màn hình.
   const borderColor = isMain ? 'var(--primary-color)' : 'var(--text-secondary)';
-  const avatarBorder = isAlive ? '#1E8449' : 'var(--text-secondary)';
 
   return (
     <div className="tree-node-wrapper">
@@ -42,26 +42,10 @@ const TreeNode = ({ node, onSelect, filterProvince, filterRegistered, codeMap })
           aria-label={`Xem hồ sơ ${node.name}`}
           title="Bấm để xem hồ sơ"
         >
-          <div className="node-avatar-container">
-            <img
-              src={node.avatar || 'https://via.placeholder.com/150'}
-              alt={node.name}
-              className="node-avatar-img"
-              style={{
-                border: `2px solid ${avatarBorder}`,
-                filter: isAlive ? 'none' : 'grayscale(100%)'
-              }}
-            />
-          </div>
-          <div className="node-info">
-            <h4 style={{ color: isMain ? 'var(--primary-color)' : 'var(--text-primary)' }}>
-              {node.name} {node.gender === 'Nam' ? '♂' : node.gender === 'Nữ' ? '♀' : ''}
-            </h4>
-            <span className="generation">Đời {node.generation}</span>
-            {codeMap && codeMap[node.id] && (
-              <span className="member-code" title="Mã định danh phả hệ">#{codeMap[node.id]}</span>
-            )}
-          </div>
+          <h4 style={{ color: isMain ? 'var(--primary-color)' : 'var(--text-primary)' }}>
+            {node.name} {node.gender === 'Nam' ? '♂' : node.gender === 'Nữ' ? '♀' : ''}
+          </h4>
+          <span className="generation">Đời {node.generation}</span>
         </div>
 
         {hasChildren && (
@@ -80,7 +64,7 @@ const TreeNode = ({ node, onSelect, filterProvince, filterRegistered, codeMap })
       {hasChildren && isExpanded && (
         <div className="tree-children">
           {node.children.map(child => (
-            <TreeNode key={child.id} node={child} onSelect={onSelect} filterProvince={filterProvince} filterRegistered={filterRegistered} codeMap={codeMap} />
+            <TreeNode key={child.id} node={child} onSelect={onSelect} filterProvince={filterProvince} filterRegistered={filterRegistered} />
           ))}
         </div>
       )}
@@ -98,8 +82,6 @@ function FamilyTreePage() {
     const members = flattenFamily(familyData);
     return [...new Set(members.map(m => m.currentProvince).filter(Boolean))].sort();
   }, [familyData]);
-
-  const codeMap = useMemo(() => buildFamilyCodeMap(familyData), [familyData]);
 
   const descendantList = useMemo(() => buildDescendantList(familyData), [familyData]);
   const selectedMember = useMemo(
@@ -148,12 +130,6 @@ function FamilyTreePage() {
         <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
              <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid var(--primary-color)', borderRadius: '3px' }}></span> Nhánh đích tôn
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-             <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid #1E8449', borderRadius: '50%' }}></span> Đang sống
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-             <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid var(--text-secondary)', borderRadius: '50%' }}></span> Đã mất
           </span>
         </div>
       </div>
@@ -216,7 +192,6 @@ function FamilyTreePage() {
                 onSelect={node => setSelectedMemberId(node.id)}
                 filterProvince={filterProvince}
                 filterRegistered={filterRegistered}
-                codeMap={codeMap}
               />
             ) : <p>Không có dữ liệu</p>}
           </div>
@@ -295,20 +270,20 @@ function FamilyTreePage() {
           flex-direction: column;
           align-items: center;
           position: relative;
-          margin: 0 10px; /* Thu gọn khoảng cách ngang */
+          margin: 0 7px; /* Thu gọn khoảng cách ngang */
         }
         
         .tree-node {
           background: var(--surface-color);
           border: 2px solid;
           border-radius: var(--radius-sm);
-          padding: 10px 15px; /* Thu gọn padding */
+          padding: 6px 12px; /* Chỉ còn họ tên + đời nên thu gọn tối đa */
           display: flex;
           flex-direction: column;
           align-items: center;
           position: relative;
           z-index: 2;
-          min-width: 120px; /* Thu gọn chiều rộng */
+          min-width: 84px;
           box-shadow: var(--shadow-sm);
           transition: box-shadow var(--transition-normal);
         }
@@ -325,37 +300,13 @@ function FamilyTreePage() {
           border-radius: var(--radius-sm);
         }
 
-        .node-content:hover .node-avatar-img {
-          transform: scale(1.05);
-        }
-
-        .node-avatar-container {
-          margin-bottom: 8px;
-        }
-
-        .node-avatar-img {
-          width: 50px; /* Avatar nhỏ lại */
-          height: 50px;
-          border-radius: 50%;
-          object-fit: cover;
-          background: var(--bg-color);
-          transition: transform var(--transition-fast);
-        }
-        
-        .node-info h4 {
+        .node-content h4 {
           margin: 0;
           font-family: var(--font-serif);
-          font-size: 1rem; /* Chữ nhỏ lại */
+          font-size: 0.92rem;
           font-weight: 700;
           text-align: center;
-        }
-        
-        .member-code {
-          font-size: 0.65rem;
-          color: var(--text-secondary);
-          font-family: monospace;
-          display: block;
-          margin-top: 2px;
+          white-space: nowrap;
         }
 
         .generation {
