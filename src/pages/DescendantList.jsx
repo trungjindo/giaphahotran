@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { AppContext } from '../store';
 import { buildDescendantList, getMaxGeneration } from '../utils/family';
 import MemberProfileModal from '../components/MemberProfileModal';
+import CompareMembersModal from '../components/CompareMembersModal';
 
 function DescendantList() {
   const { familyData } = useContext(AppContext);
@@ -10,6 +11,7 @@ function DescendantList() {
   const [genFilter, setGenFilter] = useState('');
   const [registeredFilter, setRegisteredFilter] = useState('');
   const [selectedMemberId, setSelectedMemberId] = useState(null);
+  const [showCompare, setShowCompare] = useState(false);
 
   const fullList = useMemo(() => buildDescendantList(familyData), [familyData]);
   const maxGeneration = useMemo(() => getMaxGeneration(familyData), [familyData]);
@@ -90,6 +92,12 @@ function DescendantList() {
             </svg>
             Xuất Excel
           </button>
+          <button className="btn-primary" onClick={() => setShowCompare(true)} style={{ background: 'var(--accent-teal)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 3v18M7 3v18M3 8h4M17 8h4M3 16h4M17 16h4" />
+            </svg>
+            So Sánh 2 Người
+          </button>
         </div>
       </div>
 
@@ -151,6 +159,7 @@ function DescendantList() {
       </div>
 
       <MemberProfileModal member={selectedMember} onClose={() => setSelectedMemberId(null)} />
+      {showCompare && <CompareMembersModal onClose={() => setShowCompare(false)} />}
     </div>
   );
 }

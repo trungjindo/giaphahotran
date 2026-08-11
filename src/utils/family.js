@@ -151,3 +151,102 @@ export const computeFamilyStats = (familyData) => {
 
   return { total, alive, deceased, genderCounts, inLawCounts, educationCounts, regionCounts, ageBrackets };
 };
+
+// Xác định quan hệ xưng hô giữa 2 người bất kỳ trong cây, dựa trên tổ tiên chung gần nhất
+// (lowest common ancestor) và khoảng cách đời từ mỗi người tới tổ tiên đó. Chỉ áp dụng cho
+// quan hệ huyết thống theo nhánh cha/con đã lưu trong cây (vợ/chồng chỉ là tên ghi chú trên
+// hồ sơ, không phải node riêng nên không so sánh được qua hàm này).
+const genderTerm = (gender, maleTerm, femaleTerm, fallback) => {
+  if (gender === 'Nam') return maleTerm;
+  if (gender === 'Nữ') return femaleTerm;
+  return fallback ?? maleTerm;
+};
+
+export const describeRelationship = (idA, idB, root) => {
+  if (!root || !idA || !idB || idA === idB) return null;
+  const flat = flattenFamily(root);
+  const byId = Object.fromEntries(flat.map(m => [m.id, m]));
+  const memberA = byId[idA];
+  const memberB = byId[idB];
+  if (!memberA || !memberB) return null;
+
+  const parentOf = Object.fromEntries(flat.map(m => [m.id, m.parentId || null]));
+  const chainOf = (id) => {
+    const chain = [];
+    let cur = id;
+    while (cur) { chain.push(cur); cur = parentOf[cur] || null; }
+    return chain;
+  };
+
+  const chainA = chainOf(idA);
+  const chainB = chainOf(idB);
+  const indexInB = new Map(chainB.map((id, i) => [id, i]));
+
+  let lcaId = null, depthA = -1, depthB = -1;
+  for (let i = 0; i < chainA.length; i++) {
+    if (indexInB.has(chainA[i])) { lcaId = chainA[i]; depthA = i; depthB = indexInB.get(chainA[i]); break; }
+  }
+  if (lcaId === null) return null; // không tìm được tổ tiên chung (không nên xảy ra với 1 cây duy nhất)
+
+  const lca = byId[lcaId];
+  const genGap = Math.abs(depthA - depthB);
+  const aIsCloserToLca = depthA <= depthB;
+
+  let aCallsB, bCallsA, relationLabel;
+
+  if (genGap === 0) {
+    const isSiblings = depthA === 1 && depthB === 1;
+    const qualifier = isSiblings ? 'ruột' : 'họ';
+    const bothHaveBirth = memberA.birthDate && memberB.birthDate;
+    if (bothHaveBirth) {
+      const aIsOlder = new Date(memberA.birthDate) <= new Date(memberB.birthDate);
+      const olderTerm = genderTerm((aIsOlder ? memberA : memberB).gender, 'Anh', 'Chị');
+      aCallsB = aIsOlder ? 'Em' : olderTerm;
+      bCallsA = aIsOlder ? olderTerm : 'Em';
+      relationLabel = `${olderTerm} em ${qualifier}`;
+    } else {
+      aCallsB = `Anh/Chị/Em ${qualifier}`;
+      bCallsA = `Anh/Chị/Em ${qualifier}`;
+      relationLabel = `Anh/chị em ${qualifier} (chưa rõ ai lớn tuổi hơn do thiếu ngày sinh)`;
+    }
+  } else if (genGap === 1) {
+    const elderMember = aIsCloserToLca ? memberA : memberB;
+    const youngerId = aIsCloserToLca ? idB : idA;
+    const isDirectParentChild = Math.min(depthA, depthB) === 0;
+    if (isDirectParentChild) {
+      const term = genderTerm(elderMember.gender, 'Cha', 'Mẹ');
+      relationLabel = `${term} - Con`;
+      if (aIsCloserToLca) { aCallsB = 'Con'; bCallsA = term; } else { bCallsA = 'Con'; aCallsB = term; }
+    } else {
+      const youngerChain = chainOf(youngerId);
+      const youngerParent = byId[youngerChain[Math.max(depthA, depthB) - 1]];
+      let term;
+      if (youngerParent?.birthDate && elderMember.birthDate) {
+        term = new Date(elderMember.birthDate) < new Date(youngerParent.birthDate)
+          ? 'Bác'
+          : genderTerm(elderMember.gender, 'Chú', 'Cô');
+      } else {
+        term = genderTerm(elderMember.gender, 'Chú/Bác', 'Cô/Bác');
+      }
+      relationLabel = `${term} - Cháu`;
+      if (aIsCloserToLca) { aCallsB = 'Cháu'; bCallsA = term; } else { bCallsA = 'Cháu'; aCallsB = term; }
+    }
+  } else if (genGap === 2) {
+    const elderMember = aIsCloserToLca ? memberA : memberB;
+    const isDirect = Math.min(depthA, depthB) === 0;
+    const term = genderTerm(elderMember.gender, 'Ông', 'Bà');
+    relationLabel = isDirect ? `${term} - Cháu` : `${term} (vai trên, cách 2 đời) - Cháu`;
+    if (aIsCloserToLca) { aCallsB = 'Cháu'; bCallsA = term; } else { bCallsA = 'Cháu'; aCallsB = term; }
+  } else if (genGap === 3) {
+    const elderMember = aIsCloserToLca ? memberA : memberB;
+    const term = genderTerm(elderMember.gender, 'Cụ ông', 'Cụ bà', 'Cụ');
+    relationLabel = `${term} - Chắt`;
+    if (aIsCloserToLca) { aCallsB = 'Chắt'; bCallsA = term; } else { bCallsA = 'Chắt'; aCallsB = term; }
+  } else {
+    relationLabel = `Vai trên cách ${genGap} đời - Vai dưới cách ${genGap} đời`;
+    if (aIsCloserToLca) { aCallsB = `Vai dưới (cách ${genGap} đời)`; bCallsA = `Vai trên (cách ${genGap} đời)`; }
+    else { bCallsA = `Vai dưới (cách ${genGap} đời)`; aCallsB = `Vai trên (cách ${genGap} đời)`; }
+  }
+
+  return { lca, genGap, relationLabel, aCallsB, bCallsA };
+};
