@@ -8,6 +8,12 @@ on:
   push:
     branches: [main]
 
+# GITHUB_TOKEN mặc định trên nhiều repo chỉ có quyền đọc — thiếu dòng này thì bước "Publish
+# to deploy branch" (đẩy code lên nhánh deploy) sẽ báo lỗi 403 ngay lập tức, đây là nguyên
+# nhân khiến nhánh "deploy" chưa từng được tạo ra dù workflow đã chạy nhiều lần trước đó.
+permissions:
+  contents: write
+
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
