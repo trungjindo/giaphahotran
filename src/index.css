@@ -935,7 +935,9 @@ img {
   height: 128px;
   border-radius: 50%;
   border: 4px solid white;
-  object-fit: cover;
+  /* "contain" (không phải "cover") để luôn thấy trọn khuôn mặt/ảnh, không bị cắt mất phần đầu
+     khi ảnh gốc không vuông — phần thừa quanh viền sẽ lấp bằng nền thay vì crop mất chi tiết. */
+  object-fit: contain;
   margin-top: -84px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.25);
   background: var(--surface-color);

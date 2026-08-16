@@ -717,7 +717,7 @@ function FamilyTreePage() {
         }
       `}</style>
 
-      <MemberProfileModal member={selectedMember} onClose={() => setSelectedMemberId(null)} />
+      <MemberProfileModal member={selectedMember} onClose={() => setSelectedMemberId(null)} onSelectMember={setSelectedMemberId} />
     </div>
   );
 }

@@ -158,7 +158,7 @@ function DescendantList() {
         </div>
       </div>
 
-      <MemberProfileModal member={selectedMember} onClose={() => setSelectedMemberId(null)} />
+      <MemberProfileModal member={selectedMember} onClose={() => setSelectedMemberId(null)} onSelectMember={setSelectedMemberId} />
       {showCompare && <CompareMembersModal onClose={() => setShowCompare(false)} />}
     </div>
   );

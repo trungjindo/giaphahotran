@@ -59,7 +59,7 @@ function TombMapPage() {
         <TombMap tombs={tombsWithMember} onViewProfile={setSelectedMemberId} center={VIETNAM_CENTER} zoom={5.5} />
       )}
 
-      <MemberProfileModal member={selectedMember} onClose={() => setSelectedMemberId(null)} />
+      <MemberProfileModal member={selectedMember} onClose={() => setSelectedMemberId(null)} onSelectMember={setSelectedMemberId} />
     </div>
   );
 }

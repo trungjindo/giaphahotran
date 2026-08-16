@@ -63,12 +63,19 @@ export const buildDescendantList = (root) => {
     const parent = byId[m.parentId];
     let father = '';
     let mother = '';
+    let fatherId = null;
+    let motherId = null;
     if (parent) {
+      // Chỉ người cha/mẹ TRÙNG VỚI nút cha trong cây (parent) mới có hồ sơ riêng để bấm vào —
+      // người còn lại chỉ là tên vợ/chồng ghi chú trên hồ sơ (spouse), không phải 1 nút trong
+      // cây nên không có ID/hồ sơ để liên kết tới.
       if (parent.gender === 'Nữ') {
         mother = parent.name;
+        motherId = parent.id;
         father = parent.spouse || '';
       } else {
         father = parent.name;
+        fatherId = parent.id;
         mother = parent.spouse || '';
       }
     }
@@ -77,6 +84,8 @@ export const buildDescendantList = (root) => {
       code: codeMap[m.id] || '',
       father,
       mother,
+      fatherId,
+      motherId,
       childrenNames: (m.children || []).map(c => c.name).join(', ')
     };
   });

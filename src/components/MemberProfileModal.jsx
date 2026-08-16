@@ -6,13 +6,30 @@ import MapLinkButton from './MapLinkButton';
 import PhoneRevealButton from './PhoneRevealButton';
 import ZaloRevealButton from './ZaloRevealButton';
 
-const getChildrenNames = (children) => {
-  if (!children || children.length === 0) return 'Chưa có thông tin';
-  return children.map(c => c.name).join(', ');
+// Tên có thể bấm vào để mở hồ sơ người đó ngay trong modal — chỉ khi có id thật (thành viên
+// có hồ sơ riêng trong cây), nếu không thì chỉ hiện tên thường (VD: vợ/chồng ghi chú, không
+// phải 1 nút trong cây nên không có hồ sơ để mở).
+const PersonLink = ({ id, name, onSelectMember }) => {
+  if (!id || !onSelectMember) return <span>{name}</span>;
+  return (
+    <button
+      type="button"
+      onClick={() => onSelectMember(id)}
+      style={{
+        background: 'none', border: 'none', padding: 0, margin: 0,
+        color: 'var(--accent-teal)', fontWeight: 600, cursor: 'pointer',
+        textDecoration: 'underline', font: 'inherit'
+      }}
+    >
+      {name}
+    </button>
+  );
 };
 
 // Modal hồ sơ chi tiết một thành viên, dùng chung cho Sơ Đồ Gia Phả và Danh Sách Con Cháu.
-const MemberProfileModal = ({ member, onClose }) => {
+// onSelectMember (tuỳ chọn): mở hồ sơ 1 người khác ngay trong modal này, dùng khi bấm vào
+// tên cha/mẹ/con cái có hồ sơ riêng.
+const MemberProfileModal = ({ member, onClose, onSelectMember }) => {
   const { isAuthenticated } = useContext(AppContext);
   const [avatarSrc, setAvatarSrc] = useState(null);
 
@@ -118,13 +135,25 @@ const MemberProfileModal = ({ member, onClose }) => {
             )}
 
             <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
-              <strong>Cha:</strong> {member.father || 'Chưa rõ'} &nbsp;·&nbsp; <strong>Mẹ:</strong> {member.mother || 'Chưa rõ'}
+              <strong>Cha:</strong>{' '}
+              {member.father ? <PersonLink id={member.fatherId} name={member.father} onSelectMember={onSelectMember} /> : 'Chưa rõ'}
+              &nbsp;·&nbsp;
+              <strong>Mẹ:</strong>{' '}
+              {member.mother ? <PersonLink id={member.motherId} name={member.mother} onSelectMember={onSelectMember} /> : 'Chưa rõ'}
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <strong>Phu nhân / Phu quân:</strong> {member.spouse || 'Chưa rõ'}
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
-              <strong>Con cái:</strong> {getChildrenNames(member.children)}
+              <strong>Con cái:</strong>{' '}
+              {member.children && member.children.length > 0 ? (
+                member.children.map((c, idx) => (
+                  <React.Fragment key={c.id}>
+                    {idx > 0 && ', '}
+                    <PersonLink id={c.id} name={c.name} onSelectMember={onSelectMember} />
+                  </React.Fragment>
+                ))
+              ) : 'Chưa có thông tin'}
             </div>
           </div>
 
