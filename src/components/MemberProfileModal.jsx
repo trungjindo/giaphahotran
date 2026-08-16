@@ -26,6 +26,17 @@ const PersonLink = ({ id, name, onSelectMember }) => {
   );
 };
 
+// Danh sách tên cách nhau bởi dấu phẩy, mỗi tên bấm được (dùng cho Anh/Chị/Em, Con cái, Cháu).
+const PersonLinkList = ({ people, onSelectMember, emptyText }) => {
+  if (!people || people.length === 0) return <span>{emptyText}</span>;
+  return people.map((p, idx) => (
+    <React.Fragment key={p.id}>
+      {idx > 0 && ', '}
+      <PersonLink id={p.id} name={p.name} onSelectMember={onSelectMember} />
+    </React.Fragment>
+  ));
+};
+
 // Modal hồ sơ chi tiết một thành viên, dùng chung cho Sơ Đồ Gia Phả và Danh Sách Con Cháu.
 // onSelectMember (tuỳ chọn): mở hồ sơ 1 người khác ngay trong modal này, dùng khi bấm vào
 // tên cha/mẹ/con cái có hồ sơ riêng.
@@ -134,26 +145,40 @@ const MemberProfileModal = ({ member, onClose, onSelectMember }) => {
               </div>
             )}
 
-            <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
-              <strong>Cha:</strong>{' '}
-              {member.father ? <PersonLink id={member.fatherId} name={member.father} onSelectMember={onSelectMember} /> : 'Chưa rõ'}
-              &nbsp;·&nbsp;
-              <strong>Mẹ:</strong>{' '}
-              {member.mother ? <PersonLink id={member.motherId} name={member.mother} onSelectMember={onSelectMember} /> : 'Chưa rõ'}
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <strong>Phu nhân / Phu quân:</strong> {member.spouse || 'Chưa rõ'}
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <strong>Con cái:</strong>{' '}
-              {member.children && member.children.length > 0 ? (
-                member.children.map((c, idx) => (
-                  <React.Fragment key={c.id}>
-                    {idx > 0 && ', '}
-                    <PersonLink id={c.id} name={c.name} onSelectMember={onSelectMember} />
-                  </React.Fragment>
-                ))
-              ) : 'Chưa có thông tin'}
+          </div>
+
+          <div style={{ marginTop: '25px', textAlign: 'left' }}>
+            <h3 style={{ borderBottom: '2px solid var(--primary-light)', display: 'inline-block', paddingBottom: '5px', marginBottom: '15px' }}>
+              Người Thân Liên Quan
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 20px', background: 'var(--bg-color)', padding: '20px', borderRadius: '8px' }}>
+              <div>
+                <strong>Ông/Bà:</strong>{' '}
+                {member.grandparent ? <PersonLink id={member.grandparent.id} name={member.grandparent.name} onSelectMember={onSelectMember} /> : 'Chưa rõ'}
+              </div>
+              <div>
+                <strong>Phu nhân / Phu quân:</strong> {member.spouse || 'Chưa rõ'}
+              </div>
+              <div>
+                <strong>Cha:</strong>{' '}
+                {member.father ? <PersonLink id={member.fatherId} name={member.father} onSelectMember={onSelectMember} /> : 'Chưa rõ'}
+              </div>
+              <div>
+                <strong>Mẹ:</strong>{' '}
+                {member.mother ? <PersonLink id={member.motherId} name={member.mother} onSelectMember={onSelectMember} /> : 'Chưa rõ'}
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <strong>Anh/Chị/Em:</strong>{' '}
+                <PersonLinkList people={member.siblings} onSelectMember={onSelectMember} emptyText="Không có" />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <strong>Con cái:</strong>{' '}
+                <PersonLinkList people={member.children} onSelectMember={onSelectMember} emptyText="Chưa có thông tin" />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <strong>Cháu:</strong>{' '}
+                <PersonLinkList people={member.grandchildren} onSelectMember={onSelectMember} emptyText="Chưa có thông tin" />
+              </div>
             </div>
           </div>
 

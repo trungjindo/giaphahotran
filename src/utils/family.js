@@ -79,6 +79,22 @@ export const buildDescendantList = (root) => {
         mother = parent.spouse || '';
       }
     }
+
+    // Ông/Bà: cha/mẹ của người cha/mẹ (nút cha) trong cây — dùng chung "Ông/Bà" không phân biệt
+    // nội/ngoại, giống cách utils/family.js#describeRelationship đang xử lý bậc cách 2 đời.
+    const grandparentNode = parent ? byId[parent.parentId] : null;
+    const grandparent = grandparentNode ? { id: grandparentNode.id, name: grandparentNode.name } : null;
+
+    // Anh/Chị/Em ruột: các con khác của cùng 1 cha/mẹ (nút cha trong cây), trừ chính mình.
+    const siblings = parent
+      ? (parent.children || []).filter(c => c.id !== m.id).map(c => ({ id: c.id, name: c.name }))
+      : [];
+
+    // Cháu: con của các con.
+    const grandchildren = (m.children || []).flatMap(
+      c => (c.children || []).map(gc => ({ id: gc.id, name: gc.name }))
+    );
+
     return {
       ...m,
       code: codeMap[m.id] || '',
@@ -86,6 +102,9 @@ export const buildDescendantList = (root) => {
       mother,
       fatherId,
       motherId,
+      grandparent,
+      siblings,
+      grandchildren,
       childrenNames: (m.children || []).map(c => c.name).join(', ')
     };
   });

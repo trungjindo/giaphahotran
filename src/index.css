@@ -935,9 +935,11 @@ img {
   height: 128px;
   border-radius: 50%;
   border: 4px solid white;
-  /* "contain" (không phải "cover") để luôn thấy trọn khuôn mặt/ảnh, không bị cắt mất phần đầu
-     khi ảnh gốc không vuông — phần thừa quanh viền sẽ lấp bằng nền thay vì crop mất chi tiết. */
-  object-fit: contain;
+  /* "cover" lấp đầy khung tròn (không để lộ nền ở góc/viền như "contain" từng làm), kết hợp
+     object-position lệch lên trên — vì ảnh chân dung dọc thường có mặt ở phần trên, crop bớt
+     phần vai/thân dưới thay vì crop mất đỉnh đầu (lỗi khi dùng vị trí mặc định "center"). */
+  object-fit: cover;
+  object-position: 50% 18%;
   margin-top: -84px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.25);
   background: var(--surface-color);
