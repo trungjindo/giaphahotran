@@ -1,0 +1,11 @@
+# React Router dùng client-side routing — mọi đường dẫn không phải file/thư mục
+# thật trên server (VD /gia-pha, /thu-vien) phải trả về index.html để React tự xử lý,
+# nếu không Apache sẽ trả 404 khi người dùng vào thẳng URL hoặc bấm F5.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
