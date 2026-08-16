@@ -5,6 +5,17 @@ import { flattenFamily, EDUCATION_LEVELS, buildFamilyCodeMap } from '../utils/fa
 import { getAvatarPlaceholder } from '../utils/avatar';
 import { apiUpload } from '../api';
 
+// Các quan hệ có thể chọn khi "Gắn Thành Viên Đã Có" — nhãn dùng chung với mục "Người Thân Liên
+// Quan" trong hồ sơ thành viên (Ông/Bà, Cha, Mẹ, Anh/Chị/Em, Con, Cháu) để nhất quán thuật ngữ.
+const RELATION_OPTIONS = [
+  { value: 'ong_ba', label: 'Ông/Bà' },
+  { value: 'cha', label: 'Cha' },
+  { value: 'me', label: 'Mẹ' },
+  { value: 'anh_chi_em', label: 'Anh/Chị/Em' },
+  { value: 'con', label: 'Con' },
+  { value: 'chau', label: 'Cháu' },
+];
+
 const emptyFormData = {
   id: '',
   name: '',
@@ -37,6 +48,10 @@ const AdminFamilyTree = () => {
   const [addSubMode, setAddSubMode] = useState('create'); // 'create' (thành viên mới) hoặc 'attach' (thành viên đã có)
   const [targetParentId, setTargetParentId] = useState(null);
   const [parentInputValue, setParentInputValue] = useState('');
+  const [attachRefInputValue, setAttachRefInputValue] = useState('');
+  const [attachRefMemberId, setAttachRefMemberId] = useState('');
+  const [attachRelation, setAttachRelation] = useState('con'); // ong_ba | cha | me | anh_chi_em | con | chau
+  const [attachChildChoiceId, setAttachChildChoiceId] = useState('');
   const [attachInputValue, setAttachInputValue] = useState('');
   const [attachSelectedId, setAttachSelectedId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -95,31 +110,100 @@ const AdminFamilyTree = () => {
     }
   };
 
-  // Danh sách thành viên ĐÃ CÓ SẴN trong cây có thể "gắn" làm con của targetParentId — dùng khi
-  // 1 người đã được nhập vào hệ thống (VD: lúc import Excel đặt nhầm chỗ, hoặc lúc đó chưa biết
-  // rõ cha/mẹ nên tạm để đâu đó) nhưng giờ muốn di chuyển đúng vị trí, thay vì phải xóa rồi tạo
-  // lại từ đầu (mất hết dữ liệu con cháu của người đó). Loại trừ: chính targetParentId, Thủy tổ
-  // (không thể có cha/mẹ), và bất kỳ tổ tiên nào của targetParentId (di chuyển tổ tiên xuống làm
-  // con của chính con cháu mình sẽ tạo vòng lặp vô hạn trong cây).
-  const targetAncestorIds = useMemo(() => {
+  // Tra cứu nhanh 1 thành viên theo id (bản gốc trong cây, còn nguyên .children lồng nhau) —
+  // dùng cho toàn bộ logic tính toán quan hệ bên dưới.
+  const memberById = useMemo(() => {
+    const map = new Map();
+    flatList.forEach(m => map.set(m.id, m));
+    return map;
+  }, [flatList]);
+
+  const getAncestorIds = (id) => {
     const ids = new Set();
-    let current = flatList.find(m => m.id === targetParentId);
+    let current = memberById.get(id);
     while (current && current.parentId) {
       ids.add(current.parentId);
-      current = flatList.find(m => m.id === current.parentId);
+      current = memberById.get(current.parentId);
     }
     return ids;
-  }, [flatList, targetParentId]);
+  };
 
+  const getDescendantIds = (id) => {
+    const ids = new Set();
+    const node = memberById.get(id);
+    const walk = (n) => (n?.children || []).forEach(c => { ids.add(c.id); walk(c); });
+    walk(node);
+    return ids;
+  };
+
+  // Tính vị trí gắn khi X sẽ trở thành CHA/MẸ của childId: X đứng ngang hàng với cha/mẹ HIỆN TẠI
+  // của childId (tức làm con của ông/bà của childId), còn childId chuyển thành con của X. Nếu
+  // childId hiện không có cha/mẹ (chính là Thủy tổ), hoặc cha/mẹ hiện tại của childId lại chính
+  // là Thủy tổ (không có "ông/bà" để X đứng ngang hàng), X sẽ trở thành Thủy Tổ MỚI của cả cây.
+  const planInsertAbove = (childId) => {
+    const child = memberById.get(childId);
+    if (!child) return { mode: 'error', message: 'Không xác định được vị trí liên quan.' };
+    if (!child.parentId) return { mode: 'become_root', targetChildId: childId };
+    const oldParent = memberById.get(child.parentId);
+    if (!oldParent || !oldParent.parentId) return { mode: 'become_root', targetChildId: child.parentId };
+    return { mode: 'insert_above', targetChildId: childId, newParentId: oldParent.parentId };
+  };
+
+  const attachRefMember = memberById.get(attachRefMemberId) || null;
+
+  // Kế hoạch gắn dựa trên quan hệ đã chọn so với "thành viên tham chiếu" — trả về đủ thông tin để
+  // vừa lọc danh sách gợi ý (tránh vòng lặp trong cây) vừa thực hiện thao tác khi xác nhận.
+  const attachPlan = useMemo(() => {
+    if (!attachRefMember) return null;
+    if (attachRelation === 'con') {
+      return { mode: 'simple', parentId: attachRefMember.id };
+    }
+    if (attachRelation === 'anh_chi_em') {
+      if (!attachRefMember.parentId) return { mode: 'error', message: `${attachRefMember.name} là Thủy tổ, không có anh/chị/em.` };
+      return { mode: 'simple', parentId: attachRefMember.parentId };
+    }
+    if (attachRelation === 'chau') {
+      const children = attachRefMember.children || [];
+      if (children.length === 0) return { mode: 'error', message: `${attachRefMember.name} chưa có người con nào để làm cháu qua.` };
+      if (children.length === 1) return { mode: 'simple', parentId: children[0].id };
+      if (!attachChildChoiceId) return { mode: 'need_child_choice', children };
+      return { mode: 'simple', parentId: attachChildChoiceId };
+    }
+    if (attachRelation === 'cha' || attachRelation === 'me') {
+      return planInsertAbove(attachRefMember.id);
+    }
+    if (attachRelation === 'ong_ba') {
+      if (!attachRefMember.parentId) return { mode: 'error', message: `${attachRefMember.name} không có cha/mẹ nên không xác định được ông/bà.` };
+      return planInsertAbove(attachRefMember.parentId);
+    }
+    return { mode: 'error', message: 'Quan hệ không hợp lệ.' };
+  }, [attachRefMember, attachRelation, attachChildChoiceId, memberById]);
+
+  // Danh sách thành viên ĐÃ CÓ SẴN trong cây có thể "gắn" theo quan hệ đã chọn — dùng khi 1 người
+  // đã được nhập vào hệ thống (VD: lúc import Excel đặt nhầm chỗ, hoặc lúc đó chưa biết rõ quan
+  // hệ nên tạm để đâu đó) nhưng giờ muốn di chuyển đúng vị trí, thay vì phải xóa rồi tạo lại từ
+  // đầu (mất hết dữ liệu con cháu của người đó). Loại trừ những lựa chọn sẽ tạo vòng lặp vô hạn
+  // trong cây — quy tắc khác nhau tuỳ chế độ:
+  // - "simple" (Con/Anh Chị Em/Cháu): X sẽ làm con của parentId -> không được chọn parentId hoặc
+  //   TỔ TIÊN của parentId (nhưng CON CHÁU của parentId thì được, chỉ là "đôn" lên gần hơn).
+  // - "insert_above"/"become_root" (Cha/Mẹ/Ông Bà): X sẽ trở thành CHA/MẸ MỚI của targetChildId
+  //   -> không được chọn targetChildId, TỔ TIÊN, hay CON CHÁU của targetChildId (cả 2 chiều đều
+  //   tạo vòng lặp vì X vừa là tổ tiên vừa nằm trong chính nhánh đó).
   const attachableMembers = useMemo(() => {
-    if (!familyData) return [];
-    return flatList.filter(m =>
-      m.id !== targetParentId &&
-      m.id !== familyData.id &&
-      m.parentId !== targetParentId &&
-      !targetAncestorIds.has(m.id)
-    );
-  }, [flatList, targetParentId, targetAncestorIds, familyData]);
+    if (!familyData || !attachPlan) return [];
+    if (attachPlan.mode === 'simple') {
+      const pid = attachPlan.parentId;
+      const anc = getAncestorIds(pid);
+      return flatList.filter(m => m.id !== pid && !anc.has(m.id) && m.parentId !== pid);
+    }
+    if (attachPlan.mode === 'insert_above' || attachPlan.mode === 'become_root') {
+      const tid = attachPlan.targetChildId;
+      const anc = getAncestorIds(tid);
+      const desc = getDescendantIds(tid);
+      return flatList.filter(m => m.id !== tid && !anc.has(m.id) && !desc.has(m.id));
+    }
+    return [];
+  }, [flatList, attachPlan, familyData, memberById]);
 
   const attachLabelToMember = useMemo(() => {
     const map = new Map();
@@ -131,6 +215,15 @@ const AdminFamilyTree = () => {
     setAttachInputValue(value);
     const found = attachLabelToMember.get(value);
     setAttachSelectedId(found ? found.id : '');
+  };
+
+  const handleAttachRefInputChange = (value) => {
+    setAttachRefInputValue(value);
+    const found = parentLabelToMember.get(value);
+    setAttachRefMemberId(found ? found.id : '');
+    setAttachChildChoiceId('');
+    setAttachInputValue('');
+    setAttachSelectedId('');
   };
 
   const selectedAttachMember = attachableMembers.find(m => m.id === attachSelectedId) || null;
@@ -401,6 +494,10 @@ const AdminFamilyTree = () => {
     setAddSubMode('create');
     setTargetParentId(parent ? parent.id : '');
     setParentInputValue(parent ? formatParentLabel(parent) : '');
+    setAttachRefInputValue(parent ? formatParentLabel(parent) : '');
+    setAttachRefMemberId(parent ? parent.id : '');
+    setAttachRelation('con');
+    setAttachChildChoiceId('');
     setAttachInputValue('');
     setAttachSelectedId('');
     setFormData({
@@ -457,27 +554,51 @@ const AdminFamilyTree = () => {
   // tạo mới — dùng khi 1 người đã nhập vào hệ thống nhưng đang bị để sai chỗ (VD: lỗi lúc nhập
   // Excel) và giờ muốn di chuyển đúng vị trí mà không mất dữ liệu con cháu của họ.
   const handleAttachExisting = () => {
-    if (!targetParentId) return alert("Vui lòng chọn cha/mẹ (người sẽ nhận thành viên này làm con) trước!");
+    if (!attachRefMemberId) return alert("Vui lòng chọn thành viên tham chiếu trước!");
+    if (!attachPlan || attachPlan.mode === 'error') return alert(attachPlan?.message || "Không xác định được vị trí gắn.");
+    if (attachPlan.mode === 'need_child_choice') return alert('Vui lòng chọn qua người con nào để xác định "Cháu".');
     if (!attachSelectedId) return alert("Vui lòng chọn đúng 1 thành viên có sẵn trong danh sách gợi ý để gắn vào!");
 
     const descendantCount = selectedAttachMember ? countDescendants(selectedAttachMember) : 0;
-    const confirmMsg = descendantCount > 0
-      ? `"${selectedAttachMember.name}" hiện có ${descendantCount} người con/cháu — tất cả sẽ chuyển theo. Tiếp tục gắn vào làm con của thành viên đã chọn?`
-      : `Gắn "${selectedAttachMember?.name}" làm con của thành viên đã chọn?`;
-    if (!window.confirm(confirmMsg)) return;
+    const descendantNote = descendantCount > 0 ? ` (kèm ${descendantCount} người con/cháu của họ)` : '';
+    const rootWarning = attachPlan.mode === 'become_root'
+      ? `\n\n⚠️ "${selectedAttachMember?.name}" sẽ trở thành THỦY TỔ MỚI của cả dòng họ (do không còn vị trí "ông/bà" phù hợp phía trên).`
+      : '';
+    if (!window.confirm(`Gắn "${selectedAttachMember?.name}"${descendantNote} vào vị trí đã chọn?${rootWarning}`)) return;
 
     const newTree = deepCopy(familyData);
-    const parentNode = findNodeById(newTree, targetParentId);
-    if (!parentNode) return alert("Không tìm thấy cha/mẹ đã chọn, vui lòng thử lại!");
 
-    const extracted = recursiveExtract(newTree, attachSelectedId);
-    if (!extracted) return alert("Không tìm thấy thành viên đã chọn, vui lòng thử lại!");
+    if (attachPlan.mode === 'become_root') {
+      const extractedX = recursiveExtract(newTree, attachSelectedId);
+      if (!extractedX) return alert("Không tìm thấy thành viên đã chọn, vui lòng thử lại!");
+      const oldRoot = attachPlan.targetChildId === newTree.id ? newTree : recursiveExtract(newTree, attachPlan.targetChildId);
+      if (!oldRoot) return alert("Không tìm thấy vị trí liên quan, vui lòng thử lại!");
+      recalculateGenerations(extractedX, 1);
+      extractedX.children = [...(extractedX.children || []), oldRoot];
+      recalculateGenerations(oldRoot, 2);
+      setFamilyData(extractedX);
+    } else if (attachPlan.mode === 'insert_above') {
+      const extractedX = recursiveExtract(newTree, attachSelectedId);
+      if (!extractedX) return alert("Không tìm thấy thành viên đã chọn, vui lòng thử lại!");
+      const extractedTarget = recursiveExtract(newTree, attachPlan.targetChildId);
+      if (!extractedTarget) return alert("Không tìm thấy vị trí liên quan, vui lòng thử lại!");
+      const newParentNode = findNodeById(newTree, attachPlan.newParentId);
+      if (!newParentNode) return alert("Không tìm thấy ông/bà liên quan, vui lòng thử lại!");
+      recalculateGenerations(extractedX, newParentNode.generation + 1);
+      newParentNode.children = [...(newParentNode.children || []), extractedX];
+      extractedX.children = [...(extractedX.children || []), extractedTarget];
+      recalculateGenerations(extractedTarget, extractedX.generation + 1);
+      setFamilyData(newTree);
+    } else {
+      const parentNode = findNodeById(newTree, attachPlan.parentId);
+      if (!parentNode) return alert("Không tìm thấy vị trí đã chọn, vui lòng thử lại!");
+      const extracted = recursiveExtract(newTree, attachSelectedId);
+      if (!extracted) return alert("Không tìm thấy thành viên đã chọn, vui lòng thử lại!");
+      recalculateGenerations(extracted, parentNode.generation + 1);
+      parentNode.children = [...(parentNode.children || []), extracted];
+      setFamilyData(newTree);
+    }
 
-    recalculateGenerations(extracted, parentNode.generation + 1);
-    if (!parentNode.children) parentNode.children = [];
-    parentNode.children.push(extracted);
-
-    setFamilyData(newTree);
     setIsModalOpen(false);
     alert("Đã gắn thành viên vào đúng vị trí!");
   };
@@ -660,19 +781,57 @@ const AdminFamilyTree = () => {
             {modalMode === 'add' && addSubMode === 'attach' ? (
               <div>
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Là con của (cha/mẹ) *</label>
+                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Thành viên tham chiếu *</label>
                   <input
                     type="text"
-                    list="parent-options"
-                    value={parentInputValue}
-                    onChange={e => handleParentInputChange(e.target.value)}
+                    list="ref-options"
+                    value={attachRefInputValue}
+                    onChange={e => handleAttachRefInputChange(e.target.value)}
                     placeholder="Gõ để tìm kiếm theo tên..."
                     style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}
                   />
-                  <datalist id="parent-options">
+                  <datalist id="ref-options">
                     {flatList.map(m => <option key={m.id} value={formatParentLabel(m)} />)}
                   </datalist>
                 </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>
+                    Thành viên sẽ gắn vào là gì của {attachRefMember ? attachRefMember.name : 'người ở trên'}? *
+                  </label>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {RELATION_OPTIONS.map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => { setAttachRelation(opt.value); setAttachChildChoiceId(''); setAttachInputValue(''); setAttachSelectedId(''); }}
+                        style={attachRelation === opt.value
+                          ? { background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '4px', padding: '8px 14px', cursor: 'pointer' }
+                          : { background: '#eee', color: 'var(--text-primary)', border: 'none', borderRadius: '4px', padding: '8px 14px', cursor: 'pointer' }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {attachPlan?.mode === 'need_child_choice' && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Là cháu qua người con nào của {attachRefMember?.name}? *</label>
+                    <select
+                      value={attachChildChoiceId}
+                      onChange={e => { setAttachChildChoiceId(e.target.value); setAttachInputValue(''); setAttachSelectedId(''); }}
+                      style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}
+                    >
+                      <option value="">-- Chọn người con --</option>
+                      {attachPlan.children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {attachPlan?.mode === 'error' && attachRefMember && (
+                  <p style={{ marginBottom: '20px', fontSize: '0.85rem', color: '#e74c3c' }}>{attachPlan.message}</p>
+                )}
 
                 <div style={{ marginBottom: '20px' }}>
                   <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Chọn thành viên đã có sẵn *</label>
@@ -681,8 +840,8 @@ const AdminFamilyTree = () => {
                     list="attach-options"
                     value={attachInputValue}
                     onChange={e => handleAttachInputChange(e.target.value)}
-                    placeholder={targetParentId ? "Gõ để tìm theo tên..." : "Chọn cha/mẹ trước"}
-                    disabled={!targetParentId}
+                    placeholder={attachRefMemberId ? "Gõ để tìm theo tên..." : "Chọn thành viên tham chiếu trước"}
+                    disabled={!attachRefMemberId || attachPlan?.mode === 'need_child_choice' || attachPlan?.mode === 'error'}
                     style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}
                   />
                   <datalist id="attach-options">
@@ -697,7 +856,7 @@ const AdminFamilyTree = () => {
                     </p>
                   ) : (
                     <p style={{ marginTop: '5px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                      Chọn 1 người đã có sẵn trong cây để chuyển sang làm con của người ở trên — dùng khi người đó bị nhập nhầm chỗ trước đây.
+                      Chọn 1 người đã có sẵn trong cây để chuyển đúng vị trí theo quan hệ đã chọn ở trên — dùng khi người đó bị nhập nhầm chỗ trước đây.
                     </p>
                   )}
                 </div>
