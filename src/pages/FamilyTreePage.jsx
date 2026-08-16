@@ -250,6 +250,12 @@ function FamilyTreePage() {
     }
   }, [layout.nodesById.size]);
 
+  // Ngưỡng nhỏ nhất cho "Vừa khung hình" — dưới mức này, chữ (đã khoá tối thiểu 12px qua
+  // ZoomFloorText) sẽ tràn ra ngoài viền ô vì ô hình học co nhỏ hơn nhưng chữ thì không co
+  // theo. Thà không lọt hết toàn bộ cây trong 1 khung hình (còn cuộn/pan tiếp được) còn hơn
+  // là chữ đè lên nhau mất thẩm mỹ.
+  const MIN_FIT_SCALE = 0.6;
+
   const handleFitToScreen = useCallback(() => {
     const ref = transformRef.current;
     const wrapper = ref?.instance?.wrapperComponent;
@@ -259,7 +265,7 @@ function FamilyTreePage() {
     const contentW = Math.max(layout.totalWidth + CARD_WIDTH, 1);
     const contentH = Math.max(layout.totalHeight, 1);
     const scale = Math.min(vw / contentW, vh / contentH) * 0.92;
-    const clampedScale = Math.min(Math.max(scale, 0.15), 3);
+    const clampedScale = Math.min(Math.max(scale, MIN_FIT_SCALE), 3);
     const posX = (vw - contentW * clampedScale) / 2;
     const posY = (vh - contentH * clampedScale) / 2;
     ref.setTransform(posX, posY, clampedScale, 300);
@@ -292,7 +298,7 @@ function FamilyTreePage() {
           centerOnInit
           limitToBounds={false}
           doubleClick={{ mode: 'zoomIn', step: 0.7 }}
-          wheel={{ step: 0.2 }}
+          wheel={{ step: 0.002 }}
           pinch={{ step: 5 }}
         >
           <ZoomAutoCollapseWatcher onCollapseChange={handleAutoCollapseChange} />
@@ -593,11 +599,23 @@ function FamilyTreePage() {
           gap: 4px;
         }
 
-        .tree-toolbar-zoom-pct {
+        .tree-toolbar-zoom-input {
           font-weight: bold;
           width: 46px;
           text-align: center;
           font-size: 0.85rem;
+          font-family: inherit;
+          color: var(--text-primary);
+          background: var(--color-sand);
+          border: 1px solid var(--border-color);
+          border-radius: var(--radius-sm);
+          padding: 6px 2px;
+        }
+
+        .tree-toolbar-zoom-input:focus {
+          outline: none;
+          border-color: var(--accent-teal);
+          background: var(--surface-color);
         }
 
         .tree-toolbar-filter {

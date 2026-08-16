@@ -7,12 +7,28 @@ import { useControls, useTransformEffect } from 'react-zoom-pan-pinch';
 // Các hành động còn lại (fit-to-screen, thu gọn tất cả, chế độ tối giản, đóng, lọc khu vực)
 // nhận qua props vì cần dữ liệu/refs chỉ trang cha mới có.
 function TreeToolbar({ onFitToScreen, onCollapseAll, lowDetail, onToggleLowDetail, provinceOptions, filterProvince, onFilterChange }) {
-  const { zoomIn, zoomOut, resetTransform } = useControls();
+  const { zoomIn, zoomOut, resetTransform, instance } = useControls();
   const [scalePercent, setScalePercent] = useState(100);
+  const [draftPercent, setDraftPercent] = useState(null);
 
   useTransformEffect(({ state }) => {
     setScalePercent(Math.round(state.scale * 100));
   });
+
+  // Cho phép gõ trực tiếp % để zoom tới đúng mức mong muốn — quy đổi thành step tương đối
+  // rồi gọi zoomIn/zoomOut (zoom quanh tâm khung nhìn hiện tại, không nhảy trọng tâm) thay vì
+  // setTransform trực tiếp (sẽ đổi cả vị trí neo về góc (0,0) của nội dung).
+  const applyDraftPercent = (raw) => {
+    setDraftPercent(null);
+    const parsed = parseInt(raw, 10);
+    if (!Number.isFinite(parsed)) return;
+    const minPct = Math.round((instance.setup.minScale || 0.15) * 100);
+    const maxPct = Math.round((instance.setup.maxScale || 3) * 100);
+    const targetScale = Math.min(Math.max(parsed, minPct), maxPct) / 100;
+    const currentScale = instance.state.scale;
+    if (targetScale > currentScale) zoomIn(Math.log(targetScale / currentScale), 200);
+    else if (targetScale < currentScale) zoomOut(Math.log(currentScale / targetScale), 200);
+  };
 
   return (
     <div className="tree-toolbar">
@@ -20,7 +36,21 @@ function TreeToolbar({ onFitToScreen, onCollapseAll, lowDetail, onToggleLowDetai
         <button className="btn-icon" onClick={() => zoomOut()} aria-label="Thu nhỏ" title="Thu nhỏ">
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round"><path d="M5 12h14" /></svg>
         </button>
-        <span className="tree-toolbar-zoom-pct">{scalePercent}%</span>
+        <input
+          className="tree-toolbar-zoom-input"
+          type="text"
+          inputMode="numeric"
+          value={draftPercent !== null ? draftPercent : `${scalePercent}%`}
+          aria-label="Nhập phần trăm zoom"
+          title="Nhập % để zoom tới đúng mức mong muốn"
+          onFocus={(e) => { setDraftPercent(String(scalePercent)); e.target.select(); }}
+          onChange={(e) => setDraftPercent(e.target.value.replace(/[^0-9]/g, ''))}
+          onBlur={(e) => applyDraftPercent(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+            else if (e.key === 'Escape') { setDraftPercent(null); e.currentTarget.blur(); }
+          }}
+        />
         <button className="btn-icon" onClick={() => zoomIn()} aria-label="Phóng to" title="Phóng to">
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
         </button>
