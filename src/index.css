@@ -1575,7 +1575,7 @@ a.promo-card:hover {
 
 .promo-card-image-wrap {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 3 / 4;
   margin-top: 6px;
   background: var(--bg-color, #F2F6F8);
 }
