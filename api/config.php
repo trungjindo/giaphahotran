@@ -27,4 +27,8 @@ define('ALLOWED_ORIGINS', [
   'https://www.hotrandinh.com',
 ]);
 
-define('STORAGE_DIR', __DIR__ . '/storage');
+// Cùng lý do với DB ở trên: ảnh tải lên (api/storage) không nằm trong Git, nên nếu lưu
+// trong public_html thì cũng bị xóa mỗi lần Hostinger đồng bộ lại. hotrandinh_db_secrets.php
+// định nghĩa STORAGE_DIR trỏ ra ngoài public_html trên server thật; máy local không có file
+// đó nên vẫn lưu trong api/storage như trước.
+if (!defined('STORAGE_DIR')) define('STORAGE_DIR', __DIR__ . '/storage');
