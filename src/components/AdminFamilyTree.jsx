@@ -34,8 +34,11 @@ const AdminFamilyTree = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
+  const [addSubMode, setAddSubMode] = useState('create'); // 'create' (thành viên mới) hoặc 'attach' (thành viên đã có)
   const [targetParentId, setTargetParentId] = useState(null);
   const [parentInputValue, setParentInputValue] = useState('');
+  const [attachInputValue, setAttachInputValue] = useState('');
+  const [attachSelectedId, setAttachSelectedId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
   const [formData, setFormData] = useState(emptyFormData);
@@ -90,6 +93,52 @@ const AdminFamilyTree = () => {
     } else {
       setTargetParentId('');
     }
+  };
+
+  // Danh sách thành viên ĐÃ CÓ SẴN trong cây có thể "gắn" làm con của targetParentId — dùng khi
+  // 1 người đã được nhập vào hệ thống (VD: lúc import Excel đặt nhầm chỗ, hoặc lúc đó chưa biết
+  // rõ cha/mẹ nên tạm để đâu đó) nhưng giờ muốn di chuyển đúng vị trí, thay vì phải xóa rồi tạo
+  // lại từ đầu (mất hết dữ liệu con cháu của người đó). Loại trừ: chính targetParentId, Thủy tổ
+  // (không thể có cha/mẹ), và bất kỳ tổ tiên nào của targetParentId (di chuyển tổ tiên xuống làm
+  // con của chính con cháu mình sẽ tạo vòng lặp vô hạn trong cây).
+  const targetAncestorIds = useMemo(() => {
+    const ids = new Set();
+    let current = flatList.find(m => m.id === targetParentId);
+    while (current && current.parentId) {
+      ids.add(current.parentId);
+      current = flatList.find(m => m.id === current.parentId);
+    }
+    return ids;
+  }, [flatList, targetParentId]);
+
+  const attachableMembers = useMemo(() => {
+    if (!familyData) return [];
+    return flatList.filter(m =>
+      m.id !== targetParentId &&
+      m.id !== familyData.id &&
+      m.parentId !== targetParentId &&
+      !targetAncestorIds.has(m.id)
+    );
+  }, [flatList, targetParentId, targetAncestorIds, familyData]);
+
+  const attachLabelToMember = useMemo(() => {
+    const map = new Map();
+    attachableMembers.forEach(m => map.set(formatParentLabel(m), m));
+    return map;
+  }, [attachableMembers]);
+
+  const handleAttachInputChange = (value) => {
+    setAttachInputValue(value);
+    const found = attachLabelToMember.get(value);
+    setAttachSelectedId(found ? found.id : '');
+  };
+
+  const selectedAttachMember = attachableMembers.find(m => m.id === attachSelectedId) || null;
+
+  const countDescendants = (node) => {
+    let count = 0;
+    (node.children || []).forEach(c => { count += 1 + countDescendants(c); });
+    return count;
   };
 
   // 2. EXCEL EXPORT / IMPORT
@@ -310,14 +359,50 @@ const AdminFamilyTree = () => {
     return false;
   };
 
+  const findNodeById = (node, id) => {
+    if (!node) return null;
+    if (node.id === id) return node;
+    for (const child of node.children || []) {
+      const found = findNodeById(child, id);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  // Giống recursiveDelete nhưng TRẢ VỀ node vừa gỡ (thay vì chỉ xóa đi) — dùng để "gắn" 1 thành
+  // viên đã có sẵn (kèm toàn bộ nhánh con cháu của họ) sang vị trí cha/mẹ khác.
+  const recursiveExtract = (node, nodeId) => {
+    if (!node.children) return null;
+    const index = node.children.findIndex(c => c.id === nodeId);
+    if (index !== -1) {
+      const [removed] = node.children.splice(index, 1);
+      return removed;
+    }
+    for (const child of node.children) {
+      const found = recursiveExtract(child, nodeId);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  // Sau khi di chuyển 1 nhánh sang đời khác, phải tính lại "Đời" cho chính người đó VÀ toàn bộ
+  // con cháu của họ — nếu không số Đời sẽ sai lệch so với vị trí mới trong cây.
+  const recalculateGenerations = (node, generation) => {
+    node.generation = generation;
+    (node.children || []).forEach(child => recalculateGenerations(child, generation + 1));
+  };
+
   // 4. Form Handlers
   // parent = null khi mở từ nút "+ Thêm Thành Viên Mới" ở đầu trang — người dùng sẽ tự tìm và
   // chọn cha/mẹ ngay trong form. parent = 1 thành viên cụ thể khi mở từ nút "+ Thêm con" trên
   // 1 dòng trong bảng — đã biết sẵn cha/mẹ nên điền sẵn luôn.
   const openAddModal = (parent) => {
     setModalMode('add');
+    setAddSubMode('create');
     setTargetParentId(parent ? parent.id : '');
     setParentInputValue(parent ? formatParentLabel(parent) : '');
+    setAttachInputValue('');
+    setAttachSelectedId('');
     setFormData({
       ...emptyFormData,
       id: 'gen_' + Date.now(),
@@ -366,6 +451,35 @@ const AdminFamilyTree = () => {
     walk(newTree);
     setFamilyData(newTree);
     alert(`Đã cập nhật ${pendingAliveFix.length} thành viên thành "Còn sống".`);
+  };
+
+  // Gắn 1 thành viên ĐÃ CÓ SẴN (kèm toàn bộ con cháu của họ) làm con của targetParentId, thay vì
+  // tạo mới — dùng khi 1 người đã nhập vào hệ thống nhưng đang bị để sai chỗ (VD: lỗi lúc nhập
+  // Excel) và giờ muốn di chuyển đúng vị trí mà không mất dữ liệu con cháu của họ.
+  const handleAttachExisting = () => {
+    if (!targetParentId) return alert("Vui lòng chọn cha/mẹ (người sẽ nhận thành viên này làm con) trước!");
+    if (!attachSelectedId) return alert("Vui lòng chọn đúng 1 thành viên có sẵn trong danh sách gợi ý để gắn vào!");
+
+    const descendantCount = selectedAttachMember ? countDescendants(selectedAttachMember) : 0;
+    const confirmMsg = descendantCount > 0
+      ? `"${selectedAttachMember.name}" hiện có ${descendantCount} người con/cháu — tất cả sẽ chuyển theo. Tiếp tục gắn vào làm con của thành viên đã chọn?`
+      : `Gắn "${selectedAttachMember?.name}" làm con của thành viên đã chọn?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    const newTree = deepCopy(familyData);
+    const parentNode = findNodeById(newTree, targetParentId);
+    if (!parentNode) return alert("Không tìm thấy cha/mẹ đã chọn, vui lòng thử lại!");
+
+    const extracted = recursiveExtract(newTree, attachSelectedId);
+    if (!extracted) return alert("Không tìm thấy thành viên đã chọn, vui lòng thử lại!");
+
+    recalculateGenerations(extracted, parentNode.generation + 1);
+    if (!parentNode.children) parentNode.children = [];
+    parentNode.children.push(extracted);
+
+    setFamilyData(newTree);
+    setIsModalOpen(false);
+    alert("Đã gắn thành viên vào đúng vị trí!");
   };
 
   const handleSave = (e) => {
@@ -518,6 +632,82 @@ const AdminFamilyTree = () => {
               {modalMode === 'add' ? 'Thêm Thành Viên Mới' : 'Cập Nhật Thông Tin'}
             </h2>
 
+            {modalMode === 'add' && (
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                <button
+                  type="button"
+                  onClick={() => setAddSubMode('create')}
+                  className={addSubMode === 'create' ? 'btn-primary' : ''}
+                  style={addSubMode === 'create'
+                    ? { background: 'var(--primary-color)', color: 'white' }
+                    : { background: '#eee', color: 'var(--text-primary)', border: 'none', borderRadius: '4px', padding: '10px 16px', cursor: 'pointer' }}
+                >
+                  Tạo Thành Viên Mới
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAddSubMode('attach')}
+                  className={addSubMode === 'attach' ? 'btn-primary' : ''}
+                  style={addSubMode === 'attach'
+                    ? { background: 'var(--primary-color)', color: 'white' }
+                    : { background: '#eee', color: 'var(--text-primary)', border: 'none', borderRadius: '4px', padding: '10px 16px', cursor: 'pointer' }}
+                >
+                  Gắn Thành Viên Đã Có
+                </button>
+              </div>
+            )}
+
+            {modalMode === 'add' && addSubMode === 'attach' ? (
+              <div>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Là con của (cha/mẹ) *</label>
+                  <input
+                    type="text"
+                    list="parent-options"
+                    value={parentInputValue}
+                    onChange={e => handleParentInputChange(e.target.value)}
+                    placeholder="Gõ để tìm kiếm theo tên..."
+                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}
+                  />
+                  <datalist id="parent-options">
+                    {flatList.map(m => <option key={m.id} value={formatParentLabel(m)} />)}
+                  </datalist>
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Chọn thành viên đã có sẵn *</label>
+                  <input
+                    type="text"
+                    list="attach-options"
+                    value={attachInputValue}
+                    onChange={e => handleAttachInputChange(e.target.value)}
+                    placeholder={targetParentId ? "Gõ để tìm theo tên..." : "Chọn cha/mẹ trước"}
+                    disabled={!targetParentId}
+                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}
+                  />
+                  <datalist id="attach-options">
+                    {attachableMembers.map(m => <option key={m.id} value={formatParentLabel(m)} />)}
+                  </datalist>
+                  {selectedAttachMember ? (
+                    <p style={{ marginTop: '5px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      Hiện là con của: {selectedAttachMember.parentName}
+                      {countDescendants(selectedAttachMember) > 0 && (
+                        <> · Có {countDescendants(selectedAttachMember)} người con/cháu sẽ chuyển theo</>
+                      )}
+                    </p>
+                  ) : (
+                    <p style={{ marginTop: '5px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      Chọn 1 người đã có sẵn trong cây để chuyển sang làm con của người ở trên — dùng khi người đó bị nhập nhầm chỗ trước đây.
+                    </p>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                  <button type="button" onClick={() => setIsModalOpen(false)} style={{ padding: '10px 20px', background: '#ccc', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Hủy Bỏ</button>
+                  <button type="button" className="btn-primary" onClick={handleAttachExisting}>Gắn Vào Đây</button>
+                </div>
+              </div>
+            ) : (
             <form onSubmit={handleSave} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               {modalMode === 'add' && (
                 <div style={{ gridColumn: '1 / -1' }}>
@@ -669,6 +859,7 @@ const AdminFamilyTree = () => {
                 <button type="submit" className="btn-primary">Lưu Thay Đổi</button>
               </div>
             </form>
+            )}
           </div>
         </div>
       )}
