@@ -1,6 +1,7 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { AppContext } from '../store';
 import { calculateAge, formatDateVN } from '../utils/family';
+import { getAvatarPlaceholder } from '../utils/avatar';
 import MapLinkButton from './MapLinkButton';
 import PhoneRevealButton from './PhoneRevealButton';
 import ZaloRevealButton from './ZaloRevealButton';
@@ -13,33 +14,49 @@ const getChildrenNames = (children) => {
 // Modal hồ sơ chi tiết một thành viên, dùng chung cho Sơ Đồ Gia Phả và Danh Sách Con Cháu.
 const MemberProfileModal = ({ member, onClose }) => {
   const { isAuthenticated } = useContext(AppContext);
+  const [avatarSrc, setAvatarSrc] = useState(null);
+
+  useEffect(() => {
+    if (!member) return;
+    setAvatarSrc(member.avatar || getAvatarPlaceholder(member.name));
+  }, [member]);
+
   if (!member) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <button className="close-btn" onClick={onClose}>✕</button>
+          <button className="close-btn" onClick={onClose} aria-label="Đóng">✕</button>
           <div style={{ height: '40px' }}></div>
         </div>
 
         <div style={{ padding: '0 30px 30px', textAlign: 'center' }}>
           <img
-            src={member.avatar || 'https://via.placeholder.com/150'}
+            src={avatarSrc}
             alt={member.name}
             className="modal-avatar"
             style={{ filter: member.isAlive ? 'none' : 'grayscale(100%)' }}
+            onError={() => setAvatarSrc(getAvatarPlaceholder(member.name))}
           />
-          <h2 style={{ margin: '15px 0 5px', fontFamily: 'var(--font-serif)', color: 'var(--primary-color)' }}>
+          <h2 style={{ margin: '18px 0 6px', fontFamily: 'var(--font-serif)', color: 'var(--primary-color)', fontSize: '1.6rem' }}>
             {member.name}
           </h2>
-          <span className="generation" style={{ display: 'inline-block', marginBottom: '15px', padding: '5px 15px', fontSize: '0.9rem' }}>
+          <span className="generation" style={{ display: 'inline-block', marginBottom: '14px', padding: '5px 15px', fontSize: '0.9rem' }}>
             Đời thứ {member.generation}
             {member.code && <> · Mã: <span style={{ fontFamily: 'monospace' }}>{member.code}</span></>}
           </span>
-          <div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '24px' }}>
             <span style={{
-              display: 'inline-block', marginBottom: '25px', padding: '4px 12px', borderRadius: '10px',
+              display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 12px', borderRadius: '10px',
+              fontSize: '0.85rem', fontWeight: '600',
+              background: member.isAlive ? '#e8f5e9' : '#f0f1f2',
+              color: member.isAlive ? '#2e7d32' : '#7f8c8d'
+            }}>
+              {member.isAlive ? '● Đang sống' : '○ Đã mất'}
+            </span>
+            <span style={{
+              display: 'inline-block', padding: '4px 12px', borderRadius: '10px',
               fontSize: '0.85rem', fontWeight: '600',
               background: member.isRegistered ? '#e8f5e9' : '#f5f5f5',
               color: member.isRegistered ? '#2e7d32' : '#7f8c8d'
@@ -51,10 +68,10 @@ const MemberProfileModal = ({ member, onClose }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', textAlign: 'left', background: 'var(--bg-color)', padding: '20px', borderRadius: '8px' }}>
             <div><strong>Giới tính:</strong> {member.gender || 'Chưa rõ'}</div>
             <div>
-              <strong>Tình trạng:</strong> {member.isAlive ? <span style={{color: '#27ae60', fontWeight: 'bold'}}>Đang sống</span> : <span style={{color: '#7f8c8d'}}>Đã mất</span>}
+              <strong>{member.isAlive ? 'Tuổi' : 'Hưởng thọ'}:</strong>{' '}
               {(() => {
                 const age = calculateAge(member.birthDate, member.deathDate, member.isAlive);
-                return age !== null ? <span style={{ color: 'var(--text-secondary)' }}> ({member.isAlive ? `${age} tuổi` : `hưởng thọ ${age} tuổi`})</span> : null;
+                return age !== null ? `${age} tuổi` : 'Chưa rõ';
               })()}
             </div>
             <div><strong>Ngày sinh:</strong> {formatDateVN(member.birthDate) || 'Chưa rõ'}</div>

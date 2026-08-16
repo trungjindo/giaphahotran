@@ -2,6 +2,7 @@ import React, { useState, useContext, useRef, useMemo } from 'react';
 import { AppContext } from '../store';
 import * as XLSX from 'xlsx';
 import { flattenFamily, EDUCATION_LEVELS, buildFamilyCodeMap } from '../utils/family';
+import { getAvatarPlaceholder } from '../utils/avatar';
 import { apiUpload } from '../api';
 
 const emptyFormData = {
@@ -73,6 +74,12 @@ const AdminFamilyTree = () => {
     flatList.forEach(m => map.set(formatParentLabel(m), m));
     return map;
   }, [flatList, codeMap]);
+
+  // Thành viên Đời 11/12 hiện đang ghi "Đã mất" — dùng cho banner dọn dữ liệu 1 lần bên dưới.
+  const pendingAliveFix = useMemo(
+    () => flatList.filter(m => (m.generation === 11 || m.generation === 12) && !m.isAlive),
+    [flatList]
+  );
 
   const handleParentInputChange = (value) => {
     setParentInputValue(value);
@@ -341,6 +348,26 @@ const AdminFamilyTree = () => {
     }
   };
 
+  // Dọn dữ liệu 1 lần cho Đời 11 & 12: đánh dấu "Còn sống" hàng loạt thay vì phải sửa từng
+  // người. Banner tự ẩn khi không còn ai ở 2 đời này đang ghi "Đã mất".
+  const handleBulkMarkAlive = () => {
+    const affectedIds = new Set(pendingAliveFix.map(m => m.id));
+    const names = pendingAliveFix.map(m => `- ${m.name} (Đời ${m.generation})`).join('\n');
+    if (!window.confirm(`Sẽ đánh dấu ${pendingAliveFix.length} thành viên sau là "Còn sống" (xóa ngày mất nếu có):\n\n${names}\n\nTiếp tục?`)) return;
+
+    const newTree = deepCopy(familyData);
+    const walk = (node) => {
+      if (affectedIds.has(node.id)) {
+        node.isAlive = true;
+        node.deathDate = '';
+      }
+      (node.children || []).forEach(walk);
+    };
+    walk(newTree);
+    setFamilyData(newTree);
+    alert(`Đã cập nhật ${pendingAliveFix.length} thành viên thành "Còn sống".`);
+  };
+
   const handleSave = (e) => {
     e.preventDefault();
     if (!formData.name) return alert("Vui lòng nhập họ tên!");
@@ -382,6 +409,21 @@ const AdminFamilyTree = () => {
           <button className="btn-primary" onClick={handleExportExcel} style={{ background: '#27ae60', color: 'white' }}>📤 Xuất Excel</button>
         </div>
       </div>
+
+      {pendingAliveFix.length > 0 && (
+        <div style={{
+          background: '#fff8e1', border: '1px solid #f0c14b', borderRadius: '8px',
+          padding: '14px 18px', marginBottom: '15px', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', gap: '15px', flexWrap: 'wrap'
+        }}>
+          <span>
+            Có <strong>{pendingAliveFix.length}</strong> thành viên Đời 11 &amp; 12 đang ghi "Đã mất" — bấm để đánh dấu tất cả thành "Còn sống".
+          </span>
+          <button className="btn-primary" onClick={handleBulkMarkAlive} style={{ background: '#f39c12', color: 'white', whiteSpace: 'nowrap' }}>
+            Đánh dấu Còn sống (Đời 11 &amp; 12)
+          </button>
+        </div>
+      )}
 
       <div style={{ marginBottom: '15px', position: 'relative', maxWidth: '400px' }}>
         <input
@@ -430,7 +472,12 @@ const AdminFamilyTree = () => {
             {filteredList.map(member => (
               <tr key={member.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                 <td style={{ padding: '12px 15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <img src={member.avatar || 'https://via.placeholder.com/150'} alt={member.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
+                  <img
+                    src={member.avatar || getAvatarPlaceholder(member.name)}
+                    alt={member.name}
+                    style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
+                    onError={e => { e.target.onerror = null; e.target.src = getAvatarPlaceholder(member.name); }}
+                  />
                   <div>
                     <div style={{ fontWeight: 'bold', color: member.isMainLineage ? 'var(--primary-color)' : 'var(--text-primary)' }}>
                       {member.name} {member.isMainLineage && '👑'}
