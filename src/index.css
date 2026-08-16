@@ -1518,96 +1518,131 @@ img {
   }
 }
 
-/* Câu đối trang trí 2 bên trang web — dạng trục cuốn truyền thống (nền đỏ, viền vàng, 2 đầu
-   trục gỗ sẫm màu). Neo theo MÉP của khối nội dung (max-width 1280px, căn giữa) thay vì mép
-   trình duyệt — để không bị trôi nổi lạc lõng giữa khoảng trắng lớn khi màn hình rất rộng.
-   Mặc định ẩn, chỉ hiện từ 1440px (đủ chỗ: 1280px nội dung + 2×(22px cách + 56px băng)). */
-.couplet-banner {
+/* Banner quảng cáo dọc 2 bên trang web (doanh nghiệp/dịch vụ thành viên dòng họ) — neo theo
+   MÉP của khối nội dung (max-width 1280px, căn giữa) thay vì mép trình duyệt, để luôn bám sát
+   nội dung thay vì trôi nổi giữa khoảng trắng lớn trên màn hình rộng. Mặc định ẩn, chỉ hiện
+   từ 1760px (đủ chỗ: 1280px nội dung + 2×(20px cách + 220px băng)) — dưới mức đó ẩn hẳn để
+   không bao giờ chồng lấn nội dung chính, kể cả trên đa số laptop; điện thoại luôn ẩn. */
+.promo-rail {
   display: none;
   position: fixed;
   top: 50%;
   transform: translateY(-50%);
-  width: 56px;
-  max-height: calc(100vh - 80px);
-  overflow: hidden;
-  padding: 24px 8px;
-  background:
-    repeating-linear-gradient(135deg, rgba(255,215,120,0.07) 0 2px, transparent 2px 14px),
-    linear-gradient(160deg, #A32424 0%, #8A1C1C 45%, #6E1414 100%);
-  border: 2px solid #D4AF37;
-  border-radius: 4px;
-  box-shadow:
-    inset 0 0 0 1px rgba(255,215,120,0.55),
-    inset 0 0 14px rgba(0,0,0,0.35),
-    0 6px 22px rgba(0,0,0,0.28);
+  width: 220px;
   z-index: 5;
-  pointer-events: none;
 }
 
-.couplet-banner-left {
-  left: calc(50% - 720px);
+.promo-rail-left {
+  left: calc(50% - 880px);
 }
 
-.couplet-banner-right {
-  right: calc(50% - 720px);
+.promo-rail-right {
+  right: calc(50% - 880px);
 }
 
-/* 2 đầu trục cuốn (giả lập thanh gỗ tròn) — nhô rộng hơn thân băng 1 chút cho giống trục thật */
-.couplet-banner::before,
-.couplet-banner::after {
-  content: '';
-  position: absolute;
-  left: -6px;
-  right: -6px;
-  height: 13px;
-  background: linear-gradient(180deg, #4A3117, #2B1B0D);
-  border-radius: 7px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.15);
-}
-
-.couplet-banner::before {
-  top: -6px;
-}
-
-.couplet-banner::after {
-  bottom: -6px;
-}
-
-/* Huy hiệu tròn mạ vàng ngay dưới đầu trục trên, thay cho họa tiết rồng phượng cầu kỳ */
-.couplet-emblem {
+.promo-card {
   display: block;
-  width: 20px;
-  height: 20px;
-  margin: 0 auto 14px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #FCE8A8, #D4AF37 55%, #9C7A1E 100%);
-  box-shadow: 0 0 0 1px #6E5313, 0 1px 2px rgba(0,0,0,0.4);
-  flex-shrink: 0;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  animation: promoCardIn 0.5s ease both;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
-.couplet-text {
-  writing-mode: vertical-rl;
-  text-orientation: upright;
-  color: #1A0F0F;
-  font-family: var(--font-serif);
-  font-size: 0.95rem;
+a.promo-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 24px 44px rgba(14,50,71,0.22);
+}
+
+@keyframes promoCardIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.promo-card-eyebrow {
+  display: block;
+  padding: 10px 16px 0;
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
-  line-height: 1.3;
-  text-shadow: 0 1px 0 rgba(255,215,120,0.35);
-  display: block;
-  margin: 0 auto;
-  white-space: nowrap;
-  max-height: 100%;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-teal);
 }
 
-/* 1440px = đủ chỗ cho nội dung 1280px + băng câu đối 2 bên mà không chồng lấn — hầu hết
-   laptop/PC màn hình rộng sẽ thấy, máy tính bảng/điện thoại luôn ẩn (display: none ở trên). */
-@media (min-width: 1440px) {
-  .couplet-banner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+.promo-card-image-wrap {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  margin-top: 6px;
+  background: var(--bg-color, #F2F6F8);
+}
+
+.promo-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.promo-card-body {
+  padding: 12px 16px 16px;
+}
+
+.promo-card-name {
+  margin: 0 0 6px;
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  line-height: 1.25;
+  color: var(--primary-color);
+}
+
+.promo-card-desc {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.promo-card-contact {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.promo-card-cta {
+  display: inline-block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent-teal);
+}
+
+.promo-card-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.promo-card-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-color);
+}
+
+.promo-card-dot.active {
+  background: var(--accent-teal);
+}
+
+@media (min-width: 1760px) {
+  .promo-rail {
+    display: block;
   }
 }

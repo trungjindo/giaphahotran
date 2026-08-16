@@ -3,6 +3,7 @@ import { Routes, Route, Link, NavLink } from 'react-router-dom';
 import { AppContext } from './store';
 import OceanScene from './components/OceanScene';
 import ContactAdminBox from './components/ContactAdminBox';
+import PromoBannerRail from './components/PromoBannerRail';
 
 const LOGO_SRC = '/media/brand/logo-icon.png';
 const LogoMark = ({ size = 44, className = '' }) => (
@@ -36,7 +37,7 @@ const NAV_ITEMS = [
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { isLoading, loadError, coupletData } = useContext(AppContext);
+  const { isLoading, loadError } = useContext(AppContext);
   const menuButtonRef = useRef(null);
 
   useEffect(() => {
@@ -76,20 +77,9 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Câu đối trang trí hai bên trang web — chỉ hiện trên màn hình rất rộng để không bao
-          giờ chồng lấn nội dung chính (vốn giới hạn max-width 1280px, luôn căn giữa). */}
-      {coupletData?.left && (
-        <aside className="couplet-banner couplet-banner-left" aria-hidden="true">
-          <i className="couplet-emblem" />
-          <span className="couplet-text">{coupletData.left}</span>
-        </aside>
-      )}
-      {coupletData?.right && (
-        <aside className="couplet-banner couplet-banner-right" aria-hidden="true">
-          <i className="couplet-emblem" />
-          <span className="couplet-text">{coupletData.right}</span>
-        </aside>
-      )}
+      {/* Banner quảng cáo dọc 2 bên trang web (doanh nghiệp/dịch vụ thành viên) — chỉ hiện
+          trên màn hình rất rộng để không bao giờ chồng lấn nội dung chính (max-width 1280px). */}
+      <PromoBannerRail />
 
       {/* Navbar */}
       <nav className="navbar">

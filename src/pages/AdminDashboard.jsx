@@ -9,6 +9,7 @@ import AdminChiFinance from '../components/AdminChiFinance';
 import AdminBaiBien from '../components/AdminBaiBien';
 import AdminTombs from '../components/AdminTombs';
 import AssetManagement from '../components/AssetManagement';
+import AdminPromoBanners from '../components/AdminPromoBanners';
 import { INCOME_CATEGORIES, formatCurrency, computeFinanceSummary, getAvailableYears, getYear } from '../utils/finance';
 import { apiUpload, apiRequest } from '../api';
 
@@ -99,8 +100,7 @@ function AdminDashboard() {
     aboutData, setAboutData,
     bannerData, setBannerData,
     galleryData, setGalleryData,
-    contactAdminData, setContactAdminData,
-    coupletData, setCoupletData
+    contactAdminData, setContactAdminData
   } = useContext(AppContext);
   const isSuperAdmin = role === 'admin' || role === null; // role null: tài khoản cũ trước khi có hệ thống phân quyền
   const isChiScoped = !isSuperAdmin && !!chiId;
@@ -136,12 +136,6 @@ function AdminDashboard() {
     email: contactAdminData.email || '',
     phone: contactAdminData.phone || '',
     address: contactAdminData.address || ''
-  }));
-
-  // Form state cho Câu Đối 2 bên trang web (chỉ hiện trên màn hình rất rộng)
-  const [coupletForm, setCoupletForm] = useState(() => ({
-    left: coupletData.left || '',
-    right: coupletData.right || ''
   }));
 
   // Form states for Banner (Trang chủ)
@@ -330,12 +324,6 @@ function AdminDashboard() {
     alert('Đã lưu thông tin Liên Hệ Quản Trị!');
   };
 
-  const handleSaveCouplet = (e) => {
-    e.preventDefault();
-    setCoupletData({ ...coupletForm });
-    alert('Đã lưu Câu Đối 2 bên trang web!');
-  };
-
   const handleAddBanner = (e) => {
     e.preventDefault();
     if (!newBanner.url) return alert('Vui lòng chọn hoặc tải lên một ảnh!');
@@ -457,6 +445,13 @@ function AdminDashboard() {
                 style={{ background: activeTab === 'users' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'users' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
               >
                 Quản Lý Tài Khoản
+              </button>
+              <button
+                onClick={() => setActiveTab('promoBanners')}
+                className={`btn-primary tab-btn ${activeTab === 'promoBanners' ? '' : 'inactive-tab'}`}
+                style={{ background: activeTab === 'promoBanners' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'promoBanners' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+              >
+                Quảng Cáo Thành Viên
               </button>
             </>
           )}
@@ -753,28 +748,6 @@ function AdminDashboard() {
 
       {activeTab === 'about' && (
         <div className="card" style={{ marginTop: '30px' }}>
-          <h3>Câu Đối 2 Bên Trang Web</h3>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '5px' }}>
-            Hiển thị dạng trục cuốn chữ dọc ở hai viền trái/phải trang web, chỉ trên màn hình rất rộng (máy tính lớn) để không che nội dung chính. Nên viết NGẮN GỌN (khoảng 4-8 chữ mỗi vế) để vừa khung hiển thị theo chiều dọc — câu càng dài, chữ càng phải thu nhỏ. Vế trái và vế phải nên đối nhau về ý và số chữ.
-          </p>
-          <form onSubmit={handleSaveCouplet} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
-            <div>
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Vế Trái</label>
-              <input type="text" className="input-control" style={{ width: '100%' }} value={coupletForm.left} onChange={e => setCoupletForm({ ...coupletForm, left: e.target.value })} placeholder="VD: Uống Nước Nhớ Nguồn" />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Vế Phải</label>
-              <input type="text" className="input-control" style={{ width: '100%' }} value={coupletForm.right} onChange={e => setCoupletForm({ ...coupletForm, right: e.target.value })} placeholder="VD: Ăn Quả Nhớ Kẻ Trồng Cây" />
-            </div>
-            <div style={{ gridColumn: '1 / -1', textAlign: 'right' }}>
-              <button type="submit" className="btn-primary">Lưu Câu Đối</button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {activeTab === 'about' && (
-        <div className="card" style={{ marginTop: '30px' }}>
           <h3>Nội Dung Trang Giới Thiệu</h3>
           <form onSubmit={handleSaveAbout} style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '20px' }}>
             <div>
@@ -887,6 +860,7 @@ function AdminDashboard() {
       {activeTab === 'assets' && isSuperAdmin && <AssetManagement />}
       {activeTab === 'chi' && isSuperAdmin && <AdminChiManager />}
       {activeTab === 'users' && isSuperAdmin && <AdminUserManager />}
+      {activeTab === 'promoBanners' && isSuperAdmin && <AdminPromoBanners />}
     </div>
   );
 }

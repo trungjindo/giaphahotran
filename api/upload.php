@@ -19,6 +19,7 @@ const TYPE_FOLDERS = [
   'about'   => 'gioi_thieu',
   'tomb'    => 'mo_phan',
   'asset'   => 'tai_san',
+  'promo'   => 'quang_cao',
 ];
 
 if (empty($_FILES['image'])) {

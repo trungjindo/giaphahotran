@@ -155,6 +155,25 @@ CREATE TABLE IF NOT EXISTS asset_history (
   INDEX idx_asset (asset_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Banner quảng cáo dọc 2 bên trang web — nơi thành viên trong họ quảng bá sản phẩm/dịch vụ/
+-- công ty của mình. Chỉ admin dòng họ được thêm (duyệt nội dung trước khi đăng công khai).
+-- is_active=0 để ẩn tạm mà không phải xóa hẳn; sort_order quyết định thứ tự xoay vòng hiển thị.
+CREATE TABLE IF NOT EXISTS promo_banners (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  business_name VARCHAR(150) NOT NULL,
+  description VARCHAR(300) NULL,
+  image VARCHAR(500) NOT NULL,
+  link_url VARCHAR(500) NULL,
+  contact_name VARCHAR(150) NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_by INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_active_order (is_active, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Khởi tạo các dòng dữ liệu rỗng — API sẽ điền dữ liệu mẫu vào lần chạy đầu qua ứng dụng,
 -- hoặc bạn có thể tự import dữ liệu chính thức sau.
 INSERT IGNORE INTO app_data (data_key, data_json) VALUES
@@ -164,8 +183,7 @@ INSERT IGNORE INTO app_data (data_key, data_json) VALUES
   ('aboutData', 'null'),
   ('bannerData', 'null'),
   ('galleryData', 'null'),
-  ('contactAdminData', 'null'),
-  ('coupletData', 'null');
+  ('contactAdminData', 'null');
 
 -- Tạo tài khoản admin (dòng họ lớn) mặc định: username "admin", mật khẩu "admin123"
 -- ĐỔI MẬT KHẨU NÀY NGAY sau khi triển khai — xem hướng dẫn trong DEPLOY.md
