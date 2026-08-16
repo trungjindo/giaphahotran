@@ -1,8 +1,15 @@
 import React, { useState, useContext, useRef, useMemo, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { TransformWrapper, TransformComponent, Virtualize, useTransformEffect } from 'react-zoom-pan-pinch';
 import { AppContext } from '../store';
 import { apiRequest } from '../api';
 import { flattenFamily, buildDescendantList, buildFamilyCodeMap } from '../utils/family';
+import { computeTreeLayout, CARD_WIDTH, CARD_HEIGHT } from '../utils/treeLayout';
 import MemberProfileModal from '../components/MemberProfileModal';
+import TreeNodeCard from '../components/TreeNodeCard';
+import TreeConnectorsSvg from '../components/TreeConnectorsSvg';
+import TreeAxis from '../components/TreeAxis';
+import TreeToolbar from '../components/TreeToolbar';
 
 // Bảng màu gán cho từng chi lớn để tạo "khối màu" phân biệt các nhánh trên sơ đồ.
 const CHI_COLORS = [
@@ -36,16 +43,6 @@ const markChiPathAncestors = (node, chiRootIds, result) => {
   return hasChiDescendant;
 };
 
-// Tên rút gọn hiển thị trong ô: bỏ họ chung "Trần" (lặp lại ở mọi thành viên, không cần
-// thiết), giữ lại các chữ còn lại để xếp theo hàng dọc, mỗi chữ 1 dòng — VD "Trần Tiến Hoa"
-// -> ["Tiến", "Hoa"].
-const getShortNameWords = (name) => {
-  if (!name) return [''];
-  const parts = name.trim().split(/\s+/);
-  if (parts.length > 1 && parts[0] === 'Trần') return parts.slice(1);
-  return parts;
-};
-
 // So sánh mã định danh phả hệ dạng "1.2.3" theo TỪNG SỐ (không phải so chuỗi — "1.10" phải
 // đứng sau "1.9") — dùng để xếp thứ tự trái-phải trong 1 hàng đời sao cho các anh em/con
 // cháu cùng 1 nhánh vẫn đứng cạnh nhau, đúng theo thứ tự khai sinh trong cây.
@@ -62,9 +59,7 @@ const compareDottedCode = (a, b) => {
 };
 
 // Duyệt cây tính danh sách các ô ĐANG HIỂN THỊ, gom theo TỪNG ĐỜI (mỗi ô chỉ thuộc đúng 1
-// hàng), cùng danh sách cặp cha-con để vẽ đường nối — thay cho đệ quy JSX như bản trước, vì
-// đệ quy lồng nhau không đảm bảo được yêu cầu "1 đời = 1 hàng ngang, mỗi ô chỉ nằm trong 1
-// hàng" khi các nhánh có độ sâu/chiều cao hiển thị khác nhau.
+// hàng), cùng danh sách cặp cha-con để vẽ đường nối.
 function computeVisibleTree(root, { chiRootIds, chiPathAncestorIds, expandedChiRootId, manualOverrides }) {
   const rowsMap = new Map();
   const edges = [];
@@ -97,135 +92,34 @@ function computeVisibleTree(root, { chiRootIds, chiPathAncestorIds, expandedChiR
   return { rowsMap, edges, nodeState };
 }
 
-// Đo vị trí 1 phần tử theo hệ tọa độ layout gốc (offsetTop/offsetLeft, không bị ảnh hưởng
-// bởi transform: scale() của zoom) — dùng cho việc vẽ đường nối cha-con.
-function getLocalOffset(el, container) {
-  let top = 0, left = 0, cur = el, guard = 0;
-  while (cur && cur !== container && guard < 300) {
-    top += cur.offsetTop;
-    left += cur.offsetLeft;
-    cur = cur.offsetParent;
-    guard++;
-  }
-  return { top, left };
+// Ngưỡng zoom để tự thu gọn cây về trạng thái mặc định (giảm số ô đang hiển thị) khi đã zoom
+// quá nhỏ để đọc được chi tiết — có độ trễ (0.4 / 0.45) giữa lúc thu gọn và lúc khôi phục để
+// tránh nhấp nháy khi zoom dao động quanh ranh giới.
+const COLLAPSE_THRESHOLD = 0.4;
+const RESTORE_THRESHOLD = 0.45;
+const LOW_DETAIL_NODE_THRESHOLD = 150;
+
+// Component "âm thầm" (không render gì) sống bên trong <TransformWrapper> chỉ để theo dõi
+// scale sống và báo lên component cha khi vượt qua ngưỡng thu gọn/khôi phục — tách riêng vì
+// hook useTransformEffect chỉ dùng được bên trong context của TransformWrapper, trong khi
+// FamilyTreePage (nơi giữ state thật) lại là nơi RENDER RA <TransformWrapper>, không phải con
+// của nó.
+function ZoomAutoCollapseWatcher({ onCollapseChange }) {
+  const collapsedRef = useRef(false);
+  useTransformEffect(({ state }) => {
+    if (!collapsedRef.current && state.scale < COLLAPSE_THRESHOLD) {
+      collapsedRef.current = true;
+      onCollapseChange(true);
+    } else if (collapsedRef.current && state.scale > RESTORE_THRESHOLD) {
+      collapsedRef.current = false;
+      onCollapseChange(false);
+    }
+  });
+  return null;
 }
-
-// Vẽ đường nối cha-con bằng 1 lớp SVG duy nhất, tọa độ đo trực tiếp từ vị trí thật của từng
-// ô qua data-node-id (không còn dựa vào việc lồng cha-con trong DOM như bản trước, vì giờ
-// mỗi ô nằm phẳng trong đúng 1 hàng đời — quan hệ cha-con lấy thẳng từ danh sách "edges").
-function TreeConnectors({ edges, containerRef, watch }) {
-  const [state, setState] = useState({ paths: [], width: 0, height: 0 });
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const measure = () => {
-      const byId = {};
-      container.querySelectorAll('[data-node-id]').forEach(el => { byId[el.dataset.nodeId] = el; });
-
-      const paths = [];
-      edges.forEach(({ parentId, childId }) => {
-        const parentEl = byId[parentId];
-        const childEl = byId[childId];
-        if (!parentEl || !childEl) return;
-        const p = getLocalOffset(parentEl, container);
-        const c = getLocalOffset(childEl, container);
-        const parentX = p.left + parentEl.offsetWidth / 2;
-        const parentY = p.top + parentEl.offsetHeight;
-        const childX = c.left + childEl.offsetWidth / 2;
-        const childY = c.top;
-        paths.push({
-          parentX, parentY, childX, childY,
-          color: childEl.dataset.lineColor || '#A9BAC4',
-          width: Number(childEl.dataset.lineWidth || 1.5),
-        });
-      });
-      setState({ paths, width: container.scrollWidth, height: container.scrollHeight });
-    };
-
-    measure();
-    const observer = new ResizeObserver(() => measure());
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, [containerRef, edges, watch]);
-
-  return (
-    <svg className="tree-connectors-svg" width={state.width} height={state.height} aria-hidden="true">
-      {state.paths.map((e, i) => {
-        const midY = (e.parentY + e.childY) / 2;
-        const d = `M ${e.parentX} ${e.parentY} L ${e.parentX} ${midY} L ${e.childX} ${midY} L ${e.childX} ${e.childY}`;
-        return <path key={i} d={d} stroke={e.color} strokeWidth={e.width} fill="none" strokeLinecap="round" />;
-      })}
-    </svg>
-  );
-}
-
-const TreeNodeCard = ({ node, onSelect, filterProvince, chiInfoMap, isChiRoot, isExpanded, hasChildren, onToggleChiRoot, onToggleNode }) => {
-  const isMain = node.isMainLineage;
-  const isFilterMatch = !!filterProvince && node.currentProvince === filterProvince;
-  const chiInfo = chiInfoMap[node.id] || null;
-
-  // Cấp độ nổi bật: 'main' = đích tôn của cả dòng họ (sao đỏ), 'chi' = đích tôn riêng của 1
-  // chi (sao vàng theo màu chi đó), 'normal' = các nhánh còn lại (không có sao).
-  const lineTier = !isMain ? 'normal' : (chiInfo ? 'chi' : 'main');
-  const lineColor = lineTier === 'main' ? '#0E6FA8' : lineTier === 'chi' ? chiInfo.line : '#A9BAC4';
-  const lineWidth = lineTier === 'main' ? 3.5 : lineTier === 'chi' ? 2.5 : 1.5;
-  const borderColor = chiInfo ? chiInfo.line : (isMain ? 'var(--primary-color)' : 'var(--border-color)');
-  const nameWords = useMemo(() => getShortNameWords(node.name), [node.name]);
-
-  const handleToggle = (e) => {
-    e.stopPropagation();
-    if (isChiRoot) onToggleChiRoot(node.id);
-    else onToggleNode(node);
-  };
-
-  return (
-    <div
-      className="tree-node"
-      data-node-id={node.id}
-      data-line-color={lineColor}
-      data-line-width={lineWidth}
-      style={{
-        borderColor: isFilterMatch ? 'var(--secondary-color)' : borderColor,
-        background: chiInfo ? chiInfo.bg : undefined,
-        boxShadow: isFilterMatch ? '0 0 0 3px rgba(242,196,106,0.4)' : undefined,
-        opacity: filterProvince && !isFilterMatch ? 0.4 : 1
-      }}
-    >
-      {lineTier === 'main' && <span className="star-badge star-main" title="Đích tôn dòng họ">★</span>}
-      {lineTier === 'chi' && <span className="star-badge star-chi" style={{ color: chiInfo.line }} title={`Đích tôn ${chiInfo.chiName}`}>★</span>}
-
-      <div
-        className="node-content"
-        onClick={() => onSelect(node)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(node); } }}
-        role="button"
-        tabIndex={0}
-        aria-label={`Xem hồ sơ ${node.name}`}
-        title={node.name}
-      >
-        <div className="node-name-vertical">
-          {nameWords.map((w, i) => <span key={i}>{w}</span>)}
-        </div>
-      </div>
-
-      {hasChildren && (
-        <button
-          className="expand-btn"
-          onClick={handleToggle}
-          aria-expanded={isExpanded}
-          aria-label={isExpanded ? `Thu gọn nhánh của ${node.name}` : `Mở rộng nhánh của ${node.name}`}
-          title={isChiRoot ? (isExpanded ? 'Thu gọn chi này' : 'Mở chi này (các chi khác sẽ tự thu gọn)') : (isExpanded ? 'Thu gọn nhánh' : 'Mở rộng nhánh')}
-        >
-          {isExpanded ? '−' : '+'}
-        </button>
-      )}
-    </div>
-  );
-};
 
 function FamilyTreePage() {
+  const navigate = useNavigate();
   const { familyData } = useContext(AppContext);
   const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [filterProvince, setFilterProvince] = useState('');
@@ -233,10 +127,40 @@ function FamilyTreePage() {
   const [chiLoaded, setChiLoaded] = useState(false);
   const [expandedChiRootId, setExpandedChiRootId] = useState(null);
   const [manualOverrides, setManualOverrides] = useState(() => new Map());
+  const [lowDetail, setLowDetail] = useState(false);
+  const autoCollapseSnapshotRef = useRef(null);
+  const transformRef = useRef(null);
 
   useEffect(() => {
     apiRequest('chi.php').then(setChiList).catch(() => {}).finally(() => setChiLoaded(true));
   }, []);
+
+  // Popup toàn màn hình: khoá cuộn trang nền trong lúc mở, mở lại khi đóng.
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prevOverflow; };
+  }, []);
+
+  const handleClose = useCallback(() => navigate('/'), [navigate]);
+
+  // Escape: ưu tiên đóng modal hồ sơ thành viên nếu đang mở, chỉ đóng popup sơ đồ khi không
+  // còn modal nào che phía trên. Đọc selectedMemberId qua ref (thay vì đóng biến trực tiếp)
+  // để tránh gọi navigate() (chính nó lại kích hoạt render khác) từ BÊN TRONG updater của
+  // setState — vi phạm quy tắc React và gây cảnh báo "Cannot update a component while
+  // rendering a different component".
+  const selectedMemberIdRef = useRef(null);
+  useEffect(() => { selectedMemberIdRef.current = selectedMemberId; }, [selectedMemberId]);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== 'Escape') return;
+      if (selectedMemberIdRef.current) setSelectedMemberId(null);
+      else handleClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [handleClose]);
 
   const provinceOptions = useMemo(() => {
     const members = flattenFamily(familyData);
@@ -271,9 +195,6 @@ function FamilyTreePage() {
     setExpandedChiRootId(prev => (prev === id ? null : id));
   }, []);
 
-  // Danh sách ô đang hiển thị, gom theo đời (mỗi ô chỉ thuộc đúng 1 hàng) + danh sách cặp
-  // cha-con để vẽ đường nối. sortedGenerations/rowsMap sắp theo mã định danh phả hệ để các
-  // anh em/con cháu cùng nhánh đứng cạnh nhau trong hàng.
   const { sortedGenerations, rowsMap, edges, nodeState } = useMemo(() => {
     if (!familyData || !chiLoaded) return { sortedGenerations: [], rowsMap: new Map(), edges: [], nodeState: new Map() };
     const { rowsMap, edges, nodeState } = computeVisibleTree(familyData, { chiRootIds, chiPathAncestorIds, expandedChiRootId, manualOverrides });
@@ -296,73 +217,65 @@ function FamilyTreePage() {
 
   const handleSelectNode = useCallback((node) => setSelectedMemberId(node.id), []);
 
-  // Trạng thái Zoom + Pan (kéo thả) + kéo rộng khung sang trái (bổ sung cho resize:both mặc
-  // định của trình duyệt vốn chỉ kéo được ở góc dưới-phải).
-  const [zoom, setZoom] = useState(1);
-  const scrollContainerRef = useRef(null);
-  const treeContainerRef = useRef(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [startY, setStartY] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [extraLeftWidth, setExtraLeftWidth] = useState(0);
-  const leftResizeRef = useRef(null);
+  const layout = useMemo(() => computeTreeLayout(sortedGenerations, rowsMap), [sortedGenerations, rowsMap]);
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.15, 2));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.15, 0.3));
-  const handleResetZoom = () => setZoom(1);
+  // Tự thu gọn cây khi zoom quá nhỏ để giảm số ô — lưu lại trạng thái mở/đóng đang có để khôi
+  // phục đúng khi zoom lại lên (xem lưu ý trong tài liệu kế hoạch: nếu người dùng chủ động mở
+  // rộng 1 nhánh NGAY TRONG lúc đang tự thu gọn, thao tác đó sẽ bị thay bằng trạng thái cũ khi
+  // khôi phục — đánh đổi chấp nhận được ở quy mô cây hiện tại).
+  const handleAutoCollapseChange = useCallback((collapsed) => {
+    if (collapsed) {
+      autoCollapseSnapshotRef.current = { expandedChiRootId, manualOverrides };
+      setExpandedChiRootId(null);
+      setManualOverrides(new Map());
+    } else if (autoCollapseSnapshotRef.current) {
+      const snap = autoCollapseSnapshotRef.current;
+      autoCollapseSnapshotRef.current = null;
+      setExpandedChiRootId(snap.expandedChiRootId);
+      setManualOverrides(snap.manualOverrides);
+    }
+  }, [expandedChiRootId, manualOverrides]);
 
-  const handleMouseDown = (e) => {
-    setIsDragging(true);
-    setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
-    setStartY(e.pageY - scrollContainerRef.current.offsetTop);
-    setScrollLeft(scrollContainerRef.current.scrollLeft);
-    setScrollTop(scrollContainerRef.current.scrollTop);
-  };
-  const handleMouseLeave = () => setIsDragging(false);
-  const handleMouseUp = () => setIsDragging(false);
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    e.preventDefault();
-    const x = e.pageX - scrollContainerRef.current.offsetLeft;
-    const y = e.pageY - scrollContainerRef.current.offsetTop;
-    const walkX = (x - startX) * 1.5;
-    const walkY = (y - startY) * 1.5;
-    scrollContainerRef.current.scrollLeft = scrollLeft - walkX;
-    scrollContainerRef.current.scrollTop = scrollTop - walkY;
-  };
+  const handleCollapseAll = useCallback(() => {
+    autoCollapseSnapshotRef.current = null;
+    setExpandedChiRootId(null);
+    setManualOverrides(new Map());
+  }, []);
 
-  // Kéo mép trái để mở rộng khung sang bên trái — resize:both của CSS chỉ hỗ trợ góc
-  // dưới-phải, nên phần mở rộng sang trái phải tự làm bằng tay: tăng width + kéo margin-left
-  // âm cùng lúc để mép phải đứng yên, chỉ mép trái "chạy" ra xa hơn theo con trỏ chuột.
-  const handleLeftResizeMouseDown = (e) => {
-    e.preventDefault();
-    const startPageX = e.clientX;
-    const startWidth = extraLeftWidth;
-    leftResizeRef.current = { startPageX, startWidth };
+  // Tự bật chế độ tối giản trên di động khi cây đang có nhiều ô (giảm hiệu ứng cho thiết bị
+  // yếu) — người dùng vẫn có thể tự bật/tắt tay qua thanh công cụ bất kể điều kiện này.
+  useEffect(() => {
+    if (window.innerWidth < 768 && layout.nodesById.size > LOW_DETAIL_NODE_THRESHOLD) {
+      setLowDetail(true);
+    }
+  }, [layout.nodesById.size]);
 
-    const onMove = (moveEvent) => {
-      if (!leftResizeRef.current) return;
-      const delta = leftResizeRef.current.startPageX - moveEvent.clientX;
-      const next = Math.min(600, Math.max(0, leftResizeRef.current.startWidth + delta));
-      setExtraLeftWidth(next);
-    };
-    const onUp = () => {
-      leftResizeRef.current = null;
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  };
+  const handleFitToScreen = useCallback(() => {
+    const ref = transformRef.current;
+    const wrapper = ref?.instance?.wrapperComponent;
+    if (!ref || !wrapper) return;
+    const vw = wrapper.clientWidth;
+    const vh = wrapper.clientHeight;
+    const contentW = Math.max(layout.totalWidth + CARD_WIDTH, 1);
+    const contentH = Math.max(layout.totalHeight, 1);
+    const scale = Math.min(vw / contentW, vh / contentH) * 0.92;
+    const clampedScale = Math.min(Math.max(scale, 0.15), 3);
+    const posX = (vw - contentW * clampedScale) / 2;
+    const posY = (vh - contentH * clampedScale) / 2;
+    ref.setTransform(posX, posY, clampedScale, 300);
+  }, [layout.totalWidth, layout.totalHeight]);
 
-  const measureWatch = `${expandedChiRootId}-${manualOverrides.size}-${zoom}-${sortedGenerations.length}`;
+  const isReady = familyData && chiLoaded;
+  const contentWidth = layout.totalWidth + CARD_WIDTH;
 
   return (
-    <div className="container" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 100px)', padding: '20px' }}>
-      <div style={{ textAlign: 'center', marginBottom: '15px' }}>
-        <h2 style={{ marginBottom: '5px' }}>Sơ Đồ Gia Phả - Dòng Họ Trần Đình</h2>
+    <div className="tree-popup-overlay" role="dialog" aria-modal="true" aria-label="Sơ đồ gia phả toàn màn hình">
+      <button className="tree-popup-close-btn" onClick={handleClose} aria-label="Đóng sơ đồ gia phả" title="Đóng (Esc)">
+        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2.4" fill="none" strokeLinecap="round"><path d="M5 5l14 14M19 5L5 19" /></svg>
+      </button>
+
+      <div className="tree-popup-header">
+        <h2>Sơ Đồ Gia Phả - Dòng Họ Trần Đình</h2>
         <div className="tree-legend">
           <span><i className="star-badge-legend star-main">★</i> Đích tôn dòng họ</span>
           <span><i className="star-badge-legend star-chi">★</i> Đích tôn của chi</span>
@@ -370,85 +283,124 @@ function FamilyTreePage() {
         </div>
       </div>
 
-      <div className="tree-toolbar">
-        <button className="btn-icon" onClick={handleZoomOut} aria-label="Thu nhỏ" title="Thu nhỏ">
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round"><path d="M5 12h14" /></svg>
-        </button>
-        <span style={{ fontWeight: 'bold', width: '50px', textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
-        <button className="btn-icon" onClick={handleZoomIn} aria-label="Phóng to" title="Phóng to">
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-        </button>
-        <button className="btn-icon" onClick={handleResetZoom} aria-label="Về mặc định" title="Mặc định" style={{ marginLeft: '10px' }}>
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 1 3 6.7" /><path d="M3 20v-6h6" /></svg>
-        </button>
-        <span style={{ marginLeft: '15px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-          Kéo giữ để di chuyển · Kéo mép trái hoặc góc dưới-phải khung để mở rộng
-        </span>
-        {provinceOptions.length > 0 && (
-          <select
-            className="select-control"
-            value={filterProvince}
-            onChange={e => setFilterProvince(e.target.value)}
-            aria-label="Lọc theo khu vực"
-            style={{ marginLeft: '15px', padding: '7px 12px' }}
-          >
-            <option value="">Lọc theo khu vực...</option>
-            {provinceOptions.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-        )}
-      </div>
-
-      <div className="tree-scroll-wrapper">
-        <div className="tree-left-resize-handle" onMouseDown={handleLeftResizeMouseDown} title="Kéo để mở rộng khung sang trái" />
-        <div
-          className="tree-scroll-container"
-          ref={scrollContainerRef}
-          style={{ width: `calc(100% + ${extraLeftWidth}px)`, marginLeft: `${-extraLeftWidth}px` }}
-          onMouseDown={handleMouseDown}
-          onMouseLeave={handleMouseLeave}
-          onMouseUp={handleMouseUp}
-          onMouseMove={handleMouseMove}
+      {isReady ? (
+        <TransformWrapper
+          ref={transformRef}
+          initialScale={1}
+          minScale={0.15}
+          maxScale={3}
+          centerOnInit
+          limitToBounds={false}
+          doubleClick={{ mode: 'zoomIn', step: 0.7 }}
+          wheel={{ step: 0.2 }}
+          pinch={{ step: 5 }}
         >
-        <div
-          className="tree-scale-wrapper"
-          style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}
-        >
-          <div className="tree-container" ref={treeContainerRef}>
-            {familyData && chiLoaded ? (
-              <>
-                <TreeConnectors edges={edges} containerRef={treeContainerRef} watch={measureWatch} />
-                {sortedGenerations.map(gen => (
-                  <div key={gen} className="gen-row">
-                    <div className="gen-row-label"><span>Đời {gen}</span></div>
-                    <div className="gen-row-content">
-                      {rowsMap.get(gen).map(node => {
-                        const st = nodeState.get(node.id) || {};
-                        return (
-                          <TreeNodeCard
-                            key={node.id}
-                            node={node}
-                            onSelect={handleSelectNode}
-                            filterProvince={filterProvince}
-                            chiInfoMap={chiInfoMap}
-                            isChiRoot={st.isChiRoot}
-                            isExpanded={st.isExpanded}
-                            hasChildren={st.hasChildren}
-                            onToggleChiRoot={handleToggleChiRoot}
-                            onToggleNode={handleToggleNode}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </>
-            ) : familyData ? <p>Đang tải dữ liệu chi...</p> : <p>Không có dữ liệu</p>}
-          </div>
-        </div>
-        </div>
-      </div>
+          <ZoomAutoCollapseWatcher onCollapseChange={handleAutoCollapseChange} />
+          <TreeAxis rowYById={layout.rowYById} />
+          <TransformComponent wrapperClass="tree-transform-wrapper" contentClass="tree-transform-content">
+            <div
+              className="tree-content-canvas"
+              style={{ width: contentWidth, height: layout.totalHeight }}
+              role="tree"
+              aria-label="Sơ đồ gia phả"
+            >
+              <TreeConnectorsSvg
+                edges={edges}
+                nodesById={layout.nodesById}
+                rowYById={layout.rowYById}
+                totalWidth={contentWidth}
+                lowDetail={lowDetail}
+              />
+              {[...layout.nodesById.entries()].map(([id, pos]) => {
+                const st = nodeState.get(id) || {};
+                return (
+                  <Virtualize key={id} x={pos.x} y={pos.y} width={CARD_WIDTH} height={CARD_HEIGHT} margin={250}>
+                    <TreeNodeCard
+                      node={pos.node}
+                      x={pos.x}
+                      y={pos.y}
+                      onSelect={handleSelectNode}
+                      filterProvince={filterProvince}
+                      chiInfoMap={chiInfoMap}
+                      isChiRoot={st.isChiRoot}
+                      isExpanded={st.isExpanded}
+                      hasChildren={st.hasChildren}
+                      onToggleChiRoot={handleToggleChiRoot}
+                      onToggleNode={handleToggleNode}
+                      lowDetail={lowDetail}
+                    />
+                  </Virtualize>
+                );
+              })}
+            </div>
+          </TransformComponent>
+          <TreeToolbar
+            onFitToScreen={handleFitToScreen}
+            onCollapseAll={handleCollapseAll}
+            lowDetail={lowDetail}
+            onToggleLowDetail={() => setLowDetail(v => !v)}
+            provinceOptions={provinceOptions}
+            filterProvince={filterProvince}
+            onFilterChange={setFilterProvince}
+          />
+        </TransformWrapper>
+      ) : (
+        <p className="tree-popup-loading">{familyData ? 'Đang tải dữ liệu chi...' : 'Không có dữ liệu'}</p>
+      )}
 
       <style>{`
+        .tree-popup-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 1500;
+          background: var(--bg-color);
+          display: flex;
+          flex-direction: column;
+          padding: 14px 20px 10px;
+        }
+
+        .tree-popup-close-btn {
+          position: absolute;
+          top: 16px;
+          right: 20px;
+          z-index: 20;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: 1px solid var(--border-color);
+          background: var(--surface-color);
+          color: var(--text-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: var(--shadow-md);
+          transition: background-color var(--transition-fast), transform var(--transition-micro);
+        }
+
+        .tree-popup-close-btn:hover {
+          background: var(--color-sand);
+        }
+
+        .tree-popup-close-btn:active {
+          transform: scale(0.94);
+        }
+
+        .tree-popup-header {
+          text-align: center;
+          margin-bottom: 10px;
+          padding-right: 50px;
+        }
+
+        .tree-popup-header h2 {
+          margin-bottom: 5px;
+        }
+
+        .tree-popup-loading {
+          margin: auto;
+          color: var(--text-secondary);
+        }
+
         .tree-legend {
           display: flex;
           justify-content: center;
@@ -482,104 +434,20 @@ function FamilyTreePage() {
           border: 1px solid rgba(14,111,168,0.4);
         }
 
-        .tree-toolbar {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-wrap: wrap;
-          background: var(--surface-color);
-          padding: 10px;
-          border-radius: var(--radius-md);
-          box-shadow: var(--shadow-sm);
-          margin-bottom: 15px;
-          gap: 5px;
-        }
-
-        .btn-icon {
-          background: var(--color-sand);
-          color: var(--primary-color);
-          border: 1px solid var(--border-color);
-          border-radius: var(--radius-sm);
-          width: 36px;
-          height: 36px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: background-color var(--transition-fast), transform var(--transition-micro);
-          font-size: 1rem;
-        }
-
-        .btn-icon:hover {
-          background: var(--accent-teal-light);
-          color: white;
-        }
-
-        .btn-icon:active {
-          transform: scale(0.94);
-        }
-
-        /* Bọc ngoài .tree-scroll-container để đặt tay kéo trái ở NGOÀI vùng cuộn — nếu để bên
-           trong, tay kéo sẽ cuộn trôi theo nội dung, không còn bấm giữ được khi đã cuộn sang
-           phải, khác với hành vi của tay kéo góc dưới-phải (resize:both) vốn luôn cố định. */
-        .tree-scroll-wrapper {
+        /* react-zoom-pan-pinch tự đặt wrapper/content về "fit-content" — phải ép lại để wrapper
+           lấp đầy phần không gian còn lại của popup (bên dưới tiêu đề, bên trong lề trục trái). */
+        .tree-transform-wrapper {
           flex: 1;
-          position: relative;
-          display: flex;
-          min-height: 420px;
-        }
-
-        .tree-scroll-container {
-          flex: 1;
-          overflow: auto;
+          width: 100% !important;
+          height: 100% !important;
           background: var(--surface-color);
           border-radius: var(--radius-lg);
           box-shadow: var(--shadow-sm);
-          padding: 0;
+          margin-left: 52px;
+        }
+
+        .tree-content-canvas {
           position: relative;
-          cursor: grab;
-          resize: both;
-          min-height: 420px;
-          min-width: 320px;
-        }
-
-        .tree-scroll-container:active {
-          cursor: grabbing;
-        }
-
-        .tree-left-resize-handle {
-          position: absolute;
-          left: -5px;
-          top: 0;
-          bottom: 0;
-          width: 10px;
-          cursor: ew-resize;
-          z-index: 10;
-          background: transparent;
-          border-radius: var(--radius-sm);
-          transition: background-color var(--transition-fast);
-        }
-
-        .tree-left-resize-handle:hover,
-        .tree-left-resize-handle:active {
-          background: var(--accent-teal-light);
-          opacity: 0.6;
-        }
-
-        .tree-scale-wrapper {
-          transition: transform var(--transition-normal);
-          min-width: 100%;
-          display: flex;
-          justify-content: center;
-          padding: 20px;
-        }
-
-        .tree-container {
-          display: flex;
-          flex-direction: column;
-          min-width: max-content;
-          position: relative;
-          --tree-line-color: #A9BAC4;
         }
 
         .tree-connectors-svg {
@@ -591,46 +459,35 @@ function FamilyTreePage() {
           overflow: visible;
         }
 
-        /* Mỗi đời = 1 hàng ngang thật sự (không còn suy đoán từ vị trí render) — 2 đường kẻ
-           song song (border-style: double) ngăn cách rõ ràng giữa các hàng. */
-        .gen-row {
-          display: flex;
-          align-items: stretch;
-          min-width: max-content;
-          border-top: 6px double var(--tree-line-color);
-        }
-
-        .gen-row:last-child {
-          border-bottom: 6px double var(--tree-line-color);
-        }
-
-        .gen-row-label {
-          position: sticky;
-          left: 0;
-          flex-shrink: 0;
+        /* Trục "Các đời" cố định bên trái, không nằm trong vùng bị pan/zoom. */
+        .tree-axis {
+          position: absolute;
+          left: 20px;
+          top: 74px;
+          bottom: 10px;
           width: 46px;
-          display: flex;
-          align-items: center;
-          padding: 4px 8px;
-          background: var(--surface-color);
-          border-right: 1px solid var(--border-color);
-          z-index: 5;
+          overflow: hidden;
+          pointer-events: none;
+          z-index: 15;
         }
 
-        .gen-row-label span {
+        .tree-axis-label {
+          position: absolute;
+          left: 0;
+          right: 0;
+          transform: translateY(-50%);
           font-size: 0.7rem;
           font-weight: 600;
           color: var(--text-secondary);
           white-space: nowrap;
-          -webkit-font-smoothing: antialiased;
+          background: var(--surface-color);
+          padding: 2px 6px;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--border-color);
+          text-align: center;
         }
 
-        .gen-row-content {
-          display: flex;
-          align-items: center;
-          gap: 20px;
-          padding: 14px 20px;
-        }
+        .tree-axis-short { display: none; }
 
         .tree-node {
           background: var(--surface-color);
@@ -640,16 +497,14 @@ function FamilyTreePage() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          position: relative;
-          z-index: 2;
-          min-width: 46px;
-          flex-shrink: 0;
           box-shadow: var(--shadow-sm);
           transition: box-shadow var(--transition-normal), background-color var(--transition-normal);
         }
 
-        .tree-node:hover {
-          box-shadow: var(--shadow-md);
+        .tree-node-low-detail {
+          border-radius: 3px;
+          box-shadow: none;
+          transition: none;
         }
 
         .star-badge {
@@ -680,8 +535,9 @@ function FamilyTreePage() {
 
         .node-name-vertical span {
           font-family: var(--font-serif);
-          font-size: 0.95rem;
-          font-weight: 700;
+          font-size: 12px;
+          font-weight: 400;
+          letter-spacing: 0.01em;
           color: var(--text-primary);
           line-height: 1.28;
           white-space: nowrap;
@@ -711,6 +567,135 @@ function FamilyTreePage() {
         .expand-btn:hover {
           background: var(--color-sand);
           transform: scale(1.1);
+        }
+
+        /* Thanh công cụ: mặc định 1 thanh ngang phía trên khung, chuyển thành thanh nổi dưới
+           cùng trên di động (<768px). */
+        .tree-toolbar {
+          position: absolute;
+          top: 10px;
+          left: 62px;
+          right: 10px;
+          z-index: 15;
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 10px;
+          background: var(--surface-color);
+          padding: 8px 12px;
+          border-radius: var(--radius-md);
+          box-shadow: var(--shadow-sm);
+        }
+
+        .tree-toolbar-group {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .tree-toolbar-zoom-pct {
+          font-weight: bold;
+          width: 46px;
+          text-align: center;
+          font-size: 0.85rem;
+        }
+
+        .tree-toolbar-filter {
+          padding: 6px 10px;
+        }
+
+        .tree-toolbar-list-link {
+          margin-left: auto;
+          font-size: 0.82rem;
+          color: var(--accent-teal);
+          font-weight: 600;
+          white-space: nowrap;
+        }
+
+        .btn-icon {
+          background: var(--color-sand);
+          color: var(--primary-color);
+          border: 1px solid var(--border-color);
+          border-radius: var(--radius-sm);
+          width: 34px;
+          height: 34px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: background-color var(--transition-fast), transform var(--transition-micro);
+          flex-shrink: 0;
+        }
+
+        .btn-icon:hover {
+          background: var(--accent-teal-light);
+          color: white;
+        }
+
+        .btn-icon:active {
+          transform: scale(0.94);
+        }
+
+        .btn-icon-active {
+          background: var(--accent-teal);
+          color: white;
+        }
+
+        @media (max-width: 768px) {
+          .tree-popup-overlay {
+            padding: 10px 10px 6px;
+          }
+
+          .tree-popup-header {
+            padding-right: 46px;
+          }
+
+          .tree-popup-header h2 {
+            font-size: 1.1rem;
+          }
+
+          .tree-legend {
+            gap: 10px;
+            font-size: 0.75rem;
+          }
+
+          .tree-transform-wrapper {
+            margin-left: 40px;
+          }
+
+          .tree-axis {
+            left: 10px;
+            width: 30px;
+            top: 10px;
+          }
+
+          .tree-axis-label {
+            font-size: 0.62rem;
+            padding: 2px 3px;
+          }
+
+          .tree-axis-full { display: none; }
+          .tree-axis-short { display: inline; }
+
+          .node-name-vertical span {
+            font-size: 11px;
+          }
+
+          /* Thanh công cụ chuyển xuống dạng nổi ở cạnh dưới trên di động. */
+          .tree-toolbar {
+            top: auto;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            justify-content: center;
+          }
+
+          .tree-toolbar-list-link {
+            margin-left: 0;
+            order: 10;
+            flex-basis: 100%;
+            text-align: center;
+          }
         }
       `}</style>
 

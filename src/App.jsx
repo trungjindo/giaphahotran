@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
-import { Routes, Route, Link, NavLink } from 'react-router-dom';
+import { Routes, Route, Link, NavLink, useLocation } from 'react-router-dom';
 import { AppContext } from './store';
 import OceanScene from './components/OceanScene';
 import ContactAdminBox from './components/ContactAdminBox';
@@ -39,6 +39,10 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { isLoading, loadError } = useContext(AppContext);
   const menuButtonRef = useRef(null);
+  // Sơ đồ gia phả tự vẽ thành popup toàn màn hình (xem FamilyTreePage.jsx) — không render
+  // navbar/banner quảng cáo/footer lúc này, để tránh chúng vẫn "ẩn phía sau" nhưng vẫn bấm
+  // Tab tới được (rò rỉ khả năng tiếp cận) dù đã bị che khuất trực quan bởi overlay.
+  const isTreePopup = useLocation().pathname === '/gia-pha';
 
   useEffect(() => {
     if (!isMenuOpen) return;
@@ -79,10 +83,10 @@ function App() {
     <div className="app-container">
       {/* Banner quảng cáo dọc 2 bên trang web (doanh nghiệp/dịch vụ thành viên) — chỉ hiện
           trên màn hình rất rộng để không bao giờ chồng lấn nội dung chính (max-width 1280px). */}
-      <PromoBannerRail />
+      {!isTreePopup && <PromoBannerRail />}
 
       {/* Navbar */}
-      <nav className="navbar">
+      {!isTreePopup && <nav className="navbar">
         <div className="nav-container">
           <Link to="/" className="brand" onClick={closeMenu}>
             <LogoMark size={44} />
@@ -124,10 +128,10 @@ function App() {
             </svg>
           </button>
         </div>
-      </nav>
+      </nav>}
 
       {/* Main Content */}
-      <main className="main-content">
+      <main className={isTreePopup ? undefined : 'main-content'}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/gioi-thieu" element={<About />} />
@@ -145,7 +149,7 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer className="footer">
+      {!isTreePopup && <footer className="footer">
         <OceanScene variant="pattern" className="footer-pattern" />
         <div className="footer-inner">
           <div className="footer-brand">
@@ -169,7 +173,7 @@ function App() {
           <p>&copy; {new Date().getFullYear()} Dòng Họ Trần Đình. Lưu giữ cội nguồn.</p>
           <Link to="/login" className="footer-login-link">Đăng Nhập Quản Trị Viên</Link>
         </div>
-      </footer>
+      </footer>}
     </div>
   );
 }
