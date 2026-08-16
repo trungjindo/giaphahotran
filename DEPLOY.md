@@ -15,12 +15,22 @@ MySQL của Hostinger lưu toàn bộ dữ liệu. GitHub Actions tự build m�
 3. Mở **phpMyAdmin** (nút "Nhập phpMyAdmin" cạnh database vừa tạo), chọn tab **Import**, tải lên file [`api/schema.sql`](api/schema.sql) trong repo, bấm Go.
 4. Kiểm tra bên khung trái phpMyAdmin có đủ 10 bảng: `app_data`, `chi`, `users`, `user_sessions`, `bai_bien_assignments`, `activities`, `phone_reveal_log`, `tombs`, `assets`, `asset_history`.
 
-## Bước 3 — Tạo file cấu hình thật trên server
+## Bước 3 — Tạo file chứa mật khẩu DB thật trên server
 
-1. Vào **File Manager** trên hPanel, tới thư mục gốc của `hotrandinh.com`.
-2. Sau khi nhánh `deploy` đã được đồng bộ lần đầu (Bước 5), sẽ có sẵn thư mục `api/` với file `config.example.php`.
-3. Tạo file mới **`api/config.php`** (copy nội dung từ `config.example.php`), điền đúng `DB_HOST` (thường là `localhost`), `DB_NAME`, `DB_USER`, `DB_PASS` theo giá trị ở Bước 2.
-4. File này **không nằm trong Git** — chỉ tồn tại trên server, không bao giờ bị ghi đè khi deploy lại (do `.gitignore` loại trừ).
+`api/config.php` giờ nằm trong Git (được deploy lại mỗi lần) nhưng **không chứa mật khẩu thật** — nó tự đọc từ 1 file riêng nằm **ngoài `public_html`**, nơi Hostinger không bao giờ đụng tới khi đồng bộ Git. Nhờ vậy config không còn bị mất mỗi lần deploy như trước.
+
+1. Vào **File Manager** trên hPanel, đi lên **1 cấp trên `public_html`** (thư mục gốc của `hotrandinh.com`, chứa `public_html` như 1 thư mục con — KHÔNG tạo file bên trong `public_html`).
+2. Tạo file mới tên chính xác **`hotrandinh_db_secrets.php`** tại đó, nội dung:
+   ```php
+   <?php
+   define('DB_HOST', 'localhost');
+   define('DB_NAME', 'u113008662_hotrandinh');
+   define('DB_USER', 'u113008662_...');   // tên user MySQL thật ở Bước 2
+   define('DB_PASS', 'mật khẩu thật ở Bước 2');
+   ```
+3. Chỉ cần tạo **1 lần duy nhất** — từ giờ mọi lần deploy sau đều tự động dùng file này, không cần tạo lại.
+
+(Nếu gói hosting của bạn có mục **hPanel → Nâng cao → Environment Variables**, có thể dùng thay thế: đặt các biến `DB_HOST`/`DB_NAME`/`DB_USER`/`DB_PASS` ở đó — `config.php` sẽ tự ưu tiên đọc biến môi trường trước file trên nếu cả hai cùng tồn tại.)
 
 ## Bước 4 — Đổi mật khẩu admin mặc định
 

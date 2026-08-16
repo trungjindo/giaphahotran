@@ -9,8 +9,9 @@ dist-ssr/
 public/storage/*
 !public/storage/.gitkeep
 
-# PHP backend: real credentials and uploaded files never go into Git
-api/config.php
+# PHP backend: uploaded files never go into Git.
+# api/config.php giờ ĐƯỢC commit (không chứa thông tin nhạy cảm — chỉ đọc từ biến môi
+# trường / file bí mật ngoài public_html), để không còn bị mất mỗi khi Hostinger tự deploy.
 api/storage/*
 !api/storage/.gitkeep
 

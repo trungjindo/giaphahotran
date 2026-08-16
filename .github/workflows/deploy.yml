@@ -35,14 +35,15 @@ jobs:
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
-      # Gom file tĩnh đã build + mã nguồn PHP (trừ config.php và storage/) vào 1 thư mục
-      # để publish thành nội dung của nhánh "deploy".
+      # Gom file tĩnh đã build + mã nguồn PHP (trừ storage/ — ảnh người dùng tải lên,
+      # không thuộc mã nguồn) vào 1 thư mục để publish thành nội dung của nhánh "deploy".
+      # config.php giờ được deploy bình thường — không còn chứa mật khẩu thật (xem api/config.php).
       - name: Assemble deploy folder
         run: |
           mkdir -p publish
           cp -r dist/. publish/
           mkdir -p publish/api
-          rsync -a --exclude 'config.php' --exclude 'storage' api/ publish/api/
+          rsync -a --exclude 'storage' api/ publish/api/
 
       - name: Publish to deploy branch
         uses: peaceiris/actions-gh-pages@v4
