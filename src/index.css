@@ -1521,23 +1521,23 @@ img {
 /* Banner quảng cáo dọc 2 bên trang web (doanh nghiệp/dịch vụ thành viên dòng họ) — neo theo
    MÉP của khối nội dung (max-width 1280px, căn giữa) thay vì mép trình duyệt, để luôn bám sát
    nội dung thay vì trôi nổi giữa khoảng trắng lớn trên màn hình rộng. Mặc định ẩn, chỉ hiện
-   từ 1760px (đủ chỗ: 1280px nội dung + 2×(20px cách + 220px băng)) — dưới mức đó ẩn hẳn để
-   không bao giờ chồng lấn nội dung chính, kể cả trên đa số laptop; điện thoại luôn ẩn. */
+   từ 1620px (đủ chỗ: 1280px nội dung + 2×(15px cách + 150px băng)) — dưới mức đó ẩn hẳn để
+   không bao giờ chồng lấn nội dung chính; điện thoại/tablet luôn ẩn. */
 .promo-rail {
   display: none;
   position: fixed;
   top: 50%;
   transform: translateY(-50%);
-  width: 220px;
+  width: 150px;
   z-index: 5;
 }
 
 .promo-rail-left {
-  left: calc(50% - 880px);
+  left: calc(50% - 805px);
 }
 
 .promo-rail-right {
-  right: calc(50% - 880px);
+  right: calc(50% - 805px);
 }
 
 .promo-card {
@@ -1565,10 +1565,10 @@ a.promo-card:hover {
 
 .promo-card-eyebrow {
   display: block;
-  padding: 10px 16px 0;
-  font-size: 0.68rem;
+  padding: 8px 14px 0;
+  font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--accent-teal);
 }
@@ -1588,21 +1588,21 @@ a.promo-card:hover {
 }
 
 .promo-card-body {
-  padding: 12px 16px 16px;
+  padding: 10px 14px 14px;
 }
 
 .promo-card-name {
-  margin: 0 0 6px;
+  margin: 0 0 5px;
   font-family: var(--font-serif);
-  font-size: 1.02rem;
+  font-size: 0.94rem;
   line-height: 1.25;
   color: var(--primary-color);
 }
 
 .promo-card-desc {
-  margin: 0 0 8px;
-  font-size: 0.82rem;
-  line-height: 1.4;
+  margin: 0 0 7px;
+  font-size: 0.76rem;
+  line-height: 1.35;
   color: var(--text-secondary);
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -1612,13 +1612,13 @@ a.promo-card:hover {
 
 .promo-card-contact {
   margin: 0 0 4px;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: var(--text-secondary);
 }
 
 .promo-card-cta {
   display: inline-block;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 700;
   color: var(--accent-teal);
 }
@@ -1641,7 +1641,7 @@ a.promo-card:hover {
   background: var(--accent-teal);
 }
 
-@media (min-width: 1760px) {
+@media (min-width: 1620px) {
   .promo-rail {
     display: block;
   }
