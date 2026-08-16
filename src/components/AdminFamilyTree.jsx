@@ -34,6 +34,8 @@ const AdminFamilyTree = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
   const [targetParentId, setTargetParentId] = useState(null);
+  const [parentInputValue, setParentInputValue] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [formData, setFormData] = useState(emptyFormData);
 
@@ -49,6 +51,39 @@ const AdminFamilyTree = () => {
     () => [...new Set(flatList.map(m => m.currentWard).filter(Boolean))],
     [flatList]
   );
+
+  // Tìm kiếm thành viên trong bảng: theo tên, mã định danh, SĐT, tỉnh/thành, nghề nghiệp.
+  const filteredList = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return flatList;
+    return flatList.filter(m => (
+      (m.name || '').toLowerCase().includes(q) ||
+      (codeMap[m.id] || '').toLowerCase().includes(q) ||
+      (m.phone || '').includes(q) ||
+      (m.currentProvince || '').toLowerCase().includes(q) ||
+      (m.occupation || '').toLowerCase().includes(q)
+    ));
+  }, [flatList, searchTerm, codeMap]);
+
+  // Nhãn hiển thị cho ô chọn "cha/mẹ" khi tạo thành viên mới thủ công — kèm mã định danh để
+  // phân biệt các thành viên trùng tên.
+  const formatParentLabel = (m) => `${m.name} (Đời ${m.generation}, mã ${codeMap[m.id] || m.id})`;
+  const parentLabelToMember = useMemo(() => {
+    const map = new Map();
+    flatList.forEach(m => map.set(formatParentLabel(m), m));
+    return map;
+  }, [flatList, codeMap]);
+
+  const handleParentInputChange = (value) => {
+    setParentInputValue(value);
+    const found = parentLabelToMember.get(value);
+    if (found) {
+      setTargetParentId(found.id);
+      setFormData(fd => ({ ...fd, generation: found.generation + 1 }));
+    } else {
+      setTargetParentId('');
+    }
+  };
 
   // 2. EXCEL EXPORT / IMPORT
   const handleDownloadTemplate = () => {
@@ -269,13 +304,17 @@ const AdminFamilyTree = () => {
   };
 
   // 4. Form Handlers
+  // parent = null khi mở từ nút "+ Thêm Thành Viên Mới" ở đầu trang — người dùng sẽ tự tìm và
+  // chọn cha/mẹ ngay trong form. parent = 1 thành viên cụ thể khi mở từ nút "+ Thêm con" trên
+  // 1 dòng trong bảng — đã biết sẵn cha/mẹ nên điền sẵn luôn.
   const openAddModal = (parent) => {
     setModalMode('add');
-    setTargetParentId(parent.id);
+    setTargetParentId(parent ? parent.id : '');
+    setParentInputValue(parent ? formatParentLabel(parent) : '');
     setFormData({
       ...emptyFormData,
       id: 'gen_' + Date.now(),
-      generation: parent.generation + 1
+      generation: parent ? parent.generation + 1 : 1
     });
     setIsModalOpen(true);
   };
@@ -305,6 +344,7 @@ const AdminFamilyTree = () => {
   const handleSave = (e) => {
     e.preventDefault();
     if (!formData.name) return alert("Vui lòng nhập họ tên!");
+    if (modalMode === 'add' && !targetParentId) return alert("Vui lòng chọn cha/mẹ (người sinh ra thành viên này) trước khi lưu!");
 
     const achArray = formData.achievementsStr.split(';').map(s => s.trim()).filter(s => s !== '');
     
@@ -332,15 +372,39 @@ const AdminFamilyTree = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
         <h3>Danh Sách Thành Viên ({flatList.length} người)</h3>
         <div>
           <input type="file" accept=".xlsx, .xls" style={{ display: 'none' }} ref={fileInputRef} onChange={handleFileChange} />
+          <button className="btn-primary" onClick={() => openAddModal(null)} style={{ marginRight: '10px', background: 'var(--primary-color)', color: 'white' }}>+ Thêm Thành Viên Mới</button>
           <button className="btn-primary" onClick={handleDownloadTemplate} style={{ marginRight: '10px', background: '#f39c12', color: 'white' }}>Tải Mẫu Excel</button>
           <button className="btn-primary" onClick={handleImportClick} style={{ marginRight: '10px', background: '#34495e', color: 'white' }}>📥 Nhập Excel</button>
           <button className="btn-primary" onClick={handleExportExcel} style={{ background: '#27ae60', color: 'white' }}>📤 Xuất Excel</button>
         </div>
       </div>
+
+      <div style={{ marginBottom: '15px', position: 'relative', maxWidth: '400px' }}>
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          placeholder="🔍 Tìm theo tên, mã ĐD, SĐT, tỉnh/thành, nghề nghiệp..."
+          style={{ width: '100%', padding: '10px 36px 10px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}
+        />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            title="Xóa tìm kiếm"
+            style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '1rem', color: 'var(--text-secondary)' }}
+          >✕</button>
+        )}
+      </div>
+
+      {searchTerm && (
+        <p style={{ marginBottom: '10px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+          Tìm thấy {filteredList.length} / {flatList.length} thành viên
+        </p>
+      )}
 
       <div style={{ overflowX: 'auto', background: 'white', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
@@ -356,7 +420,14 @@ const AdminFamilyTree = () => {
             </tr>
           </thead>
           <tbody>
-            {flatList.map(member => (
+            {filteredList.length === 0 && (
+              <tr>
+                <td colSpan={7} style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  Không tìm thấy thành viên nào phù hợp.
+                </td>
+              </tr>
+            )}
+            {filteredList.map(member => (
               <tr key={member.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                 <td style={{ padding: '12px 15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <img src={member.avatar || 'https://via.placeholder.com/150'} alt={member.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
@@ -397,10 +468,33 @@ const AdminFamilyTree = () => {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '20px' }}>
           <div className="card" style={{ maxWidth: '800px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
             <h2 style={{ marginBottom: '20px', borderBottom: '2px solid var(--border-color)', paddingBottom: '10px' }}>
-              {modalMode === 'add' ? 'Thêm Người Con Mới' : 'Cập Nhật Thông Tin'}
+              {modalMode === 'add' ? 'Thêm Thành Viên Mới' : 'Cập Nhật Thông Tin'}
             </h2>
-            
+
             <form onSubmit={handleSave} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              {modalMode === 'add' && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Là con của (cha/mẹ) *</label>
+                  <input
+                    required
+                    type="text"
+                    list="parent-options"
+                    value={parentInputValue}
+                    onChange={e => handleParentInputChange(e.target.value)}
+                    placeholder="Gõ để tìm kiếm theo tên..."
+                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                  />
+                  <datalist id="parent-options">
+                    {flatList.map(m => <option key={m.id} value={formatParentLabel(m)} />)}
+                  </datalist>
+                  {targetParentId ? (
+                    <p style={{ marginTop: '5px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Sẽ được thêm vào Đời {formData.generation}</p>
+                  ) : (
+                    <p style={{ marginTop: '5px', fontSize: '0.85rem', color: '#e74c3c' }}>Chưa chọn được cha/mẹ hợp lệ — hãy chọn đúng 1 gợi ý trong danh sách.</p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Họ và tên *</label>
                 <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
