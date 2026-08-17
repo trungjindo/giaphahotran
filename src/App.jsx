@@ -39,6 +39,7 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { isLoading, loadError } = useContext(AppContext);
   const menuButtonRef = useRef(null);
+  const footerRef = useRef(null);
   // Sơ đồ gia phả tự vẽ thành popup toàn màn hình (xem FamilyTreePage.jsx) — không render
   // navbar/banner quảng cáo/footer lúc này, để tránh chúng vẫn "ẩn phía sau" nhưng vẫn bấm
   // Tab tới được (rò rỉ khả năng tiếp cận) dù đã bị che khuất trực quan bởi overlay.
@@ -83,7 +84,7 @@ function App() {
     <div className="app-container">
       {/* Banner quảng cáo dọc 2 bên trang web (doanh nghiệp/dịch vụ thành viên) — chỉ hiện
           trên màn hình rất rộng để không bao giờ chồng lấn nội dung chính (max-width 1280px). */}
-      {!isTreePopup && <PromoBannerRail />}
+      {!isTreePopup && <PromoBannerRail footerRef={footerRef} />}
 
       {/* Navbar */}
       {!isTreePopup && <nav className="navbar">
@@ -149,7 +150,7 @@ function App() {
       </main>
 
       {/* Footer */}
-      {!isTreePopup && <footer className="footer">
+      {!isTreePopup && <footer className="footer" ref={footerRef}>
         <OceanScene variant="pattern" className="footer-pattern" />
         <div className="footer-inner">
           <div className="footer-brand">

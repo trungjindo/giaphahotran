@@ -1530,7 +1530,7 @@ img {
 .promo-rail {
   display: none;
   position: fixed;
-  top: 50%;
+  top: var(--promo-rail-top, 50%);
   transform: translateY(-50%);
   width: 150px;
   z-index: 5;
@@ -1579,7 +1579,7 @@ a.promo-card:hover {
 
 .promo-card-image-wrap {
   width: 100%;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 3 / 4.5;
   margin-top: 6px;
   background: var(--bg-color, #F2F6F8);
 }
@@ -1609,7 +1609,7 @@ a.promo-card:hover {
   line-height: 1.35;
   color: var(--text-secondary);
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
