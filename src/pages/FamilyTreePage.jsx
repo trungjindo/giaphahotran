@@ -69,7 +69,12 @@ function computeVisibleTree(root, { chiRootIds, chiPathAncestorIds, expandedChiR
     if (!rowsMap.has(node.generation)) rowsMap.set(node.generation, []);
     rowsMap.get(node.generation).push(node);
 
-    const hasChildren = !!(node.children && node.children.length > 0);
+    // Sơ đồ chỉ vẽ theo dòng con trai (quy ước gia phả phụ hệ) — con gái vẫn đầy đủ trong
+    // Danh Sách Con Cháu, chỉ không xuất hiện trên sơ đồ trực quan này. Dùng danh sách con
+    // trai này cho cả "có nhánh để mở rộng hay không" lẫn việc vẽ cạnh, để nút mở/thu gọn
+    // không hiện ra cho 1 người mà toàn bộ con đều là con gái (không có gì để mở ra cả).
+    const sonChildren = (node.children || []).filter(child => child.gender !== 'Nữ');
+    const hasChildren = sonChildren.length > 0;
     const isChiRoot = chiRootIds.has(node.id);
     let isExpanded = false;
     if (hasChildren) {
@@ -81,7 +86,7 @@ function computeVisibleTree(root, { chiRootIds, chiPathAncestorIds, expandedChiR
 
     if (isExpanded) {
       const childForceExpanded = isChiRoot ? true : forceExpanded;
-      node.children.forEach(child => {
+      sonChildren.forEach(child => {
         edges.push({ parentId: node.id, childId: child.id });
         walk(child, childForceExpanded);
       });
@@ -201,7 +206,10 @@ function FamilyTreePage() {
     const codeMap = buildFamilyCodeMap(familyData);
     const sortedGenerations = [...rowsMap.keys()].sort((a, b) => a - b);
     sortedGenerations.forEach(g => {
-      rowsMap.set(g, [...rowsMap.get(g)].sort((a, b) => compareDottedCode(codeMap[a.id], codeMap[b.id])));
+      // Đảo ngược (b, a thay vì a, b): anh cả (mã định danh nhỏ hơn, sinh trước) đứng bên
+      // PHẢI, em út bên trái — đúng ở mọi cấp vì phép đảo áp dụng cho toàn bộ hàng cùng lúc
+      // (tương đương lấy đối xứng gương cả sơ đồ), không chỉ đảo cục bộ trong 1 gia đình.
+      rowsMap.set(g, [...rowsMap.get(g)].sort((a, b) => compareDottedCode(codeMap[b.id], codeMap[a.id])));
     });
     return { sortedGenerations, rowsMap, edges, nodeState };
   }, [familyData, chiLoaded, chiRootIds, chiPathAncestorIds, expandedChiRootId, manualOverrides]);

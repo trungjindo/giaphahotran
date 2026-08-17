@@ -38,7 +38,9 @@ function DescendantList() {
       "Đời": m.generation,
       "Cha": m.father,
       "Mẹ": m.mother,
-      "Vợ/Chồng": m.spouse || "",
+      "Vợ/Chồng": m.spouses && m.spouses.length > 0
+        ? m.spouses.slice().sort((a, b) => (a.order || 0) - (b.order || 0)).map(s => s.name).join('; ')
+        : "",
       "Các Con": m.childrenNames,
       "Ngày Sinh": m.birthDate || "",
       "Ngày Mất": m.deathDate || "",

@@ -1,9 +1,10 @@
 import React, { useState, useContext, useRef, useMemo } from 'react';
 import { AppContext } from '../store';
 import * as XLSX from 'xlsx';
-import { flattenFamily, EDUCATION_LEVELS, buildFamilyCodeMap } from '../utils/family';
+import { flattenFamily, buildDescendantList, EDUCATION_LEVELS, buildFamilyCodeMap } from '../utils/family';
 import { getAvatarPlaceholder } from '../utils/avatar';
 import { apiUpload } from '../api';
+import MemberProfileModal from './MemberProfileModal';
 
 // Các quan hệ có thể chọn khi "Gắn Thành Viên Đã Có" — nhãn dùng chung với mục "Người Thân Liên
 // Quan" trong hồ sơ thành viên (Ông/Bà, Cha, Mẹ, Anh/Chị/Em, Con, Cháu) để nhất quán thuật ngữ.
@@ -46,21 +47,27 @@ const AdminFamilyTree = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
   const [addSubMode, setAddSubMode] = useState('create'); // 'create' (thành viên mới) hoặc 'attach' (thành viên đã có)
-  const [targetParentId, setTargetParentId] = useState(null);
-  const [parentInputValue, setParentInputValue] = useState('');
   const [attachRefInputValue, setAttachRefInputValue] = useState('');
   const [attachRefMemberId, setAttachRefMemberId] = useState('');
   const [attachRelation, setAttachRelation] = useState('con'); // ong_ba | cha | me | anh_chi_em | con | chau
   const [attachChildChoiceId, setAttachChildChoiceId] = useState('');
+  const [attachChildOrderIndex, setAttachChildOrderIndex] = useState(null); // null = mặc định (cuối cùng)
+  const [attachMotherChoice, setAttachMotherChoice] = useState(''); // tên vợ được chọn làm mẹ, khi cha có ≥2 vợ
   const [attachInputValue, setAttachInputValue] = useState('');
   const [attachSelectedId, setAttachSelectedId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewingMemberId, setViewingMemberId] = useState(null);
+  const [isWifeModalOpen, setIsWifeModalOpen] = useState(false);
+  const [wifeRefMemberId, setWifeRefMemberId] = useState('');
+  const [wifeName, setWifeName] = useState('');
+  const [wifeOrder, setWifeOrder] = useState(1);
 
   const [formData, setFormData] = useState(emptyFormData);
 
   // 1. Flatten Tree for Table & Excel
   const flatList = familyData ? flattenFamily(familyData) : [];
   const codeMap = useMemo(() => familyData ? buildFamilyCodeMap(familyData) : {}, [familyData]);
+  const descendantList = useMemo(() => buildDescendantList(familyData), [familyData]);
 
   const provinceSuggestions = useMemo(
     () => [...new Set(flatList.map(m => m.currentProvince).filter(Boolean))],
@@ -98,17 +105,6 @@ const AdminFamilyTree = () => {
     () => flatList.filter(m => (m.generation === 11 || m.generation === 12) && !m.isAlive),
     [flatList]
   );
-
-  const handleParentInputChange = (value) => {
-    setParentInputValue(value);
-    const found = parentLabelToMember.get(value);
-    if (found) {
-      setTargetParentId(found.id);
-      setFormData(fd => ({ ...fd, generation: found.generation + 1 }));
-    } else {
-      setTargetParentId('');
-    }
-  };
 
   // Tra cứu nhanh 1 thành viên theo id (bản gốc trong cây, còn nguyên .children lồng nhau) —
   // dùng cho toàn bộ logic tính toán quan hệ bên dưới.
@@ -222,6 +218,17 @@ const AdminFamilyTree = () => {
     const found = parentLabelToMember.get(value);
     setAttachRefMemberId(found ? found.id : '');
     setAttachChildChoiceId('');
+    setAttachChildOrderIndex(null);
+    setAttachMotherChoice('');
+    setAttachInputValue('');
+    setAttachSelectedId('');
+  };
+
+  const handleRelationChange = (value) => {
+    setAttachRelation(value);
+    setAttachChildChoiceId('');
+    setAttachChildOrderIndex(null);
+    setAttachMotherChoice('');
     setAttachInputValue('');
     setAttachSelectedId('');
   };
@@ -306,7 +313,9 @@ const AdminFamilyTree = () => {
       "Đã Đăng Ký Suất Đinh (Có/Không)": member.isRegistered ? "Có" : "Không",
       "Ngày Sinh (YYYY-MM-DD)": member.birthDate || "",
       "Ngày Mất (YYYY-MM-DD)": member.deathDate || "",
-      "Vợ/Chồng": member.spouse || "",
+      "Vợ/Chồng": member.spouses && member.spouses.length > 0
+        ? member.spouses.slice().sort((a, b) => (a.order || 0) - (b.order || 0)).map(s => s.name).join('; ')
+        : "",
       "Học Vấn": member.education || "",
       "Nghề Nghiệp": member.occupation || "",
       "Tỉnh/Thành Hiện Nay": member.currentProvince || "",
@@ -358,7 +367,9 @@ const AdminFamilyTree = () => {
             isRegistered: row["Đã Đăng Ký Suất Đinh (Có/Không)"] === "Có",
             birthDate: row["Ngày Sinh (YYYY-MM-DD)"] || row["Năm Sinh"] || "",
             deathDate: row["Ngày Mất (YYYY-MM-DD)"] || row["Năm Mất"] || "",
-            spouse: row["Vợ/Chồng"] || "",
+            spouses: row["Vợ/Chồng"]
+              ? row["Vợ/Chồng"].toString().split(';').map(s => s.trim()).filter(s => s !== '').map((name, idx) => ({ name, order: idx + 1 }))
+              : [],
             education: row["Học Vấn"] || "Chưa rõ",
             occupation: row["Nghề Nghiệp"] || "",
             currentProvince: row["Tỉnh/Thành Hiện Nay"] || row["Nơi Ở"] || "",
@@ -410,20 +421,6 @@ const AdminFamilyTree = () => {
 
   // 3. Tree Manipulation Functions
   const deepCopy = (obj) => JSON.parse(JSON.stringify(obj));
-
-  const recursiveAdd = (node, parentId, newNode) => {
-    if (node.id === parentId) {
-      if (!node.children) node.children = [];
-      node.children.push(newNode);
-      return true;
-    }
-    if (node.children) {
-      for (let child of node.children) {
-        if (recursiveAdd(child, parentId, newNode)) return true;
-      }
-    }
-    return false;
-  };
 
   const recursiveUpdate = (node, nodeId, updatedData) => {
     if (node.id === nodeId) {
@@ -485,25 +482,56 @@ const AdminFamilyTree = () => {
     (node.children || []).forEach(child => recalculateGenerations(child, generation + 1));
   };
 
+  // Chèn 1 con vào ĐÚNG vị trí thứ tự sinh đã chọn (thay vì luôn luôn thêm vào cuối) — dùng khi
+  // admin biết rõ "đây là con thứ mấy" thay vì chỉ biết người này chưa từng nhập.
+  const insertChildAt = (parentNode, index, node) => {
+    if (!parentNode.children) parentNode.children = [];
+    const clampedIndex = Math.max(0, Math.min(index, parentNode.children.length));
+    parentNode.children.splice(clampedIndex, 0, node);
+  };
+
   // 4. Form Handlers
   // parent = null khi mở từ nút "+ Thêm Thành Viên Mới" ở đầu trang — người dùng sẽ tự tìm và
   // chọn cha/mẹ ngay trong form. parent = 1 thành viên cụ thể khi mở từ nút "+ Thêm con" trên
-  // 1 dòng trong bảng — đã biết sẵn cha/mẹ nên điền sẵn luôn.
+  // 1 dòng trong bảng, hoặc từ nút "+" cạnh 1 vai vế trong hồ sơ (xem handleOpenAddRelative) —
+  // đã biết sẵn thành viên tham chiếu + quan hệ nên điền sẵn luôn.
   const openAddModal = (parent) => {
     setModalMode('add');
     setAddSubMode('create');
-    setTargetParentId(parent ? parent.id : '');
-    setParentInputValue(parent ? formatParentLabel(parent) : '');
     setAttachRefInputValue(parent ? formatParentLabel(parent) : '');
     setAttachRefMemberId(parent ? parent.id : '');
     setAttachRelation('con');
     setAttachChildChoiceId('');
+    setAttachChildOrderIndex(null);
+    setAttachMotherChoice('');
     setAttachInputValue('');
     setAttachSelectedId('');
     setFormData({
       ...emptyFormData,
-      id: 'gen_' + Date.now(),
-      generation: parent ? parent.generation + 1 : 1
+      id: 'gen_' + Date.now()
+    });
+    setIsModalOpen(true);
+  };
+
+  // relation/refMember đã biết sẵn khi mở từ nút "+" cạnh 1 vai vế trong hồ sơ (MemberProfileModal).
+  const handleOpenAddRelative = (relation, refMember) => {
+    if (relation === 'vo') {
+      openWifeModal(refMember);
+      return;
+    }
+    setModalMode('add');
+    setAddSubMode('create');
+    setAttachRefInputValue(formatParentLabel(refMember));
+    setAttachRefMemberId(refMember.id);
+    setAttachRelation(relation);
+    setAttachChildChoiceId('');
+    setAttachChildOrderIndex(null);
+    setAttachMotherChoice('');
+    setAttachInputValue('');
+    setAttachSelectedId('');
+    setFormData({
+      ...emptyFormData,
+      id: 'gen_' + Date.now()
     });
     setIsModalOpen(true);
   };
@@ -513,9 +541,31 @@ const AdminFamilyTree = () => {
     setFormData({
       ...emptyFormData,
       ...member,
+      spouse: member.spouses?.[0]?.name || '',
       achievementsStr: member.achievements ? member.achievements.join(';') : ''
     });
     setIsModalOpen(true);
+  };
+
+  // "+ Thêm Vợ" — vợ không phải 1 node trong cây, chỉ là tên + số thứ tự gắn trên hồ sơ chồng.
+  const openWifeModal = (refMember) => {
+    setWifeRefMemberId(refMember.id);
+    setWifeName('');
+    setWifeOrder((refMember.spouses?.length || 0) + 1);
+    setIsWifeModalOpen(true);
+  };
+
+  const handleSaveWife = () => {
+    if (!wifeName.trim()) return alert("Vui lòng nhập tên vợ!");
+    const newTree = deepCopy(familyData);
+    const node = findNodeById(newTree, wifeRefMemberId);
+    if (!node) return alert("Không tìm thấy thành viên, vui lòng thử lại!");
+    const currentSpouses = Array.isArray(node.spouses) ? node.spouses : (node.spouse ? [{ name: node.spouse, order: 1 }] : []);
+    node.spouses = [...currentSpouses, { name: wifeName.trim(), order: Number(wifeOrder) || currentSpouses.length + 1 }];
+    delete node.spouse;
+    setFamilyData(newTree);
+    setIsWifeModalOpen(false);
+    alert("Đã thêm vợ vào hồ sơ!");
   };
 
   const handleDelete = (id, name) => {
@@ -595,7 +645,17 @@ const AdminFamilyTree = () => {
       const extracted = recursiveExtract(newTree, attachSelectedId);
       if (!extracted) return alert("Không tìm thấy thành viên đã chọn, vui lòng thử lại!");
       recalculateGenerations(extracted, parentNode.generation + 1);
-      parentNode.children = [...(parentNode.children || []), extracted];
+      if (attachRelation === 'con') {
+        if (attachMotherChoice) {
+          if (attachRefMember.gender === 'Nữ') extracted.fatherName = attachMotherChoice;
+          else extracted.motherName = attachMotherChoice;
+        }
+        const orderIndex = attachChildOrderIndex ?? (parentNode.children || []).length;
+        insertChildAt(parentNode, orderIndex, extracted);
+      } else {
+        if (!parentNode.children) parentNode.children = [];
+        parentNode.children.push(extracted);
+      }
       setFamilyData(newTree);
     }
 
@@ -606,28 +666,89 @@ const AdminFamilyTree = () => {
   const handleSave = (e) => {
     e.preventDefault();
     if (!formData.name) return alert("Vui lòng nhập họ tên!");
-    if (modalMode === 'add' && !targetParentId) return alert("Vui lòng chọn cha/mẹ (người sinh ra thành viên này) trước khi lưu!");
+
+    if (modalMode === 'edit') {
+      const achArray = formData.achievementsStr.split(';').map(s => s.trim()).filter(s => s !== '');
+      const existingSpouses = Array.isArray(formData.spouses) ? formData.spouses : [];
+      const trimmedSpouse = (formData.spouse || '').trim();
+      // Ô "Phu nhân/Phu quân" chỉ sửa được VỢ 1 (tương thích ngược với hồ sơ cũ) — không bao giờ
+      // xóa mất Vợ 2, Vợ 3... đã thêm qua "+ Thêm Vợ" dù để trống ô này.
+      const spouses = trimmedSpouse
+        ? (existingSpouses.length > 0
+            ? existingSpouses.map((s, i) => i === 0 ? { ...s, name: trimmedSpouse } : s)
+            : [{ name: trimmedSpouse, order: 1 }])
+        : existingSpouses;
+      const nodeData = { ...formData, achievements: achArray, spouses };
+      delete nodeData.achievementsStr;
+      delete nodeData.spouse;
+      delete nodeData.parentId;
+      delete nodeData.parentName;
+      const newTree = deepCopy(familyData);
+      recursiveUpdate(newTree, nodeData.id, nodeData);
+      setFamilyData(newTree);
+      setIsModalOpen(false);
+      alert("Lưu thông tin thành công!");
+      return;
+    }
+
+    // modalMode === 'add', addSubMode === 'create'
+    if (!attachRefMemberId) return alert("Vui lòng chọn thành viên tham chiếu trước!");
+    if (!attachPlan || attachPlan.mode === 'error') return alert(attachPlan?.message || "Không xác định được vị trí gắn.");
+    if (attachPlan.mode === 'need_child_choice') return alert('Vui lòng chọn qua người con nào để xác định "Cháu".');
 
     const achArray = formData.achievementsStr.split(';').map(s => s.trim()).filter(s => s !== '');
-    
+    const trimmedSpouse = (formData.spouse || '').trim();
+
     const nodeData = {
       ...formData,
-      achievements: achArray
+      achievements: achArray,
+      children: [],
+      spouses: trimmedSpouse ? [{ name: trimmedSpouse, order: 1 }] : []
     };
     delete nodeData.achievementsStr;
+    delete nodeData.spouse;
     delete nodeData.parentId;
     delete nodeData.parentName;
 
-    const newTree = deepCopy(familyData);
-
-    if (modalMode === 'add') {
-      nodeData.children = [];
-      recursiveAdd(newTree, targetParentId, nodeData);
-    } else {
-      recursiveUpdate(newTree, nodeData.id, nodeData);
+    if (attachRelation === 'con' && attachMotherChoice) {
+      if (attachRefMember.gender === 'Nữ') nodeData.fatherName = attachMotherChoice;
+      else nodeData.motherName = attachMotherChoice;
     }
 
-    setFamilyData(newTree);
+    const newTree = deepCopy(familyData);
+
+    if (attachPlan.mode === 'become_root') {
+      const oldRoot = attachPlan.targetChildId === newTree.id ? newTree : recursiveExtract(newTree, attachPlan.targetChildId);
+      if (!oldRoot) return alert("Không tìm thấy vị trí liên quan, vui lòng thử lại!");
+      recalculateGenerations(nodeData, 1);
+      nodeData.children = [oldRoot];
+      recalculateGenerations(oldRoot, 2);
+      setFamilyData(nodeData);
+    } else if (attachPlan.mode === 'insert_above') {
+      const extractedTarget = recursiveExtract(newTree, attachPlan.targetChildId);
+      if (!extractedTarget) return alert("Không tìm thấy vị trí liên quan, vui lòng thử lại!");
+      const newParentNode = findNodeById(newTree, attachPlan.newParentId);
+      if (!newParentNode) return alert("Không tìm thấy ông/bà liên quan, vui lòng thử lại!");
+      recalculateGenerations(nodeData, newParentNode.generation + 1);
+      if (!newParentNode.children) newParentNode.children = [];
+      newParentNode.children.push(nodeData);
+      nodeData.children = [extractedTarget];
+      recalculateGenerations(extractedTarget, nodeData.generation + 1);
+      setFamilyData(newTree);
+    } else {
+      const parentNode = findNodeById(newTree, attachPlan.parentId);
+      if (!parentNode) return alert("Không tìm thấy vị trí đã chọn, vui lòng thử lại!");
+      nodeData.generation = parentNode.generation + 1;
+      if (attachRelation === 'con') {
+        const orderIndex = attachChildOrderIndex ?? (parentNode.children || []).length;
+        insertChildAt(parentNode, orderIndex, nodeData);
+      } else {
+        if (!parentNode.children) parentNode.children = [];
+        parentNode.children.push(nodeData);
+      }
+      setFamilyData(newTree);
+    }
+
     setIsModalOpen(false);
     alert("Lưu thông tin thành công!");
   };
@@ -734,6 +855,7 @@ const AdminFamilyTree = () => {
                   )}
                 </td>
                 <td style={{ padding: '12px 15px' }}>
+                  <button onClick={() => setViewingMemberId(member.id)} style={{ padding: '5px 10px', background: '#8e44ad', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' }}>Xem hồ sơ</button>
                   <button onClick={() => openEditModal(member)} style={{ padding: '5px 10px', background: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' }}>Sửa</button>
                   <button onClick={() => openAddModal(member)} style={{ padding: '5px 10px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' }}>+ Thêm con</button>
                   {member.id !== familyData?.id && (
@@ -778,8 +900,8 @@ const AdminFamilyTree = () => {
               </div>
             )}
 
-            {modalMode === 'add' && addSubMode === 'attach' ? (
-              <div>
+            {modalMode === 'add' && (
+              <div style={{ marginBottom: '20px' }}>
                 <div style={{ marginBottom: '20px' }}>
                   <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Thành viên tham chiếu *</label>
                   <input
@@ -797,14 +919,16 @@ const AdminFamilyTree = () => {
 
                 <div style={{ marginBottom: '20px' }}>
                   <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>
-                    Thành viên sẽ gắn vào là gì của {attachRefMember ? attachRefMember.name : 'người ở trên'}? *
+                    {addSubMode === 'attach'
+                      ? `Thành viên sẽ gắn vào là gì của ${attachRefMember ? attachRefMember.name : 'người ở trên'}? *`
+                      : `Người mới sẽ tạo là gì của ${attachRefMember ? attachRefMember.name : 'người ở trên'}? *`}
                   </label>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {RELATION_OPTIONS.map(opt => (
                       <button
                         key={opt.value}
                         type="button"
-                        onClick={() => { setAttachRelation(opt.value); setAttachChildChoiceId(''); setAttachInputValue(''); setAttachSelectedId(''); }}
+                        onClick={() => handleRelationChange(opt.value)}
                         style={attachRelation === opt.value
                           ? { background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '4px', padding: '8px 14px', cursor: 'pointer' }
                           : { background: '#eee', color: 'var(--text-primary)', border: 'none', borderRadius: '4px', padding: '8px 14px', cursor: 'pointer' }}
@@ -833,6 +957,42 @@ const AdminFamilyTree = () => {
                   <p style={{ marginBottom: '20px', fontSize: '0.85rem', color: '#e74c3c' }}>{attachPlan.message}</p>
                 )}
 
+                {attachRelation === 'con' && attachRefMember && attachRefMember.children && attachRefMember.children.length > 0 && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Con thứ mấy?</label>
+                    <select
+                      value={attachChildOrderIndex === null ? attachRefMember.children.length : attachChildOrderIndex}
+                      onChange={e => setAttachChildOrderIndex(Number(e.target.value))}
+                      style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}
+                    >
+                      {attachRefMember.children.map((c, idx) => (
+                        <option key={idx} value={idx}>{idx === 0 ? 'Con đầu' : `Con thứ ${idx + 1}`} (trước {c.name})</option>
+                      ))}
+                      <option value={attachRefMember.children.length}>{`Con thứ ${attachRefMember.children.length + 1} (út, mặc định)`}</option>
+                    </select>
+                  </div>
+                )}
+
+                {attachRelation === 'con' && attachRefMember && attachRefMember.spouses && attachRefMember.spouses.length > 1 && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Con của bà vợ nào?</label>
+                    <select
+                      value={attachMotherChoice}
+                      onChange={e => setAttachMotherChoice(e.target.value)}
+                      style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}
+                    >
+                      <option value="">-- Chưa rõ / không chọn --</option>
+                      {attachRefMember.spouses.map((s, idx) => (
+                        <option key={idx} value={s.name}>{attachRefMember.spouses.length > 1 ? `Vợ ${s.order}: ${s.name}` : s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {modalMode === 'add' && addSubMode === 'attach' ? (
+              <div>
                 <div style={{ marginBottom: '20px' }}>
                   <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Chọn thành viên đã có sẵn *</label>
                   <input
@@ -868,29 +1028,6 @@ const AdminFamilyTree = () => {
               </div>
             ) : (
             <form onSubmit={handleSave} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-              {modalMode === 'add' && (
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Là con của (cha/mẹ) *</label>
-                  <input
-                    required
-                    type="text"
-                    list="parent-options"
-                    value={parentInputValue}
-                    onChange={e => handleParentInputChange(e.target.value)}
-                    placeholder="Gõ để tìm kiếm theo tên..."
-                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
-                  />
-                  <datalist id="parent-options">
-                    {flatList.map(m => <option key={m.id} value={formatParentLabel(m)} />)}
-                  </datalist>
-                  {targetParentId ? (
-                    <p style={{ marginTop: '5px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Sẽ được thêm vào Đời {formData.generation}</p>
-                  ) : (
-                    <p style={{ marginTop: '5px', fontSize: '0.85rem', color: '#e74c3c' }}>Chưa chọn được cha/mẹ hợp lệ — hãy chọn đúng 1 gợi ý trong danh sách.</p>
-                  )}
-                </div>
-              )}
-
               <div>
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Họ và tên *</label>
                 <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
@@ -1021,6 +1158,35 @@ const AdminFamilyTree = () => {
             )}
           </div>
         </div>
+      )}
+
+      {isWifeModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '20px' }}>
+          <div className="card" style={{ maxWidth: '420px', width: '100%' }}>
+            <h2 style={{ marginBottom: '20px', borderBottom: '2px solid var(--border-color)', paddingBottom: '10px' }}>Thêm Vợ</h2>
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Tên vợ *</label>
+              <input type="text" value={wifeName} onChange={e => setWifeName(e.target.value)} placeholder="Họ và tên..." style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Vợ thứ mấy?</label>
+              <input type="number" min="1" value={wifeOrder} onChange={e => setWifeOrder(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button type="button" onClick={() => setIsWifeModalOpen(false)} style={{ padding: '10px 20px', background: '#ccc', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Hủy Bỏ</button>
+              <button type="button" className="btn-primary" onClick={handleSaveWife}>Lưu</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewingMemberId && (
+        <MemberProfileModal
+          member={descendantList.find(m => m.id === viewingMemberId) || null}
+          onClose={() => setViewingMemberId(null)}
+          onSelectMember={setViewingMemberId}
+          onAddRelative={handleOpenAddRelative}
+        />
       )}
     </div>
   );

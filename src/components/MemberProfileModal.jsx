@@ -37,10 +37,35 @@ const PersonLinkList = ({ people, onSelectMember, emptyText }) => {
   ));
 };
 
+// Nút "+" nhỏ để thêm người thân đúng vai vế này — chỉ hiện khi có onAddRelative (tức đang mở
+// từ Admin); trang công khai không truyền prop này nên không thấy nút, giữ nguyên trải nghiệm
+// chỉ-xem như trước.
+const AddRelativeButton = ({ relation, member, onAddRelative }) => {
+  if (!onAddRelative) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => onAddRelative(relation, member)}
+      title="Thêm người thân"
+      aria-label="Thêm người thân"
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: '20px', height: '20px', marginLeft: '6px', padding: 0,
+        borderRadius: '50%', border: '1px solid var(--accent-teal)', background: 'white',
+        color: 'var(--accent-teal)', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer', lineHeight: 1, verticalAlign: 'middle'
+      }}
+    >
+      +
+    </button>
+  );
+};
+
 // Modal hồ sơ chi tiết một thành viên, dùng chung cho Sơ Đồ Gia Phả và Danh Sách Con Cháu.
 // onSelectMember (tuỳ chọn): mở hồ sơ 1 người khác ngay trong modal này, dùng khi bấm vào
 // tên cha/mẹ/con cái có hồ sơ riêng.
-const MemberProfileModal = ({ member, onClose, onSelectMember }) => {
+// onAddRelative (tuỳ chọn, chỉ Admin truyền vào): (relationValue, refMember) => void — hiện nút
+// "+" cạnh mỗi vai vế để thêm người thân đúng quan hệ đó ngay từ hồ sơ đang xem.
+const MemberProfileModal = ({ member, onClose, onSelectMember, onAddRelative }) => {
   const { isAuthenticated } = useContext(AppContext);
   const [avatarSrc, setAvatarSrc] = useState(null);
 
@@ -155,29 +180,43 @@ const MemberProfileModal = ({ member, onClose, onSelectMember }) => {
               <div>
                 <strong>Ông/Bà:</strong>{' '}
                 {member.grandparent ? <PersonLink id={member.grandparent.id} name={member.grandparent.name} onSelectMember={onSelectMember} /> : 'Chưa rõ'}
+                <AddRelativeButton relation="ong_ba" member={member} onAddRelative={onAddRelative} />
               </div>
               <div>
-                <strong>Phu nhân / Phu quân:</strong> {member.spouse || 'Chưa rõ'}
+                <strong>Vợ:</strong>{' '}
+                {member.spouses && member.spouses.length > 0
+                  ? member.spouses
+                      .slice()
+                      .sort((a, b) => (a.order || 0) - (b.order || 0))
+                      .map(s => (member.spouses.length > 1 ? `Vợ ${s.order}: ${s.name}` : s.name))
+                      .join(', ')
+                  : 'Chưa rõ'}
+                <AddRelativeButton relation="vo" member={member} onAddRelative={onAddRelative} />
               </div>
               <div>
                 <strong>Cha:</strong>{' '}
                 {member.father ? <PersonLink id={member.fatherId} name={member.father} onSelectMember={onSelectMember} /> : 'Chưa rõ'}
+                <AddRelativeButton relation="cha" member={member} onAddRelative={onAddRelative} />
               </div>
               <div>
                 <strong>Mẹ:</strong>{' '}
                 {member.mother ? <PersonLink id={member.motherId} name={member.mother} onSelectMember={onSelectMember} /> : 'Chưa rõ'}
+                <AddRelativeButton relation="me" member={member} onAddRelative={onAddRelative} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <strong>Anh/Chị/Em:</strong>{' '}
                 <PersonLinkList people={member.siblings} onSelectMember={onSelectMember} emptyText="Không có" />
+                <AddRelativeButton relation="anh_chi_em" member={member} onAddRelative={onAddRelative} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <strong>Con cái:</strong>{' '}
                 <PersonLinkList people={member.children} onSelectMember={onSelectMember} emptyText="Chưa có thông tin" />
+                <AddRelativeButton relation="con" member={member} onAddRelative={onAddRelative} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <strong>Cháu:</strong>{' '}
                 <PersonLinkList people={member.grandchildren} onSelectMember={onSelectMember} emptyText="Chưa có thông tin" />
+                <AddRelativeButton relation="chau" member={member} onAddRelative={onAddRelative} />
               </div>
             </div>
           </div>

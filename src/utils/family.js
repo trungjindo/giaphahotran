@@ -40,9 +40,18 @@ export const buildFamilyCodeMap = (node, prefix = '1') => {
   return map;
 };
 
+// Chuẩn hoá "vợ" về dạng mảng {name, order} — dữ liệu cũ (197 bản ghi hiện có) chỉ có field
+// `spouse` dạng chuỗi đơn; bọc lại thành mảng 1 phần tử thay vì phải migrate dữ liệu JSON đang
+// lưu. Bản ghi mới (thêm qua "+ Thêm Vợ") ghi thẳng vào `spouses`.
+export const normalizeSpouses = (node) => {
+  if (Array.isArray(node?.spouses)) return node.spouses;
+  if (node?.spouse && node.spouse.trim()) return [{ name: node.spouse, order: 1 }];
+  return [];
+};
+
 export const flattenFamily = (node, parentId = '', parentName = 'Thủy tổ') => {
   if (!node) return [];
-  let list = [{ ...node, parentId, parentName }];
+  let list = [{ ...node, parentId, parentName, spouses: normalizeSpouses(node) }];
   if (node.children && node.children.length > 0) {
     node.children.forEach(child => {
       list = list.concat(flattenFamily(child, node.id, node.name));
@@ -67,16 +76,20 @@ export const buildDescendantList = (root) => {
     let motherId = null;
     if (parent) {
       // Chỉ người cha/mẹ TRÙNG VỚI nút cha trong cây (parent) mới có hồ sơ riêng để bấm vào —
-      // người còn lại chỉ là tên vợ/chồng ghi chú trên hồ sơ (spouse), không phải 1 nút trong
-      // cây nên không có ID/hồ sơ để liên kết tới.
+      // người còn lại chỉ là tên vợ/chồng ghi chú trên hồ sơ (spouses), không phải 1 nút trong
+      // cây nên không có ID/hồ sơ để liên kết tới. Khi cha/mẹ có NHIỀU vợ/chồng, field
+      // motherName/fatherName trên CHÍNH đứa con (ghi lúc thêm con, xem AdminFamilyTree) quyết
+      // định chính xác là vợ/chồng nào — nếu không có (dữ liệu cũ, hoặc chỉ có 1 vợ/chồng) thì
+      // suy ra từ người đầu tiên trong danh sách.
+      const parentSpouses = normalizeSpouses(parent);
       if (parent.gender === 'Nữ') {
         mother = parent.name;
         motherId = parent.id;
-        father = parent.spouse || '';
+        father = m.fatherName || parentSpouses[0]?.name || '';
       } else {
         father = parent.name;
         fatherId = parent.id;
-        mother = parent.spouse || '';
+        mother = m.motherName || parentSpouses[0]?.name || '';
       }
     }
 
@@ -159,7 +172,7 @@ export const computeFamilyStats = (familyData) => {
     else if (m.gender === 'Nữ') genderCounts['Nữ']++;
     else genderCounts['Chưa rõ']++;
 
-    if (m.spouse && m.spouse.trim()) {
+    if (m.spouses && m.spouses.length > 0) {
       if (m.gender === 'Nam') inLawCounts['Con dâu']++;
       else if (m.gender === 'Nữ') inLawCounts['Con rể']++;
     }
