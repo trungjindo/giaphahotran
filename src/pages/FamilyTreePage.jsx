@@ -58,6 +58,14 @@ const compareDottedCode = (a, b) => {
   return 0;
 };
 
+// Lấy số thứ tự chi từ tên (VD: "Chi 1" -> 1, "Chi 2" -> 2) để xếp Chi 1 luôn bên trái Chi 2 rồi
+// đến Chi 3... Tên không có số thì xếp ra sau cùng (Infinity) thay vì làm hỏng thứ tự các chi
+// đã đánh số.
+const extractChiNumber = (chiName) => {
+  const match = (chiName || '').match(/\d+/);
+  return match ? parseInt(match[0], 10) : Infinity;
+};
+
 // Duyệt cây tính danh sách các ô ĐANG HIỂN THỊ, gom theo TỪNG ĐỜI (mỗi ô chỉ thuộc đúng 1
 // hàng), cùng danh sách cặp cha-con để vẽ đường nối.
 function computeVisibleTree(root, { chiRootIds, chiPathAncestorIds, expandedChiRootId, manualOverrides }) {
@@ -206,13 +214,27 @@ function FamilyTreePage() {
     const codeMap = buildFamilyCodeMap(familyData);
     const sortedGenerations = [...rowsMap.keys()].sort((a, b) => a - b);
     sortedGenerations.forEach(g => {
-      // Đảo ngược (b, a thay vì a, b): anh cả (mã định danh nhỏ hơn, sinh trước) đứng bên
-      // PHẢI, em út bên trái — đúng ở mọi cấp vì phép đảo áp dụng cho toàn bộ hàng cùng lúc
-      // (tương đương lấy đối xứng gương cả sơ đồ), không chỉ đảo cục bộ trong 1 gia đình.
-      rowsMap.set(g, [...rowsMap.get(g)].sort((a, b) => compareDottedCode(codeMap[b.id], codeMap[a.id])));
+      // Anh cả (mã định danh nhỏ hơn, sinh trước) đứng bên TRÁI, em út bên phải — thứ tự khai
+      // sinh tự nhiên trong cây.
+      const base = [...rowsMap.get(g)].sort((a, b) => compareDottedCode(codeMap[a.id], codeMap[b.id]));
+      // Riêng các gốc chi: hoán đổi CHỈ VỊ TRÍ CỦA CÁC GỐC CHI VỚI NHAU theo SỐ THỨ TỰ CHI (Chi 1
+      // luôn bên trái Chi 2 rồi đến Chi 3...), giữ nguyên vị trí của anh/chị/em không thuộc chi
+      // nào — vì admin có thể đặt tên/đánh số chi không khớp đúng thứ tự sinh thực tế. Không thể
+      // làm việc này bằng cách nhét điều kiện vào hàm so sánh của sort() ở trên: với mảng ngắn,
+      // Array.prototype.sort có thể không bao giờ so sánh trực tiếp 2 gốc chi với nhau (suy ra
+      // qua tính bắc cầu từ các so sánh khác), nên phải xử lý tách biệt như dưới đây.
+      const chiRootPositions = [];
+      base.forEach((node, idx) => { if (chiRootIds.has(node.id)) chiRootPositions.push(idx); });
+      if (chiRootPositions.length > 1) {
+        const chiRootsByNumber = chiRootPositions
+          .map(idx => base[idx])
+          .sort((a, b) => extractChiNumber(chiInfoMap[a.id]?.chiName) - extractChiNumber(chiInfoMap[b.id]?.chiName));
+        chiRootPositions.forEach((idx, i) => { base[idx] = chiRootsByNumber[i]; });
+      }
+      rowsMap.set(g, base);
     });
     return { sortedGenerations, rowsMap, edges, nodeState };
-  }, [familyData, chiLoaded, chiRootIds, chiPathAncestorIds, expandedChiRootId, manualOverrides]);
+  }, [familyData, chiLoaded, chiRootIds, chiInfoMap, chiPathAncestorIds, expandedChiRootId, manualOverrides]);
 
   const handleToggleNode = useCallback((node) => {
     setManualOverrides(prev => {
