@@ -1,9 +1,9 @@
-import React, { useState, useContext, useRef, useMemo } from 'react';
+import React, { useState, useContext, useRef, useMemo, useEffect } from 'react';
 import { AppContext } from '../store';
 import * as XLSX from 'xlsx';
 import { flattenFamily, buildDescendantList, EDUCATION_LEVELS, buildFamilyCodeMap } from '../utils/family';
 import { getAvatarPlaceholder } from '../utils/avatar';
-import { apiUpload } from '../api';
+import { apiUpload, apiRequest } from '../api';
 import MemberProfileModal from './MemberProfileModal';
 
 // Các quan hệ có thể chọn khi "Gắn Thành Viên Đã Có" — nhãn dùng chung với mục "Người Thân Liên
@@ -61,8 +61,15 @@ const AdminFamilyTree = () => {
   const [wifeRefMemberId, setWifeRefMemberId] = useState('');
   const [wifeName, setWifeName] = useState('');
   const [wifeOrder, setWifeOrder] = useState(1);
+  const [childOrder, setChildOrder] = useState([]); // mảng id các con, đúng thứ tự sinh — chỉnh sửa khi Sửa 1 thành viên
+  const [heirChildId, setHeirChildId] = useState(''); // id người con được chọn làm đích tôn (hương hỏa đời tiếp), '' = chưa chọn
+  const [chiList, setChiList] = useState([]);
 
   const [formData, setFormData] = useState(emptyFormData);
+
+  useEffect(() => {
+    apiRequest('chi.php').then(setChiList).catch(() => {});
+  }, []);
 
   // 1. Flatten Tree for Table & Excel
   const flatList = familyData ? flattenFamily(familyData) : [];
@@ -459,6 +466,20 @@ const AdminFamilyTree = () => {
     return null;
   };
 
+  // Chi là suy ra theo cấu trúc cây (hậu duệ của root_member_id mỗi chi), không phải field lưu
+  // trực tiếp trên từng người — tính giống hệt cách FamilyTreePage.jsx đang làm.
+  const chiInfoMap = useMemo(() => {
+    const infoMap = {};
+    if (familyData) {
+      chiList.forEach(chi => {
+        const rootNode = findNodeById(familyData, chi.rootMemberId);
+        if (!rootNode) return;
+        flattenFamily(rootNode).forEach(m => { infoMap[m.id] = chi.name; });
+      });
+    }
+    return infoMap;
+  }, [familyData, chiList]);
+
   // Giống recursiveDelete nhưng TRẢ VỀ node vừa gỡ (thay vì chỉ xóa đi) — dùng để "gắn" 1 thành
   // viên đã có sẵn (kèm toàn bộ nhánh con cháu của họ) sang vị trí cha/mẹ khác.
   const recursiveExtract = (node, nodeId) => {
@@ -544,7 +565,22 @@ const AdminFamilyTree = () => {
       spouse: member.spouses?.[0]?.name || '',
       achievementsStr: member.achievements ? member.achievements.join(';') : ''
     });
+    setChildOrder((member.children || []).map(c => c.id));
+    setHeirChildId((member.children || []).find(c => c.isMainLineage)?.id || '');
     setIsModalOpen(true);
+  };
+
+  // Đổi chỗ 1 người con với người liền trước/liền sau trong danh sách — dùng để chỉnh lại ai là
+  // con trưởng, con thứ khi nhập thiếu hoặc nhập sai thứ tự lúc đầu.
+  const moveChildOrder = (childId, direction) => {
+    setChildOrder(prev => {
+      const idx = prev.indexOf(childId);
+      const swapIdx = idx + direction;
+      if (idx === -1 || swapIdx < 0 || swapIdx >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      return next;
+    });
   };
 
   // "+ Thêm Vợ" — vợ không phải 1 node trong cây, chỉ là tên + số thứ tự gắn trên hồ sơ chồng.
@@ -683,8 +719,18 @@ const AdminFamilyTree = () => {
       delete nodeData.spouse;
       delete nodeData.parentId;
       delete nodeData.parentName;
+      // Thứ tự + đích tôn của các con phải áp vào children của node TRONG newTree vừa deep-copy
+      // (không dùng formData.children — đó là tham chiếu cũ chụp lúc mở modal Sửa), nên xóa khỏi
+      // nodeData để Object.assign không ghi đè nhầm rồi tự tay sắp xếp lại bên dưới.
+      delete nodeData.children;
       const newTree = deepCopy(familyData);
       recursiveUpdate(newTree, nodeData.id, nodeData);
+      const updatedNode = findNodeById(newTree, nodeData.id);
+      if (updatedNode && childOrder.length > 0) {
+        const byId = new Map(updatedNode.children.map(c => [c.id, c]));
+        updatedNode.children = childOrder.map(id => byId.get(id)).filter(Boolean);
+        updatedNode.children.forEach(c => { c.isMainLineage = c.id === heirChildId; });
+      }
       setFamilyData(newTree);
       setIsModalOpen(false);
       alert("Lưu thông tin thành công!");
@@ -1087,6 +1133,15 @@ const AdminFamilyTree = () => {
                 <label><input type="radio" checked={!formData.isMainLineage} onChange={() => setFormData({...formData, isMainLineage: false})} /> Không</label>
               </div>
 
+              {modalMode === 'edit' && (
+                <div>
+                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Thuộc chi</label>
+                  <p style={{ margin: 0, padding: '10px 0', color: 'var(--text-secondary)' }}>
+                    {chiInfoMap[formData.id] || 'Dòng chính (chưa gắn vào chi nào)'}
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Tình trạng</label>
                 <label style={{ marginRight: '15px' }}><input type="radio" checked={formData.isAlive} onChange={() => setFormData({...formData, isAlive: true})} /> Còn sống</label>
@@ -1149,6 +1204,50 @@ const AdminFamilyTree = () => {
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Thành tựu nổi bật (Các mục cách nhau bằng dấu chấm phẩy ";")</label>
                 <input type="text" value={formData.achievementsStr} onChange={e => setFormData({...formData, achievementsStr: e.target.value})} placeholder="VD: Kỹ sư phần mềm; Đạt giải thưởng..." style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
               </div>
+
+              {modalMode === 'edit' && childOrder.length > 0 && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>
+                    Thứ tự các con &amp; đích tôn (hương hỏa đời tiếp)
+                  </label>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    Dùng mũi tên để sắp lại ai là con trưởng, con thứ. Tick chọn đúng 1 người làm đích tôn — người này sẽ tự động hiện sao ★ trên sơ đồ gia phả.
+                  </p>
+                  <div style={{ border: '1px solid var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                    {childOrder.map((id, idx) => {
+                      const child = formData.children?.find(c => c.id === id);
+                      if (!child) return null;
+                      const positionLabel = idx === 0 ? 'Con trưởng' : `Con thứ ${idx + 1}${idx === childOrder.length - 1 ? ' (út)' : ''}`;
+                      return (
+                        <div key={id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderBottom: idx < childOrder.length - 1 ? '1px solid var(--border-color)' : 'none', background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <button type="button" onClick={() => moveChildOrder(id, -1)} disabled={idx === 0} title="Đưa lên (lớn hơn)" style={{ padding: '2px 6px', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.4 : 1 }}>▲</button>
+                            <button type="button" onClick={() => moveChildOrder(id, 1)} disabled={idx === childOrder.length - 1} title="Đưa xuống (nhỏ hơn)" style={{ padding: '2px 6px', cursor: idx === childOrder.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === childOrder.length - 1 ? 0.4 : 1 }}>▼</button>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 'bold' }}>{child.name} {child.gender ? `(${child.gender})` : ''}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{positionLabel} · {chiInfoMap[id] || 'Dòng chính'}</div>
+                          </div>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                            <input
+                              type="radio"
+                              name="heirChild"
+                              checked={heirChildId === id}
+                              onChange={() => setHeirChildId(id)}
+                            />
+                            Đích tôn
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {heirChildId && (
+                    <button type="button" onClick={() => setHeirChildId('')} style={{ marginTop: '6px', padding: '4px 10px', background: '#eee', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                      Bỏ chọn đích tôn
+                    </button>
+                  )}
+                </div>
+              )}
 
               <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
                 <button type="button" onClick={() => setIsModalOpen(false)} style={{ padding: '10px 20px', background: '#ccc', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Hủy Bỏ</button>
