@@ -58,8 +58,8 @@ const compareDottedCode = (a, b) => {
   return 0;
 };
 
-// Lấy số thứ tự chi từ tên (VD: "Chi 1" -> 1, "Chi 2" -> 2) để xếp Chi 1 luôn bên trái Chi 2 rồi
-// đến Chi 3...
+// Lấy số thứ tự chi từ tên (VD: "Chi 1" -> 1, "Chi 2" -> 2) để xếp Chi 1 bên trái Chi 2 rồi đến
+// Chi 3 — xem giới hạn quan trọng của quy tắc này ở chỗ dùng nó bên dưới.
 //   - "Chi Trưởng" (và các biến thể có chữ "trưởng") luôn là chi đầu tiên theo lệ gia phả, dù
 //     tên không đánh số — nếu chỉ xét chữ số thì chi trưởng sẽ bị đẩy xuống cuối, tức là đứng
 //     bên phải cả Chi 2, Chi 3, ngược hẳn với vai vế thật.
@@ -314,11 +314,19 @@ function FamilyTreePage() {
       // sinh tự nhiên trong cây.
       const base = [...rowsMap.get(g)].sort((a, b) => compareDottedCode(codeMap[a.id], codeMap[b.id]));
       // Riêng các gốc chi: hoán đổi CHỈ VỊ TRÍ CỦA CÁC GỐC CHI VỚI NHAU theo SỐ THỨ TỰ CHI (Chi 1
-      // luôn bên trái Chi 2 rồi đến Chi 3...), giữ nguyên vị trí của anh/chị/em không thuộc chi
-      // nào — vì admin có thể đặt tên/đánh số chi không khớp đúng thứ tự sinh thực tế. Không thể
-      // làm việc này bằng cách nhét điều kiện vào hàm so sánh của sort() ở trên: với mảng ngắn,
+      // bên trái Chi 2 rồi đến Chi 3...), giữ nguyên vị trí của anh/chị/em không thuộc chi nào —
+      // vì admin có thể đặt tên/đánh số chi không khớp đúng thứ tự sinh thực tế. Không thể làm
+      // việc này bằng cách nhét điều kiện vào hàm so sánh của sort() ở trên: với mảng ngắn,
       // Array.prototype.sort có thể không bao giờ so sánh trực tiếp 2 gốc chi với nhau (suy ra
       // qua tính bắc cầu từ các so sánh khác), nên phải xử lý tách biệt như dưới đây.
+      //
+      // GIỚI HẠN (đã chốt với chủ dòng họ, đừng "sửa" thành cưỡng ép toàn cục): thứ tự trong
+      // hàng này chỉ còn quyết định thứ tự các con TRONG CÙNG 1 NGƯỜI CHA (computeTreeLayout dùng
+      // nó làm thứ tự duyệt con). Từ khi mỗi người cha phải nằm chính giữa các con, vị trí ngang
+      // của 1 người là do NHÁNH TỔ TIÊN của họ quyết định. Nên nếu 2 gốc chi nằm ở 2 nhánh khác
+      // nhau (dữ liệu thật: Chi Trưởng và Chi 3 tách nhau từ Đời 3), quy tắc số chi KHÔNG đổi
+      // được vị trí của chúng. Muốn ép thì phải sắp lại cả nhánh tổ tiên ở chỗ 2 nhánh tách ra,
+      // đồng nghĩa cho con thứ đứng trước con trưởng — chủ dòng họ đã chọn GIỮ THỨ TỰ SINH.
       const chiRootPositions = [];
       base.forEach((node, idx) => { if (chiRootIds.has(node.id)) chiRootPositions.push(idx); });
       if (chiRootPositions.length > 1) {
