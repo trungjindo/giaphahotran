@@ -1,5 +1,5 @@
 import React, { useState, useContext, useRef, useMemo, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { TransformWrapper, TransformComponent, Virtualize, useTransformEffect } from 'react-zoom-pan-pinch';
 import { AppContext } from '../store';
 import { apiRequest } from '../api';
@@ -66,9 +66,36 @@ const extractChiNumber = (chiName) => {
   return match ? parseInt(match[0], 10) : Infinity;
 };
 
+// Toàn bộ id hậu duệ của 1 người (không gồm chính họ).
+const collectDescendantIds = (node) => {
+  const ids = [];
+  const walk = (n) => (n.children || []).forEach(c => { ids.push(c.id); walk(c); });
+  walk(node);
+  return ids;
+};
+
+// Đường tổ tiên từ Thủy tổ xuống tới targetId (không gồm chính targetId).
+const collectAncestorIds = (root, targetId) => {
+  let found = [];
+  const walk = (node, trail) => {
+    if (node.id === targetId) { found = trail; return true; }
+    return (node.children || []).some(c => walk(c, [...trail, node.id]));
+  };
+  if (root) walk(root, []);
+  return found;
+};
+
+// Cắt cây chỉ giữ lại những người trong allowedIds — trả về BẢN SAO (không đụng vào dữ liệu
+// gốc trong context) để mọi bước tính sơ đồ phía sau dùng lại được nguyên vẹn.
+const pruneTree = (node, allowedIds) => {
+  if (!node || !allowedIds.has(node.id)) return null;
+  const children = (node.children || []).map(c => pruneTree(c, allowedIds)).filter(Boolean);
+  return { ...node, children };
+};
+
 // Duyệt cây tính danh sách các ô ĐANG HIỂN THỊ, gom theo TỪNG ĐỜI (mỗi ô chỉ thuộc đúng 1
 // hàng), cùng danh sách cặp cha-con để vẽ đường nối.
-function computeVisibleTree(root, { chiRootIds, chiPathAncestorIds, expandedChiRootId, manualOverrides }) {
+function computeVisibleTree(root, { chiRootIds, chiPathAncestorIds, expandedChiRootId, manualOverrides, expandAll }) {
   const rowsMap = new Map();
   const edges = [];
   const nodeState = new Map();
@@ -86,7 +113,10 @@ function computeVisibleTree(root, { chiRootIds, chiPathAncestorIds, expandedChiR
     const isChiRoot = chiRootIds.has(node.id);
     let isExpanded = false;
     if (hasChildren) {
-      if (isChiRoot) isExpanded = expandedChiRootId === node.id;
+      // Khi đang lọc (theo chi hoặc xem sơ đồ riêng của 1 người), cây đã được cắt gọn sẵn nên mở
+      // hết luôn — người xem cần thấy trọn nhánh mình vừa lọc mà không phải bấm mở từng cấp.
+      if (expandAll) isExpanded = true;
+      else if (isChiRoot) isExpanded = expandedChiRootId === node.id;
       else if (manualOverrides.has(node.id)) isExpanded = manualOverrides.get(node.id);
       else isExpanded = forceExpanded || chiPathAncestorIds.has(node.id) || node.generation < 2;
     }
@@ -133,6 +163,7 @@ function ZoomAutoCollapseWatcher({ onCollapseChange }) {
 
 function FamilyTreePage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { familyData } = useContext(AppContext);
   const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [filterProvince, setFilterProvince] = useState('');
@@ -208,9 +239,64 @@ function FamilyTreePage() {
     setExpandedChiRootId(prev => (prev === id ? null : id));
   }, []);
 
+  // 2 chế độ lọc, đọc từ URL nên chia sẻ/đánh dấu trang được, và trang Quản Lý Gia Phả chỉ cần
+  // mở đúng link là ra sơ đồ đã lọc sẵn:
+  //   ?focus=<id>  — sơ đồ riêng của 1 người: đường tổ tiên từ Thủy tổ xuống tới họ + toàn bộ
+  //                  con cháu của họ (bỏ các nhánh ngang không liên quan).
+  //   ?chi=<chiId> — chỉ 1 chi: từ Thủy tổ xuống tới gốc chi + toàn bộ chi đó.
+  const focusMemberId = searchParams.get('focus') || '';
+  const chiFilterId = searchParams.get('chi') || '';
+
+  const { displayTree, filterLabel } = useMemo(() => {
+    if (!familyData) return { displayTree: null, filterLabel: '' };
+
+    if (focusMemberId) {
+      const target = findNodeById(familyData, focusMemberId);
+      if (!target) return { displayTree: familyData, filterLabel: '' };
+      const allowed = new Set([
+        target.id,
+        ...collectDescendantIds(target),
+        ...collectAncestorIds(familyData, target.id),
+      ]);
+      return {
+        displayTree: pruneTree(familyData, allowed),
+        filterLabel: `Sơ đồ riêng của ${target.name} — tổ tiên trực hệ và toàn bộ con cháu`,
+      };
+    }
+
+    if (chiFilterId) {
+      const chi = chiList.find(c => String(c.id) === chiFilterId);
+      const chiRootNode = chi ? findNodeById(familyData, chi.rootMemberId) : null;
+      if (!chiRootNode) return { displayTree: familyData, filterLabel: '' };
+      const allowed = new Set([
+        chiRootNode.id,
+        ...collectDescendantIds(chiRootNode),
+        ...collectAncestorIds(familyData, chiRootNode.id),
+      ]);
+      return {
+        displayTree: pruneTree(familyData, allowed),
+        filterLabel: `Chỉ hiển thị ${chi.name} — từ Thủy tổ xuống tới ${chiRootNode.name} và toàn bộ chi`,
+      };
+    }
+
+    return { displayTree: familyData, filterLabel: '' };
+  }, [familyData, focusMemberId, chiFilterId, chiList]);
+
+  const isFiltered = Boolean(filterLabel);
+
+  const handleChiFilterChange = useCallback((value) => {
+    setSearchParams(value ? { chi: value } : {}, { replace: true });
+  }, [setSearchParams]);
+
+  const handleClearFilter = useCallback(() => {
+    setSearchParams({}, { replace: true });
+  }, [setSearchParams]);
+
   const { sortedGenerations, rowsMap, edges, nodeState } = useMemo(() => {
-    if (!familyData || !chiLoaded) return { sortedGenerations: [], rowsMap: new Map(), edges: [], nodeState: new Map() };
-    const { rowsMap, edges, nodeState } = computeVisibleTree(familyData, { chiRootIds, chiPathAncestorIds, expandedChiRootId, manualOverrides });
+    if (!displayTree || !chiLoaded) return { sortedGenerations: [], rowsMap: new Map(), edges: [], nodeState: new Map() };
+    const { rowsMap, edges, nodeState } = computeVisibleTree(displayTree, { chiRootIds, chiPathAncestorIds, expandedChiRootId, manualOverrides, expandAll: isFiltered });
+    // Mã định danh luôn tính trên cây ĐẦY ĐỦ: khi đang lọc, thứ tự trái-phải vẫn phải phản ánh
+    // đúng thứ tự sinh thật, không phải thứ tự trong nhánh đã bị cắt bớt.
     const codeMap = buildFamilyCodeMap(familyData);
     const sortedGenerations = [...rowsMap.keys()].sort((a, b) => a - b);
     sortedGenerations.forEach(g => {
@@ -234,7 +320,7 @@ function FamilyTreePage() {
       rowsMap.set(g, base);
     });
     return { sortedGenerations, rowsMap, edges, nodeState };
-  }, [familyData, chiLoaded, chiRootIds, chiInfoMap, chiPathAncestorIds, expandedChiRootId, manualOverrides]);
+  }, [familyData, displayTree, isFiltered, chiLoaded, chiRootIds, chiInfoMap, chiPathAncestorIds, expandedChiRootId, manualOverrides]);
 
   const handleToggleNode = useCallback((node) => {
     setManualOverrides(prev => {
@@ -247,7 +333,7 @@ function FamilyTreePage() {
 
   const handleSelectNode = useCallback((node) => setSelectedMemberId(node.id), []);
 
-  const layout = useMemo(() => computeTreeLayout(sortedGenerations, rowsMap), [sortedGenerations, rowsMap]);
+  const layout = useMemo(() => computeTreeLayout(sortedGenerations, rowsMap, edges), [sortedGenerations, rowsMap, edges]);
 
   // Tự thu gọn cây khi zoom quá nhỏ để giảm số ô — lưu lại trạng thái mở/đóng đang có để khôi
   // phục đúng khi zoom lại lên (xem lưu ý trong tài liệu kế hoạch: nếu người dùng chủ động mở
@@ -301,7 +387,24 @@ function FamilyTreePage() {
     ref.setTransform(posX, posY, clampedScale, 300);
   }, [layout.totalWidth, layout.totalHeight]);
 
-  const isReady = familyData && chiLoaded;
+  // Đổi bộ lọc => kích thước cây đổi hẳn, nên vị trí pan/zoom đang có gần như chắc chắn trỏ ra
+  // ngoài vùng còn nội dung (người dùng sẽ thấy khung trống trơn). Canh lại khung hình, nhưng
+  // CHỈ khi bộ lọc thật sự đổi — không canh lại mỗi lần layout đổi vì mở/thu gọn 1 nhánh cũng
+  // làm layout đổi, mà giật khung hình lúc đó thì rất khó chịu.
+  const lastFilterKeyRef = useRef(null);
+  useEffect(() => {
+    if (!displayTree || !chiLoaded) return;
+    const key = `${focusMemberId}|${chiFilterId}`;
+    if (lastFilterKeyRef.current === null) {
+      lastFilterKeyRef.current = key; // lần dựng đầu tiên đã có centerOnInit lo
+      return;
+    }
+    if (lastFilterKeyRef.current === key) return;
+    lastFilterKeyRef.current = key;
+    handleFitToScreen();
+  }, [focusMemberId, chiFilterId, displayTree, chiLoaded, handleFitToScreen]);
+
+  const isReady = displayTree && chiLoaded;
   const contentWidth = layout.totalWidth + CARD_WIDTH;
 
   return (
@@ -318,6 +421,13 @@ function FamilyTreePage() {
           <span><i className="legend-swatch" /> Mỗi màu nền = 1 chi</span>
         </div>
       </div>
+
+      {isFiltered && (
+        <div className="tree-filter-banner">
+          <span>{filterLabel}</span>
+          <button type="button" onClick={handleClearFilter}>Xem lại toàn bộ gia phả</button>
+        </div>
+      )}
 
       {isReady ? (
         <TransformWrapper
@@ -378,6 +488,10 @@ function FamilyTreePage() {
             provinceOptions={provinceOptions}
             filterProvince={filterProvince}
             onFilterChange={setFilterProvince}
+            chiOptions={chiList}
+            chiFilterId={chiFilterId}
+            onChiFilterChange={handleChiFilterChange}
+            isFocusMode={Boolean(focusMemberId)}
           />
         </TransformWrapper>
       ) : (
@@ -435,6 +549,38 @@ function FamilyTreePage() {
         .tree-popup-loading {
           margin: auto;
           color: var(--text-secondary);
+        }
+
+        .tree-filter-banner {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-wrap: wrap;
+          gap: 10px 16px;
+          margin: 0 auto 10px;
+          padding: 8px 16px;
+          max-width: 100%;
+          border: 1px solid var(--accent-teal, #0E6FA8);
+          border-radius: 999px;
+          background: rgba(14, 111, 168, 0.08);
+          color: var(--text-primary);
+          font-size: 0.88rem;
+          text-align: center;
+        }
+
+        .tree-filter-banner button {
+          border: none;
+          border-radius: 999px;
+          padding: 5px 14px;
+          background: var(--accent-teal, #0E6FA8);
+          color: white;
+          font-size: 0.82rem;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .tree-filter-banner button:hover {
+          filter: brightness(1.08);
         }
 
         .tree-legend {

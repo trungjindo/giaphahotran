@@ -6,7 +6,7 @@ import { useControls, useTransformEffect } from 'react-zoom-pan-pinch';
 // cho zoom in/out/reset (vì đã là con của <TransformWrapper> nên có quyền truy cập context).
 // Các hành động còn lại (fit-to-screen, thu gọn tất cả, chế độ tối giản, đóng, lọc khu vực)
 // nhận qua props vì cần dữ liệu/refs chỉ trang cha mới có.
-function TreeToolbar({ onFitToScreen, onCollapseAll, lowDetail, onToggleLowDetail, provinceOptions, filterProvince, onFilterChange }) {
+function TreeToolbar({ onFitToScreen, onCollapseAll, lowDetail, onToggleLowDetail, provinceOptions, filterProvince, onFilterChange, chiOptions = [], chiFilterId, onChiFilterChange, isFocusMode }) {
   const { zoomIn, zoomOut, resetTransform, instance } = useControls();
   const [scalePercent, setScalePercent] = useState(100);
   const [draftPercent, setDraftPercent] = useState(null);
@@ -76,6 +76,21 @@ function TreeToolbar({ onFitToScreen, onCollapseAll, lowDetail, onToggleLowDetai
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></svg>
         </button>
       </div>
+
+      {/* Đang xem sơ đồ riêng của 1 người thì ẩn ô lọc chi — 2 chế độ lọc loại trừ nhau, để cả
+          hai cùng lúc chỉ gây hiểu nhầm là chúng cộng dồn được. */}
+      {!isFocusMode && chiOptions.length > 0 && (
+        <select
+          className="select-control tree-toolbar-filter"
+          value={chiFilterId || ''}
+          onChange={e => onChiFilterChange(e.target.value)}
+          aria-label="Lọc theo chi"
+          title="Chỉ hiển thị 1 chi: từ Thủy tổ xuống tới gốc chi và toàn bộ chi đó"
+        >
+          <option value="">Lọc theo chi...</option>
+          {chiOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      )}
 
       {provinceOptions.length > 0 && (
         <select

@@ -56,6 +56,9 @@ const AdminFamilyTree = () => {
   const [attachInputValue, setAttachInputValue] = useState('');
   const [attachSelectedId, setAttachSelectedId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [chiFilterId, setChiFilterId] = useState('');
+  const [relativeInputValue, setRelativeInputValue] = useState('');
+  const [relativeMemberId, setRelativeMemberId] = useState('');
   const [viewingMemberId, setViewingMemberId] = useState(null);
   const [isWifeModalOpen, setIsWifeModalOpen] = useState(false);
   const [wifeRefMemberId, setWifeRefMemberId] = useState('');
@@ -84,19 +87,6 @@ const AdminFamilyTree = () => {
     () => [...new Set(flatList.map(m => m.currentWard).filter(Boolean))],
     [flatList]
   );
-
-  // Tìm kiếm thành viên trong bảng: theo tên, mã định danh, SĐT, tỉnh/thành, nghề nghiệp.
-  const filteredList = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    if (!q) return flatList;
-    return flatList.filter(m => (
-      (m.name || '').toLowerCase().includes(q) ||
-      (codeMap[m.id] || '').toLowerCase().includes(q) ||
-      (m.phone || '').includes(q) ||
-      (m.currentProvince || '').toLowerCase().includes(q) ||
-      (m.occupation || '').toLowerCase().includes(q)
-    ));
-  }, [flatList, searchTerm, codeMap]);
 
   // Nhãn hiển thị cho ô chọn "cha/mẹ" khi tạo thành viên mới thủ công — kèm mã định danh để
   // phân biệt các thành viên trùng tên.
@@ -137,6 +127,97 @@ const AdminFamilyTree = () => {
     const walk = (n) => (n?.children || []).forEach(c => { ids.add(c.id); walk(c); });
     walk(node);
     return ids;
+  };
+
+  // Lọc theo chi: giữ toàn bộ người trong chi (hậu duệ của gốc chi) CỘNG đường tổ tiên từ Thủy
+  // tổ xuống tới gốc chi — để vẫn thấy chi này bắt nguồn từ đâu chứ không chỉ là 1 cụm rời rạc.
+  const chiFilterIds = useMemo(() => {
+    if (!chiFilterId) return null;
+    const chi = chiList.find(c => String(c.id) === String(chiFilterId));
+    if (!chi || !memberById.has(chi.rootMemberId)) return null;
+    const ids = new Set([chi.rootMemberId]);
+    getDescendantIds(chi.rootMemberId).forEach(id => ids.add(id));
+    getAncestorIds(chi.rootMemberId).forEach(id => ids.add(id));
+    return ids;
+  }, [chiFilterId, chiList, memberById]);
+
+  // Lọc các mối liên quan tới 1 người: tổ tiên trực hệ, con cháu, anh chị em ruột — kèm nhãn
+  // vai vế để đọc bảng biết ngay ai là ai so với người đang chọn.
+  const relativeFilter = useMemo(() => {
+    if (!relativeMemberId) return null;
+    const target = memberById.get(relativeMemberId);
+    if (!target) return null;
+
+    const labels = new Map([[target.id, 'Người đang xem']]);
+
+    let current = target;
+    let stepsUp = 0;
+    while (current && current.parentId) {
+      const parent = memberById.get(current.parentId);
+      if (!parent) break;
+      stepsUp += 1;
+      labels.set(
+        parent.id,
+        stepsUp === 1 ? (parent.gender === 'Nữ' ? 'Mẹ' : 'Cha')
+          : stepsUp === 2 ? 'Ông/Bà'
+            : `Tổ tiên trên ${stepsUp} đời`
+      );
+      current = parent;
+    }
+
+    const walkDown = (node, depth) => {
+      (node.children || []).forEach(child => {
+        labels.set(
+          child.id,
+          depth === 1 ? 'Con' : depth === 2 ? 'Cháu' : `Hậu duệ dưới ${depth} đời`
+        );
+        walkDown(child, depth + 1);
+      });
+    };
+    walkDown(target, 1);
+
+    if (target.parentId) {
+      const parent = memberById.get(target.parentId);
+      (parent?.children || []).forEach(sibling => {
+        if (sibling.id !== target.id) labels.set(sibling.id, 'Anh/Chị/Em ruột');
+      });
+    }
+
+    return { target, labels };
+  }, [relativeMemberId, memberById]);
+
+  // Tìm kiếm thành viên trong bảng: theo tên, mã định danh, SĐT, tỉnh/thành, nghề nghiệp — kết
+  // hợp (AND) với bộ lọc chi và bộ lọc người liên quan nếu đang bật.
+  const filteredList = useMemo(() => {
+    let list = flatList;
+    if (chiFilterIds) list = list.filter(m => chiFilterIds.has(m.id));
+    if (relativeFilter) list = list.filter(m => relativeFilter.labels.has(m.id));
+    const q = searchTerm.trim().toLowerCase();
+    if (q) {
+      list = list.filter(m => (
+        (m.name || '').toLowerCase().includes(q) ||
+        (codeMap[m.id] || '').toLowerCase().includes(q) ||
+        (m.phone || '').includes(q) ||
+        (m.currentProvince || '').toLowerCase().includes(q) ||
+        (m.occupation || '').toLowerCase().includes(q)
+      ));
+    }
+    return list;
+  }, [flatList, searchTerm, codeMap, chiFilterIds, relativeFilter]);
+
+  const isAnyFilterActive = Boolean(searchTerm.trim() || chiFilterIds || relativeFilter);
+
+  const handleRelativeInputChange = (value) => {
+    setRelativeInputValue(value);
+    const matched = parentLabelToMember.get(value);
+    setRelativeMemberId(matched ? matched.id : '');
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setChiFilterId('');
+    setRelativeInputValue('');
+    setRelativeMemberId('');
   };
 
   // Tính vị trí gắn khi X sẽ trở thành CHA/MẸ của childId: X đứng ngang hàng với cha/mẹ HIỆN TẠI
@@ -827,27 +908,86 @@ const AdminFamilyTree = () => {
         </div>
       )}
 
-      <div style={{ marginBottom: '15px', position: 'relative', maxWidth: '400px' }}>
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          placeholder="🔍 Tìm theo tên, mã ĐD, SĐT, tỉnh/thành, nghề nghiệp..."
-          style={{ width: '100%', padding: '10px 36px 10px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}
-        />
-        {searchTerm && (
-          <button
-            onClick={() => setSearchTerm('')}
-            title="Xóa tìm kiếm"
-            style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '1rem', color: 'var(--text-secondary)' }}
-          >✕</button>
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
+        <div style={{ position: 'relative', flex: '1 1 280px', minWidth: '220px' }}>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="🔍 Tìm theo tên, mã ĐD, SĐT, tỉnh/thành, nghề nghiệp..."
+            style={{ width: '100%', padding: '10px 36px 10px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              title="Xóa tìm kiếm"
+              style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '1rem', color: 'var(--text-secondary)' }}
+            >✕</button>
+          )}
+        </div>
+
+        {chiList.length > 0 && (
+          <select
+            value={chiFilterId}
+            onChange={e => setChiFilterId(e.target.value)}
+            title="Chỉ hiển thị 1 chi: từ Thủy tổ xuống tới gốc chi và toàn bộ chi đó"
+            style={{ flex: '0 1 220px', minWidth: '180px', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}
+          >
+            <option value="">Lọc theo chi...</option>
+            {chiList.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
         )}
+
+        <div style={{ flex: '1 1 280px', minWidth: '220px' }}>
+          <input
+            type="text"
+            list="relative-filter-options"
+            value={relativeInputValue}
+            onChange={e => handleRelativeInputChange(e.target.value)}
+            placeholder="👥 Lọc người liên quan tới..."
+            title="Chọn 1 người để chỉ xem tổ tiên, anh chị em ruột và con cháu của họ"
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', boxSizing: 'border-box' }}
+          />
+          <datalist id="relative-filter-options">
+            {flatList.map(m => <option key={m.id} value={formatParentLabel(m)} />)}
+          </datalist>
+        </div>
       </div>
 
-      {searchTerm && (
-        <p style={{ marginBottom: '10px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-          Tìm thấy {filteredList.length} / {flatList.length} thành viên
-        </p>
+      {isAnyFilterActive && (
+        <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            Hiển thị {filteredList.length} / {flatList.length} thành viên
+            {chiFilterIds && ` · Chi: ${chiList.find(c => String(c.id) === String(chiFilterId))?.name || ''}`}
+            {relativeFilter && ` · Liên quan tới: ${relativeFilter.target.name}`}
+          </span>
+          {relativeFilter && (
+            <a
+              href={`/gia-pha?focus=${encodeURIComponent(relativeFilter.target.id)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ padding: '5px 12px', background: '#8e44ad', color: 'white', borderRadius: '4px', fontSize: '0.85rem', textDecoration: 'none', whiteSpace: 'nowrap' }}
+            >
+              🌳 Xem sơ đồ riêng của {relativeFilter.target.name}
+            </a>
+          )}
+          {chiFilterIds && !relativeFilter && (
+            <a
+              href={`/gia-pha?chi=${encodeURIComponent(chiFilterId)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ padding: '5px 12px', background: '#8e44ad', color: 'white', borderRadius: '4px', fontSize: '0.85rem', textDecoration: 'none', whiteSpace: 'nowrap' }}
+            >
+              🌳 Xem sơ đồ riêng của chi này
+            </a>
+          )}
+          <button
+            onClick={handleClearFilters}
+            style={{ padding: '5px 12px', background: '#eee', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
+          >
+            Xóa bộ lọc
+          </button>
+        </div>
       )}
 
       <div style={{ overflowX: 'auto', background: 'white', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
@@ -885,6 +1025,16 @@ const AdminFamilyTree = () => {
                       {member.name} {member.isMainLineage && '👑'}
                     </div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{member.birthDate || '?'} - {member.deathDate || '?'}</div>
+                    {relativeFilter && (
+                      <span style={{
+                        display: 'inline-block', marginTop: '3px', padding: '2px 8px', borderRadius: '10px',
+                        background: member.id === relativeFilter.target.id ? '#8e44ad' : '#eef2f5',
+                        color: member.id === relativeFilter.target.id ? 'white' : 'var(--text-secondary)',
+                        fontSize: '0.75rem', fontWeight: '600'
+                      }}>
+                        {relativeFilter.labels.get(member.id)}
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td style={{ padding: '12px 15px', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{codeMap[member.id] || '—'}</td>
