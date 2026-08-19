@@ -59,11 +59,21 @@ const compareDottedCode = (a, b) => {
 };
 
 // Lấy số thứ tự chi từ tên (VD: "Chi 1" -> 1, "Chi 2" -> 2) để xếp Chi 1 luôn bên trái Chi 2 rồi
-// đến Chi 3... Tên không có số thì xếp ra sau cùng (Infinity) thay vì làm hỏng thứ tự các chi
-// đã đánh số.
+// đến Chi 3...
+//   - "Chi Trưởng" (và các biến thể có chữ "trưởng") luôn là chi đầu tiên theo lệ gia phả, dù
+//     tên không đánh số — nếu chỉ xét chữ số thì chi trưởng sẽ bị đẩy xuống cuối, tức là đứng
+//     bên phải cả Chi 2, Chi 3, ngược hẳn với vai vế thật.
+//   - Tên vừa có "trưởng" vừa có số (VD "Chi Trưởng 1") thì số vẫn được tôn trọng.
+//   - Tên không có cả hai thì xếp sau cùng, để không làm xáo trộn các chi đã đánh số rõ ràng.
+// CỐ Ý so khớp CÓ DẤU: nếu bỏ dấu để dễ khớp hơn thì "Trưởng" (vai trưởng) sẽ lẫn với "Trường"
+// (tên người — dòng họ này đang có Trần Đình Trường), khiến 1 chi đặt theo tên người bị nhầm
+// thành chi trưởng và nhảy lên đầu.
 const extractChiNumber = (chiName) => {
-  const match = (chiName || '').match(/\d+/);
-  return match ? parseInt(match[0], 10) : Infinity;
+  const name = chiName || '';
+  const match = name.match(/\d+/);
+  if (match) return parseInt(match[0], 10);
+  if (/trưởng/i.test(name)) return 0;
+  return Infinity;
 };
 
 // Toàn bộ id hậu duệ của 1 người (không gồm chính họ).
