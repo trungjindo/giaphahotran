@@ -2,14 +2,19 @@
 require_once __DIR__ . '/helpers.php';
 send_cors_headers();
 
-// Endpoint công khai (không yêu cầu đăng nhập) — người xem thường vẫn được phép gọi
-// điện/nhắn Zalo, chỉ không được NHÌN THẤY số trên màn hình. Giá trị thật chỉ trả về đúng
-// lúc bấm nút, không đi kèm trong familyData (đã bị che ở data.php cho người chưa đăng
-// nhập). field=phone (mặc định) hoặc field=zalo — cùng cơ chế, cùng giới hạn tần suất.
+// Trả về số điện thoại/Zalo THẬT của 1 thành viên khi bấm nút — familyData chỉ chứa bản đã
+// che, nên đây là đường duy nhất lấy được số thật. field=phone (mặc định) hoặc field=zalo.
+//
+// Bắt buộc đã xác thực là người trong dòng họ: id thành viên có quy luật dễ đoán
+// (gen_3_1, gen_4_2...), nên nếu để công khai thì người ngoài vẫn quét được toàn bộ danh bạ
+// dòng họ dù gia phả đã bị khoá. Giới hạn tần suất bên dưới giữ nguyên để ngay cả người
+// trong họ cũng không tải hàng loạt được.
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
   json_error('Method not allowed', 405);
 }
+
+require_family_access();
 
 $pdo = get_db();
 $memberId = trim($_GET['memberId'] ?? '');

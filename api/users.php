@@ -110,6 +110,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
       'UPDATE users SET full_name = ?, role = ?, chi_id = ?, year_assigned = ?, password_hash = ? WHERE id = ?'
     );
     $stmt->execute([$fullName, $role, $chiId, $yearAssigned, $hash, $id]);
+
+    // Đổi mật khẩu phải HUỶ MỌI PHIÊN CŨ của tài khoản đó. Nếu không, khi cấp lại mật khẩu
+    // vì nghi ngờ bị lộ, token mà kẻ lạ đã lấy được vẫn dùng được thêm tới 30 ngày nữa —
+    // tức là việc đổi mật khẩu không thực sự cắt được quyền truy cập.
+    $pdo->prepare('DELETE FROM user_sessions WHERE user_id = ?')->execute([$id]);
   } else {
     $stmt = $pdo->prepare(
       'UPDATE users SET full_name = ?, role = ?, chi_id = ?, year_assigned = ? WHERE id = ?'

@@ -190,3 +190,40 @@ INSERT IGNORE INTO app_data (data_key, data_json) VALUES
 -- Hash bên dưới tương ứng "admin123" (bcrypt, cost 10)
 INSERT IGNORE INTO users (username, password_hash, full_name, role, chi_id) VALUES
   ('admin', '$2y$10$L3h7sOSEyDBSyFaNAA2X8ewzkZbRR/XYVHeWZVvoU0UdsocxbG1uy', 'Quản trị dòng họ', 'admin', NULL);
+
+-- ===========================================================================
+-- Kiểm soát truy cập dữ liệu nhạy cảm + chống dò mật khẩu.
+-- Nội dung giống hệt migration_access_control.sql (file đó dành cho database
+-- ĐÃ CHẠY, còn đây là để tạo database mới từ đầu có sẵn luôn).
+-- ===========================================================================
+
+CREATE TABLE IF NOT EXISTS viewer_sessions (
+  token CHAR(64) PRIMARY KEY,
+  member_id VARCHAR(50) NOT NULL,
+  member_name VARCHAR(150) NOT NULL,
+  ip VARCHAR(45) NULL,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auth_attempt_log (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  kind ENUM('login', 'verify') NOT NULL,
+  ip VARCHAR(45) NOT NULL,
+  identifier VARCHAR(150) NULL,
+  success TINYINT(1) NOT NULL DEFAULT 0,
+  attempted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_kind_ip_time (kind, ip, attempted_at),
+  INDEX idx_kind_ident_time (kind, identifier, attempted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS site_settings (
+  setting_key VARCHAR(50) PRIMARY KEY,
+  setting_value VARCHAR(255) NOT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO site_settings (setting_key, setting_value) VALUES
+  ('te_ho_day', '0'),
+  ('te_ho_month', '0');

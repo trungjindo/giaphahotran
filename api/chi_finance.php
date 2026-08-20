@@ -23,6 +23,7 @@ if (!$stmt->fetch()) {
 $dataKey = 'financeData_chi_' . $chiId;
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  require_family_access(); // Dữ liệu riêng của dòng họ — chỉ con cháu đã xác thực mới được đọc.
   $stmt = $pdo->prepare('SELECT data_json FROM app_data WHERE data_key = ?');
   $stmt->execute([$dataKey]);
   $row = $stmt->fetch();

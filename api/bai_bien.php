@@ -9,6 +9,7 @@ function normalize_chi_id($raw): ?int {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  require_family_access(); // Dữ liệu riêng của dòng họ — chỉ con cháu đã xác thực mới được đọc.
   $chiId = isset($_GET['chiId']) ? normalize_chi_id($_GET['chiId']) : null;
   $hasChiParam = isset($_GET['chiId']);
 

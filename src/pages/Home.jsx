@@ -117,7 +117,7 @@ const StatBarList = ({ data, color }) => {
 };
 
 function Home() {
-  const { financeData, newsData, familyData, bannerData } = useContext(AppContext);
+  const { financeData, newsData, familyData, bannerData, isFamilyVerified } = useContext(AppContext);
 
   const stats = useMemo(() => computeFamilyStats(familyData), [familyData]);
   const totalGenerations = useMemo(() => getMaxGeneration(familyData), [familyData]);
@@ -159,14 +159,30 @@ function Home() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
         <div className="card">
           <h3>Thống Kê Nhanh</h3>
-          <ul style={{ marginTop: '15px', lineHeight: '2' }}>
-            <li><strong>Số đời ghi nhận:</strong> {totalGenerations} đời</li>
-            <li><strong>Số lượng thành viên:</strong> {stats.total} thành viên</li>
-            <li><strong>Tổng quỹ dòng họ:</strong> {formatCurrency(financeSummary.currentFund)}</li>
-          </ul>
-          <div style={{ marginTop: '20px' }}>
-            <Link to="/gia-pha" className="btn-primary">Xem Phả Hệ</Link>
-          </div>
+          {isFamilyVerified ? (
+            <>
+              <ul style={{ marginTop: '15px', lineHeight: '2' }}>
+                <li><strong>Số đời ghi nhận:</strong> {totalGenerations} đời</li>
+                <li><strong>Số lượng thành viên:</strong> {stats.total} thành viên</li>
+                <li><strong>Tổng quỹ dòng họ:</strong> {formatCurrency(financeSummary.currentFund)}</li>
+              </ul>
+              <div style={{ marginTop: '20px' }}>
+                <Link to="/gia-pha" className="btn-primary">Xem Phả Hệ</Link>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Không hiện số 0 cho khách chưa xác thực: familyData/financeData lúc này chưa
+                  tải được (máy chủ chặn), hiện "0 thành viên" sẽ thành thông tin sai. */}
+              <p style={{ marginTop: '15px', lineHeight: 1.7, color: 'var(--text-secondary)' }}>
+                Số liệu gia phả và quỹ dòng họ là thông tin riêng của dòng họ Trần Đình,
+                chỉ hiển thị cho con cháu trong họ sau khi xác thực.
+              </p>
+              <div style={{ marginTop: '20px' }}>
+                <Link to="/gia-pha" className="btn-primary">Xác thực để xem</Link>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="card">
@@ -186,7 +202,7 @@ function Home() {
         </div>
       </div>
 
-      <div style={{ marginTop: '60px' }}>
+      {isFamilyVerified && <div style={{ marginTop: '60px' }}>
         <div className="section-header">
           <span className="section-eyebrow">Dòng Họ Trần Đình</span>
           <h2>Thống Kê Dòng Họ</h2>
@@ -225,7 +241,7 @@ function Home() {
             </div>
           </div>
         </div>
-      </div>
+      </div>}
 
       <style>{`
         .banner-slideshow {

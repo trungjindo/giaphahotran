@@ -8,7 +8,10 @@ function send_cors_headers(): void {
     header('Access-Control-Allow-Origin: ' . $origin);
   }
   header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-  header('Access-Control-Allow-Headers: Content-Type, Authorization');
+  // X-Viewer-Token: phiên xác thực con cháu. Thiếu tên header này ở đây thì trình duyệt sẽ
+  // CHẶN NGAY ở bước preflight (lỗi "Failed to fetch"), dù phía PHP đã xử lý đúng — gọi bằng
+  // curl vẫn chạy được vì curl không thực hiện preflight, nên rất dễ bỏ sót.
+  header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Viewer-Token');
   header('Vary: Origin');
 
   if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
@@ -82,6 +85,143 @@ function require_auth(): array {
     json_error('Chưa đăng nhập hoặc phiên đã hết hạn.', 401);
   }
   return $user;
+}
+
+// ---------------------------------------------------------------------------
+// Xác thực "con cháu trong dòng họ" (không phải tài khoản quản trị)
+// ---------------------------------------------------------------------------
+
+function get_client_ip(): string {
+  return substr((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 0, 45);
+}
+
+// Chuẩn hoá tên tiếng Việt để so khớp: bỏ dấu, chuyển thường, gộp khoảng trắng thừa.
+// Người nhà gõ "tran dinh trung" hay "Trần  Đình Trung" đều phải khớp cùng 1 người —
+// bắt gõ đúng dấu chỉ làm khó người lớn tuổi chứ không tăng được bảo mật thực chất
+// (tên trong gia phả không phải bí mật, bí mật thật nằm ở câu hỏi ngày tế họ).
+function normalize_vn_name(string $name): string {
+  $name = trim($name);
+  if ($name === '') return '';
+  if (class_exists('Transliterator')) {
+    $tr = Transliterator::create('Any-Latin; Latin-ASCII; Lower');
+    if ($tr) $name = $tr->transliterate($name);
+  } else {
+    // Hosting không bật intl: bỏ dấu thủ công theo bảng chữ cái tiếng Việt.
+    $map = [
+      'a' => 'áàảãạăắằẳẵặâấầẩẫậ', 'e' => 'éèẻẽẹêếềểễệ', 'i' => 'íìỉĩị',
+      'o' => 'óòỏõọôốồổỗộơớờởỡợ', 'u' => 'úùủũụưứừửữự', 'y' => 'ýỳỷỹỵ', 'd' => 'đ',
+    ];
+    $name = mb_strtolower($name, 'UTF-8');
+    foreach ($map as $plain => $accented) {
+      $chars = preg_split('//u', $accented, -1, PREG_SPLIT_NO_EMPTY);
+      $name = str_replace($chars, $plain, $name);
+    }
+  }
+  $name = mb_strtolower($name, 'UTF-8');
+  $name = preg_replace('/[^a-z0-9\s]/u', ' ', $name);
+  return trim(preg_replace('/\s+/u', ' ', $name));
+}
+
+function get_setting(string $key, string $default = ''): string {
+  $pdo = get_db();
+  $stmt = $pdo->prepare('SELECT setting_value FROM site_settings WHERE setting_key = ?');
+  $stmt->execute([$key]);
+  $row = $stmt->fetch();
+  return $row ? (string)$row['setting_value'] : $default;
+}
+
+// Các hàm bên dưới bọc try/catch quanh truy vấn để phòng tình huống MÃ NGUỒN ĐÃ LÊN nhưng
+// migration_access_control.sql CHƯA ĐƯỢC CHẠY trên database thật (bảng chưa tồn tại). Không
+// bọc thì mỗi lời gọi sẽ ném PDOException → lỗi 500 → sập cả trang. Cách xử lý khi lỗi được
+// chọn riêng cho từng hàm, xem chú thích tại chỗ.
+function log_auth_attempt(string $kind, ?string $identifier, bool $success): void {
+  try {
+    $pdo = get_db();
+    $stmt = $pdo->prepare(
+      'INSERT INTO auth_attempt_log (kind, ip, identifier, success) VALUES (?, ?, ?, ?)'
+    );
+    $stmt->execute([$kind, get_client_ip(), $identifier !== null ? mb_substr($identifier, 0, 150) : null, $success ? 1 : 0]);
+  } catch (PDOException $e) {
+    // Không ghi được nhật ký thì vẫn cho phiên đăng nhập/xác thực diễn ra bình thường —
+    // mất một dòng log không đáng để chặn người dùng hợp lệ.
+  }
+}
+
+// Đếm số lần THẤT BẠI gần đây — dùng để khoá tạm khi có dấu hiệu dò mật khẩu.
+// Đếm riêng theo IP và theo tài khoản: chỉ đếm theo IP thì kẻ tấn công đổi IP là thoát,
+// chỉ đếm theo tài khoản thì lại vô tình cho phép quét hàng loạt tài khoản khác nhau.
+function count_recent_auth_failures(string $kind, ?string $identifier, int $minutes): int {
+  $pdo = get_db();
+  // $minutes được ép kiểu int và nội suy thẳng: MySQL không nhận tham số bind ở vị trí
+  // INTERVAL khi PDO dùng prepared statement thật (chỉ "chạy được" nhờ chế độ giả lập mặc
+  // định). Giá trị này luôn do code truyền vào, không bao giờ đến từ người dùng.
+  $minutes = max(1, $minutes);
+  try {
+  if ($identifier === null) {
+    $stmt = $pdo->prepare(
+      "SELECT COUNT(*) AS c FROM auth_attempt_log
+       WHERE kind = ? AND ip = ? AND success = 0 AND attempted_at > (NOW() - INTERVAL $minutes MINUTE)"
+    );
+    $stmt->execute([$kind, get_client_ip()]);
+  } else {
+    $stmt = $pdo->prepare(
+      "SELECT COUNT(*) AS c FROM auth_attempt_log
+       WHERE kind = ? AND identifier = ? AND success = 0 AND attempted_at > (NOW() - INTERVAL $minutes MINUTE)"
+    );
+    $stmt->execute([$kind, mb_substr($identifier, 0, 150)]);
+  }
+  return (int)$stmt->fetch()['c'];
+  } catch (PDOException $e) {
+    // Chưa đếm được thì coi như chưa có lần sai nào: thà tạm thời mất lớp chống dò mật khẩu
+    // còn hơn khoá nhầm toàn bộ người dùng hợp lệ ra khỏi hệ thống.
+    return 0;
+  }
+}
+
+// Phiên xác thực con cháu, gửi qua header riêng X-Viewer-Token (không dùng chung
+// Authorization: Bearer với tài khoản quản trị, để không bao giờ có chuyện nhầm lẫn
+// giữa "người chỉ được xem" và "tài khoản có quyền ghi").
+function get_viewer_session(): ?array {
+  $token = '';
+  if (!empty($_SERVER['HTTP_X_VIEWER_TOKEN'])) {
+    $token = $_SERVER['HTTP_X_VIEWER_TOKEN'];
+  } elseif (function_exists('getallheaders')) {
+    foreach (getallheaders() as $name => $value) {
+      if (strcasecmp($name, 'X-Viewer-Token') === 0) { $token = $value; break; }
+    }
+  }
+  if ($token === '') return null;
+
+  try {
+    $pdo = get_db();
+    $stmt = $pdo->prepare(
+      'SELECT member_id, member_name FROM viewer_sessions WHERE token = ? AND expires_at > NOW()'
+    );
+    $stmt->execute([$token]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+  } catch (PDOException $e) {
+    // Không kiểm chứng được phiên thì coi như CHƯA xác thực (khoá lại), không bao giờ mở
+    // dữ liệu dòng họ chỉ vì truy vấn lỗi — ngược với 2 hàm nhật ký ở trên, ở đây an toàn
+    // phải được ưu tiên hơn tiện dụng.
+    return null;
+  }
+}
+
+// Cổng chung cho MỌI dữ liệu nhạy cảm của dòng họ (gia phả, thông tin cá nhân, tài sản,
+// thu chi, lăng mộ, các chi): cho qua nếu là tài khoản quản trị đã đăng nhập HOẶC là con
+// cháu đã xác thực. Ngược lại 401 để giao diện biết mà hiện màn hình xác thực.
+// Trả về ['kind' => 'user'|'viewer', ...] cho nơi gọi cần phân biệt.
+function require_family_access(): array {
+  $user = get_authenticated_user();
+  if ($user !== null) {
+    return ['kind' => 'user', 'user' => $user];
+  }
+  $viewer = get_viewer_session();
+  if ($viewer !== null) {
+    return ['kind' => 'viewer', 'viewer' => $viewer];
+  }
+  json_error('Nội dung này chỉ dành cho con cháu trong dòng họ. Vui lòng xác thực để xem.', 401);
 }
 
 // Bắt buộc người dùng có 1 trong các role cho phép. Dừng request với lỗi 403 nếu không đủ quyền.

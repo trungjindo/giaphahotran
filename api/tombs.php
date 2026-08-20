@@ -21,6 +21,7 @@ function format_tomb($row) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  require_family_access(); // Dữ liệu riêng của dòng họ — chỉ con cháu đã xác thực mới được đọc.
   $stmt = $pdo->query('SELECT * FROM tombs ORDER BY created_at DESC');
   json_response(array_map('format_tomb', $stmt->fetchAll()));
 }

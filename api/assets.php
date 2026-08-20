@@ -169,6 +169,10 @@ function validate_asset_body(array $body, array $categories, array $statuses): a
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  // Tài sản dòng họ chỉ dành cho người trong họ. Con cháu đã xác thực xem được bản rút gọn
+  // (format_asset_public) giống như trước đây dành cho khách; tài khoản quản trị mới thấy
+  // đầy đủ và bị giới hạn theo chi của mình.
+  require_family_access();
   $currentUser = get_authenticated_user();
   $stmt = $pdo->query('SELECT * FROM assets ORDER BY created_at DESC');
   $rows = $stmt->fetchAll();

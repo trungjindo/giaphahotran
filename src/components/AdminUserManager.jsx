@@ -11,6 +11,95 @@ const ROLE_LABELS = {
 
 const emptyForm = { username: '', password: '', fullName: '', role: 'chi_admin', chiId: '', yearAssigned: '' };
 
+// Cấu hình câu hỏi xác thực dành cho con cháu KHÔNG có tài khoản: ngày tế họ hàng năm.
+// Đây là đáp án bảo vệ toàn bộ dữ liệu riêng của dòng họ, nên chỉ tài khoản admin thấy được.
+const FamilyGateSettings = ({ token }) => {
+  const [day, setDay] = useState('');
+  const [month, setMonth] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiRequest('settings.php', { token })
+      .then(s => {
+        setDay(s.teHoDay > 0 ? String(s.teHoDay) : '');
+        setMonth(s.teHoMonth > 0 ? String(s.teHoMonth) : '');
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setIsLoading(false));
+  }, [token]);
+
+  const handleSave = async () => {
+    if (!day || !month) return alert('Vui lòng chọn cả ngày và tháng tế họ.');
+    if (!window.confirm(
+      `Đặt ngày tế họ là ngày ${day} tháng ${month} (âm lịch)?\n\n` +
+      'Lưu ý: mọi con cháu đã xác thực trước đây sẽ phải xác thực lại bằng đáp án mới.'
+    )) return;
+    setIsSaving(true);
+    try {
+      await apiRequest('settings.php', {
+        method: 'PUT', token,
+        body: { teHoDay: Number(day), teHoMonth: Number(month) }
+      });
+      alert('Đã lưu câu hỏi xác thực.');
+    } catch (err) {
+      alert('Lỗi lưu cấu hình: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const isConfigured = day && month;
+
+  return (
+    <div className="card" style={{ marginBottom: '30px' }}>
+      <h3>Xác Thực Con Cháu Dòng Họ</h3>
+      <p style={{ marginTop: '8px', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+        Người trong dòng họ không có tài khoản sẽ phải trả lời đúng <strong>họ tên của mình</strong>,
+        <strong> họ tên cha</strong> và <strong>ngày tế họ hàng năm</strong> mới xem được gia phả,
+        danh sách con cháu, lăng mộ, tài sản và thu chi. Hai câu đầu đối chiếu tự động với gia
+        phả; ngày tế họ do quản trị viên đặt tại đây.
+      </p>
+
+      {isLoading ? (
+        <p style={{ marginTop: '15px', color: 'var(--text-secondary)' }}>Đang tải cấu hình...</p>
+      ) : error ? (
+        <p style={{ marginTop: '15px', color: '#c0392b' }}>{error}</p>
+      ) : (
+        <>
+          {!isConfigured && (
+            <p style={{
+              marginTop: '15px', padding: '10px 14px', borderRadius: '6px',
+              background: '#fff8e1', border: '1px solid #f0c14b'
+            }}>
+              <strong>Chưa cấu hình.</strong> Khi chưa đặt ngày tế họ, không ai xác thực được —
+              con cháu chưa có tài khoản sẽ không xem được gia phả. Hãy đặt ngay bên dưới.
+            </p>
+          )}
+
+          <div style={{ marginTop: '18px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 'bold' }}>Ngày tế họ (âm lịch):</span>
+            <span>Ngày</span>
+            <select value={day} onChange={e => setDay(e.target.value)} style={{ padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+              <option value="">--</option>
+              {Array.from({ length: 30 }, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <span>tháng</span>
+            <select value={month} onChange={e => setMonth(e.target.value)} style={{ padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+              <option value="">--</option>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+            <button className="btn-primary" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? 'Đang lưu...' : 'Lưu câu hỏi xác thực'}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const AdminUserManager = () => {
   const { token, user: currentUser } = useContext(AppContext);
   const [userList, setUserList] = useState([]);
@@ -86,6 +175,8 @@ const AdminUserManager = () => {
 
   return (
     <div>
+      {currentUser?.role === 'admin' && <FamilyGateSettings token={token} />}
+
       <div className="card" style={{ marginBottom: '30px' }}>
         <h3>{editingId ? 'Cập Nhật Tài Khoản' : 'Tạo Tài Khoản Mới'}</h3>
         <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>

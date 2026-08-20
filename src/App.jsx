@@ -21,6 +21,15 @@ import TombMapPage from './pages/TombMapPage';
 import AssetsPublicPage from './pages/AssetsPublicPage';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
+import FamilyVerifyGate from './components/FamilyVerifyGate';
+
+// Các trang chứa dữ liệu riêng của dòng họ. Máy chủ đã chặn sẵn (API trả 401 nếu chưa xác
+// thực) — bọc thêm ở đây để hiện màn hình xác thực thay vì để trang trống/lỗi khó hiểu.
+function FamilyOnly({ pageName, children }) {
+  const { isFamilyVerified } = useContext(AppContext);
+  if (!isFamilyVerified) return <FamilyVerifyGate pageName={pageName} />;
+  return children;
+}
 
 const NAV_ITEMS = [
   { to: '/', label: 'Trang Chủ', end: true },
@@ -37,13 +46,16 @@ const NAV_ITEMS = [
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { isLoading, loadError } = useContext(AppContext);
+  const { isLoading, loadError, isFamilyVerified } = useContext(AppContext);
   const menuButtonRef = useRef(null);
   const footerRef = useRef(null);
   // Sơ đồ gia phả tự vẽ thành popup toàn màn hình (xem FamilyTreePage.jsx) — không render
   // navbar/banner quảng cáo/footer lúc này, để tránh chúng vẫn "ẩn phía sau" nhưng vẫn bấm
   // Tab tới được (rò rỉ khả năng tiếp cận) dù đã bị che khuất trực quan bởi overlay.
-  const isTreePopup = useLocation().pathname === '/gia-pha';
+  // Chỉ ẩn navbar/footer khi sơ đồ THẬT SỰ được vẽ. Nếu khách chưa xác thực, trang này hiện
+  // màn hình xác thực bình thường — vẫn phải có thanh điều hướng để họ đi tiếp chỗ khác,
+  // nếu không sẽ bị kẹt ở một trang trống không có lối ra.
+  const isTreePopup = useLocation().pathname === '/gia-pha' && isFamilyVerified;
 
   useEffect(() => {
     if (!isMenuOpen) return;
@@ -136,12 +148,12 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/gioi-thieu" element={<About />} />
-          <Route path="/gia-pha" element={<FamilyTreePage />} />
-          <Route path="/danh-sach" element={<DescendantList />} />
-          <Route path="/ban-do-lang-mo" element={<TombMapPage />} />
-          <Route path="/tai-san" element={<AssetsPublicPage />} />
-          <Route path="/thu-chi" element={<Finance />} />
-          <Route path="/cac-chi" element={<ChiPublic />} />
+          <Route path="/gia-pha" element={<FamilyOnly pageName="Sơ đồ gia phả"><FamilyTreePage /></FamilyOnly>} />
+          <Route path="/danh-sach" element={<FamilyOnly pageName="Danh sách con cháu"><DescendantList /></FamilyOnly>} />
+          <Route path="/ban-do-lang-mo" element={<FamilyOnly pageName="Bản đồ lăng mộ"><TombMapPage /></FamilyOnly>} />
+          <Route path="/tai-san" element={<FamilyOnly pageName="Tài sản dòng họ"><AssetsPublicPage /></FamilyOnly>} />
+          <Route path="/thu-chi" element={<FamilyOnly pageName="Quản lý thu chi"><Finance /></FamilyOnly>} />
+          <Route path="/cac-chi" element={<FamilyOnly pageName="Các chi trong dòng họ"><ChiPublic /></FamilyOnly>} />
           <Route path="/tin-tuc" element={<NewsGallery />} />
           <Route path="/thu-vien" element={<Gallery />} />
           <Route path="/login" element={<Login />} />

@@ -4,6 +4,11 @@ send_cors_headers();
 
 $ALLOWED_KEYS = ['familyData', 'financeData', 'newsData', 'aboutData', 'bannerData', 'galleryData', 'contactAdminData', 'coupletData'];
 
+// Dữ liệu riêng của dòng họ: chỉ con cháu đã xác thực (hoặc tài khoản quản trị) mới được đọc.
+// Các key còn lại (tin tức, giới thiệu, banner, thư viện ảnh, liên hệ) vẫn công khai để
+// người ngoài biết tới dòng họ.
+$PROTECTED_KEYS = ['familyData', 'financeData'];
+
 $key = $_GET['key'] ?? '';
 if (!in_array($key, $ALLOWED_KEYS, true)) {
   json_error('Tham số key không hợp lệ.', 400);
@@ -12,6 +17,10 @@ if (!in_array($key, $ALLOWED_KEYS, true)) {
 $pdo = get_db();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  if (in_array($key, $PROTECTED_KEYS, true)) {
+    require_family_access();
+  }
+
   // familyData trả về khác nhau tùy đã đăng nhập hay chưa (số điện thoại che hay không) —
   // bắt buộc phải chặn cache (trình duyệt lẫn mọi proxy trung gian), nếu không người vừa
   // đăng xuất (hoặc chưa từng đăng nhập) có thể vẫn nhận lại bản KHÔNG che đã được cache

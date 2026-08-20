@@ -17,6 +17,7 @@ function count_family_node($node): int {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  require_family_access(); // Dữ liệu riêng của dòng họ — chỉ con cháu đã xác thực mới được đọc.
   $stmt = $pdo->query('SELECT id, name, root_member_id, description, created_at FROM chi ORDER BY name');
   $rows = $stmt->fetchAll();
 

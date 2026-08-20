@@ -18,8 +18,10 @@ const sum = (arr) => arr.reduce((s, t) => s + (t.amount || 0), 0);
 
 // financeData = { openingBalance, transactions: [{ id, date, type: 'Thu'|'Chi', category, amount, description, person, proof, status: 'actual'|'planned' }] }
 export const computeFinanceSummary = (financeData, year = new Date().getFullYear()) => {
-  const openingBalance = financeData.openingBalance || 0;
-  const transactions = financeData.transactions || [];
+  // financeData có thể là null khi người xem chưa được quyền đọc dữ liệu thu chi (khách chưa
+  // xác thực là con cháu trong họ) — trả về số liệu rỗng thay vì để cả trang lỗi trắng.
+  const openingBalance = financeData?.openingBalance || 0;
+  const transactions = financeData?.transactions || [];
 
   // Quỹ hiện tại (toàn thời gian, không phụ thuộc năm đang xem) chỉ tính giao dịch đã thực hiện
   const allActualIncome = transactions.filter(t => t.type === 'Thu' && t.status !== 'planned');
