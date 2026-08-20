@@ -8,6 +8,13 @@ send_cors_headers();
 
 $pdo = get_db();
 
+// Chặn NGAY TỪ ĐẦU, trước cả bước kiểm tra chi có tồn tại hay không: nếu để bước đó chạy
+// trước, người ngoài chỉ cần so 404 ("không tìm thấy chi") với 401 ("chưa xác thực") là dò
+// ra dòng họ có mấy chi và id từng chi, dù chưa xác thực gì cả.
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  require_family_access();
+}
+
 $chiId = (int)($_GET['chiId'] ?? 0);
 if ($chiId <= 0) {
   json_error('Thiếu hoặc sai tham số chiId.', 400);
@@ -23,7 +30,6 @@ if (!$stmt->fetch()) {
 $dataKey = 'financeData_chi_' . $chiId;
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-  require_family_access(); // Dữ liệu riêng của dòng họ — chỉ con cháu đã xác thực mới được đọc.
   $stmt = $pdo->prepare('SELECT data_json FROM app_data WHERE data_key = ?');
   $stmt->execute([$dataKey]);
   $row = $stmt->fetch();
