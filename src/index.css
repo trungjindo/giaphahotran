@@ -930,19 +930,42 @@ img {
   position: relative;
 }
 
+/* Hiện TRỌN VẸN ảnh gốc, không cắt xén một chút nào.
+   - Khung tròn cũ + "object-fit: cover" luôn phải crop mới lấp đầy được hình tròn; kể cả đổi
+     sang "contain" thì bản thân hình tròn vẫn xén mất đỉnh đầu / cằm của ảnh dọc. Nên dùng
+     khung chữ nhật bo góc.
+   - "height" cố định + "width: auto" => khung TỰ CO đúng tỉ lệ ảnh gốc: ảnh dọc, ngang hay
+     vuông đều hiện đủ mà không lộ dải nền hai bên. Chiều cao cố định giữ layout dưới header
+     luôn ổn định bất kể tỉ lệ ảnh.
+   - "object-fit: contain" + min/max-width là lưới an toàn cho ảnh quá ngang hoặc quá hẹp:
+     lúc đó thêm dải nền thay vì cắt mất ảnh.
+   - .modal-header là phần tử positioned (position: relative) nên được vẽ ĐÈ lên ảnh nếu ảnh
+     không positioned — đó là lỗi làm nửa trên khuôn mặt bị nền gradient xanh che mất; z-index
+     đưa ảnh lên trên header. */
 .modal-avatar {
-  width: 128px;
-  height: 128px;
-  border-radius: 50%;
+  display: block;
+  height: 200px;
+  width: auto;
+  min-width: 90px;
+  max-width: min(240px, 60vw);
+  object-fit: contain;
+  margin: -84px auto 0;
+  border-radius: var(--radius-md);
   border: 4px solid white;
-  /* "cover" lấp đầy khung tròn (không để lộ nền ở góc/viền như "contain" từng làm), kết hợp
-     object-position lệch lên trên — vì ảnh chân dung dọc thường có mặt ở phần trên, crop bớt
-     phần vai/thân dưới thay vì crop mất đỉnh đầu (lỗi khi dùng vị trí mặc định "center"). */
-  object-fit: cover;
-  object-position: 50% 18%;
-  margin-top: -84px;
+  position: relative;
+  z-index: 1;
   box-shadow: 0 6px 20px rgba(0,0,0,0.25);
   background: var(--surface-color);
+}
+
+/* Mobile: thu nhỏ khung ảnh cho vừa màn hẹp và giảm độ đè lên header
+   (header cao 100px nên phần đè luôn phải nhỏ hơn con số đó). */
+@media (max-width: 600px) {
+  .modal-avatar {
+    height: 150px;
+    max-width: min(180px, 55vw);
+    margin-top: -64px;
+  }
 }
 
 .close-btn {
