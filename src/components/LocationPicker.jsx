@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -41,6 +41,58 @@ const MapFlyTo = ({ target }) => {
   return null;
 };
 
+// Leaflet đo kích thước khung bản đồ ĐÚNG MỘT LẦN lúc mount. Nếu lúc đó khung chưa có kích
+// thước thật (form vừa hiện ra, tab vừa đổi, khung co giãn theo cửa sổ...) thì nó tính ra sai
+// và chỉ tải đúng 1 ô bản đồ ở góc — phần còn lại là một mảng XÁM trống trơn.
+//
+// invalidateSize() bắt Leaflet đo lại. Ở đây dùng 2 lớp bảo vệ vì mỗi lớp hụt một kiểu:
+//   - ResizeObserver: đúng công cụ cho việc này, nhưng không phải môi trường nào cũng chạy
+//     (một số WebView/trình duyệt nhúng vô hiệu hóa nó).
+//   - Vòng kiểm tra định kỳ: so kích thước Leaflet ĐANG NGHĨ với kích thước thật của khung,
+//     lệch thì đo lại. Tự dừng ngay khi khớp, và có hạn chót để không chạy mãi.
+const SETTLE_INTERVAL_MS = 300;
+const SETTLE_TIMEOUT_MS = 20000;
+
+const MapAutoSize = () => {
+  const map = useMap();
+  useEffect(() => {
+    const el = map.getContainer();
+    const fix = () => map.invalidateSize();
+
+    fix();
+    const raf = requestAnimationFrame(fix);
+
+    let ro = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(fix);
+      ro.observe(el);
+    }
+
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      const size = map.getSize();
+      if (w > 0 && h > 0 && size.x === w && size.y === h) {
+        clearInterval(timer); // đã khớp — không cần canh nữa
+        return;
+      }
+      if (Date.now() - startedAt > SETTLE_TIMEOUT_MS) {
+        clearInterval(timer); // bỏ cuộc, nhường lại cho ResizeObserver
+        return;
+      }
+      fix();
+    }, SETTLE_INTERVAL_MS);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearInterval(timer);
+      ro?.disconnect();
+    };
+  }, [map]);
+  return null;
+};
+
 // Chọn vị trí trên bản đồ: gõ địa chỉ để bay tới nơi cần, rồi bấm/kéo ghim cho thật chính xác.
 // Dùng chung cho cả "mộ riêng lẻ" và "lăng" nên hai nơi luôn hoạt động giống hệt nhau.
 //
@@ -62,9 +114,20 @@ const LocationPicker = ({
     && !isNaN(Number(latitude)) && !isNaN(Number(longitude));
   const position = hasCoords ? [Number(latitude), Number(longitude)] : null;
 
-  const pick = (lat, lng) => onChange({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
+  const [foundLabel, setFoundLabel] = useState('');
+  // Đếm số ô bản đồ tải hỏng. Khi máy chủ nền bản đồ (OpenStreetMap) không truy cập được,
+  // Leaflet chỉ hiện một mảng xám trống — không có thông báo gì, rất khó đoán là lỗi mạng
+  // hay lỗi phần mềm. Đếm đủ vài ô hỏng thì nói rõ ra, đồng thời trấn an rằng việc ghim và
+  // lưu tọa độ vẫn hoạt động bình thường.
+  const [tileErrors, setTileErrors] = useState(0);
+
+  const pick = (lat, lng) => {
+    setFoundLabel(''); // tự bấm/kéo ghim thì không còn gắn với địa chỉ đã tìm nữa
+    onChange({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
+  };
 
   const handleAddressSelect = ({ lat, lng, label }) => {
+    setFoundLabel(label);
     onChange({ lat: lat.toFixed(6), lng: lng.toFixed(6), address: label });
     onFlyTargetChange?.({ lat, lng });
   };
@@ -78,8 +141,18 @@ const LocationPicker = ({
       />
 
       <div className="location-picker-hint">
-        Bấm vào bản đồ để đặt ghim, kéo ghim để chỉnh cho chính xác.
+        Gõ địa chỉ rồi bấm <strong>Enter</strong> (hoặc nút kính lúp) để bản đồ bay tới và đánh dấu ngay.
+        Sau đó bấm vào bản đồ để đặt lại ghim, kéo ghim để chỉnh cho thật chính xác.
       </div>
+
+      {foundLabel && (
+        <div className="location-picker-found">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+          <span>Đã đánh dấu trên bản đồ: <strong>{foundLabel}</strong></span>
+        </div>
+      )}
 
       <div className="location-picker-map" style={{ height: typeof height === 'number' ? `${height}px` : height }}>
         <MapContainer
@@ -91,11 +164,20 @@ const LocationPicker = ({
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            eventHandlers={{ tileerror: () => setTileErrors(n => n + 1) }}
           />
           <CoordinatePicker position={position} onPick={pick} />
           <MapFlyTo target={flyTarget} />
+          <MapAutoSize />
         </MapContainer>
       </div>
+
+      {tileErrors >= 3 && (
+        <div className="location-picker-tilewarn">
+          Không tải được nền bản đồ từ máy chủ OpenStreetMap (thường do mạng hoặc bị chặn).
+          Bản đồ hiện ra xám là vì vậy — <strong>việc đặt ghim và lưu tọa độ vẫn hoạt động bình thường</strong>.
+        </div>
+      )}
 
       <div className="location-picker-coords">
         {hasCoords ? (

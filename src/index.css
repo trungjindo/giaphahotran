@@ -816,7 +816,7 @@ img {
 
 .address-autocomplete-spinner {
   position: absolute;
-  right: 12px;
+  right: 46px; /* nhường chỗ bên phải cho nút kính lúp */
   top: 50%;
   width: 16px;
   height: 16px;
@@ -877,6 +877,87 @@ img {
 .address-autocomplete-results button:hover,
 .address-autocomplete-results button:focus-visible {
   background: var(--color-sand);
+}
+
+/* Nút kính lúp: tìm NGAY và ghim luôn kết quả khớp nhất (Enter cũng cho kết quả như vậy) */
+.address-autocomplete-field {
+  position: relative;
+}
+
+.address-autocomplete-field .input-control {
+  width: 100%;
+  padding-right: 44px; /* chừa chỗ cho nút kính lúp, chữ dài không chui xuống dưới nút */
+}
+
+.address-autocomplete-search {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--primary-color);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.address-autocomplete-search:hover:not(:disabled) {
+  background: var(--primary-light, #1a86c7);
+}
+
+.address-autocomplete-search:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.address-autocomplete-results button.is-highlighted {
+  background: var(--color-sand);
+}
+
+.address-autocomplete-notfound {
+  margin-top: 8px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: #fdf1f1;
+  color: #B03A3A;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+/* Xác nhận địa chỉ vừa tìm được đã được đánh dấu lên bản đồ */
+.location-picker-found {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.location-picker-found svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Nền bản đồ không tải được (mạng/chặn) — nói rõ để khỏi tưởng phần mềm hỏng */
+.location-picker-tilewarn {
+  margin-top: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: #fff8e1;
+  color: #8a6100;
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 /* Chọn tọa độ trên bản đồ nhỏ trong form quản trị */
