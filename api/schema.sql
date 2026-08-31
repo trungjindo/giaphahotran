@@ -86,20 +86,45 @@ CREATE TABLE IF NOT EXISTS phone_reveal_log (
   INDEX idx_ip_time (ip, revealed_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- LĂNG: khu an táng chung mà nhiều người cùng nằm trong đó (lăng tổ, lăng của chi,
+-- lăng gia đình). Ghim đúng 1 lần rồi gán người vào theo tên lăng, thay vì bắt mỗi người
+-- tự nhập 1 cặp tọa độ gần giống nhau. chi_id = NULL nghĩa là lăng CHUNG của cả họ.
+CREATE TABLE IF NOT EXISTS tomb_sites (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(200) NOT NULL,
+  chi_id INT NULL,
+  latitude DECIMAL(10,7) NOT NULL,
+  longitude DECIMAL(10,7) NOT NULL,
+  address VARCHAR(255) NULL,
+  photo VARCHAR(255) NULL,
+  description TEXT NULL,
+  created_by INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_tomb_sites_name (name),
+  FOREIGN KEY (chi_id) REFERENCES chi(id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Vị trí lăng mộ của từng thành viên đã mất, hiển thị trên "Bản đồ lăng mộ tổ tiên".
 -- member_id tham chiếu id của người đó trong familyData JSON (không có khóa ngoại DB
 -- vì cây gia phả là JSON, không phải bảng quan hệ — giống cách chi.root_member_id hoạt động).
+-- site_id NULL => mộ riêng lẻ, dùng latitude/longitude của chính bản ghi này.
+-- site_id có   => nằm trong lăng, tọa độ LẤY TỪ LĂNG nên 2 cột lat/lng để trống (vì vậy
+--                 chúng phải cho phép NULL).
 CREATE TABLE IF NOT EXISTS tombs (
   id INT AUTO_INCREMENT PRIMARY KEY,
   member_id VARCHAR(50) NOT NULL UNIQUE,
-  latitude DECIMAL(10,7) NOT NULL,
-  longitude DECIMAL(10,7) NOT NULL,
+  site_id INT NULL,
+  latitude DECIMAL(10,7) NULL,
+  longitude DECIMAL(10,7) NULL,
   photo VARCHAR(255) NULL,
   description TEXT NULL,
   interred_date DATE NULL,
   created_by INT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (site_id) REFERENCES tomb_sites(id) ON DELETE SET NULL,
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

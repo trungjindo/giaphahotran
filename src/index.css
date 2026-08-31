@@ -887,6 +887,362 @@ img {
   border: 1px solid var(--border-color);
 }
 
+/* ------- Ô "gõ để tìm rồi chọn" (SearchableSelect) ------- */
+/* Dùng cho danh sách dài: người đã mất trong cây gia phả, danh sách lăng... */
+.searchable-select {
+  position: relative;
+}
+
+.searchable-select-field {
+  position: relative;
+}
+
+/* Chừa chỗ cho nút ✕ để chữ dài không chạy xuống dưới nút */
+.searchable-select-field .input-control {
+  padding-right: 38px;
+}
+
+.searchable-select-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-sand);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast);
+}
+
+.searchable-select-clear:hover,
+.searchable-select-clear:focus-visible {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.searchable-select-list {
+  position: absolute;
+  z-index: 1200;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.searchable-select-list li {
+  list-style: none;
+}
+
+.searchable-select-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.searchable-select-list button.is-highlighted {
+  background: var(--color-sand);
+}
+
+.searchable-select-label {
+  display: block;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+}
+
+.searchable-select-sublabel {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.searchable-select-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* ------- Chọn vị trí trên bản đồ (LocationPicker) ------- */
+.location-picker-hint {
+  margin: 10px 0 6px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.location-picker-map {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.location-picker-coords {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.location-picker-badge {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.location-picker-badge.is-empty {
+  background: var(--color-sand);
+  color: var(--text-secondary);
+}
+
+.location-picker-clear {
+  padding: 5px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  background: var(--surface-color);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.location-picker-clear:hover {
+  color: #B03A3A;
+  border-color: #B03A3A;
+}
+
+.location-picker-manual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.location-picker-manual label {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.location-picker-manual .input-control {
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* ------- Tab con trong khu quản trị Bản Đồ Lăng Mộ ------- */
+.tomb-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.tomb-subtabs button {
+  padding: 10px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  background: var(--surface-color);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.tomb-subtabs button.is-active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+
+/* ------- Chọn kiểu nơi an táng: trong lăng chung / mộ riêng lẻ ------- */
+.tomb-place-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.tomb-place-modes label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.tomb-place-modes label.is-active {
+  border-color: var(--primary-color);
+  background: var(--color-sand);
+}
+
+.tomb-place-modes label:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tomb-place-modes input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.tomb-place-modes strong {
+  display: block;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+}
+
+.tomb-place-modes small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Xem trước lăng vừa chọn, ngay dưới ô tìm lăng */
+.tomb-site-preview {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-sand);
+  border: 1px solid var(--border-color);
+}
+
+.tomb-site-preview-line {
+  margin-top: 4px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+/* ------- Ghim LĂNG trên bản đồ tổng ------- */
+.tomb-site-marker {
+  position: relative;
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3));
+}
+
+.tomb-site-marker-count {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--secondary-color, #F2C46A);
+  color: #4a3208;
+  border: 2px solid white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* Danh sách người an táng bên trong 1 lăng, hiện trong popup của ghim lăng */
+.tomb-site-member-list {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 190px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-color);
+}
+
+.tomb-site-member-list li {
+  list-style: none;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tomb-site-member-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 4px;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.tomb-site-member-list button:hover .tomb-site-member-name {
+  text-decoration: underline;
+}
+
+.tomb-site-member-name {
+  display: block;
+  font-weight: 600;
+  color: var(--primary-color);
+  font-size: 0.88rem;
+}
+
+.tomb-site-member-meta {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+/* Chú giải 2 loại ghim phía trên bản đồ tổng */
+.tomb-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  justify-content: center;
+  margin-bottom: 14px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.tomb-map-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.tomb-map-legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--primary-color);
+}
+
+.tomb-map-legend-dot.is-single {
+  border-radius: 50%;
+}
+
+@media (max-width: 600px) {
+  .location-picker-manual,
+  .tomb-place-modes {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 600px) {
   .tomb-map-wrap {
     height: 60vh;

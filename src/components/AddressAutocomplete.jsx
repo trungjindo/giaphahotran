@@ -4,13 +4,17 @@ const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 
 // Ô tìm địa chỉ có gợi ý — dùng Nominatim (OpenStreetMap), miễn phí và không cần API key,
 // thay cho Google Places (yêu cầu tài khoản Google Cloud + bật thanh toán).
-const AddressAutocomplete = ({ onSelect, placeholder = 'Tìm địa chỉ...', className = '' }) => {
-  const [query, setQuery] = useState('');
+// initialValue: điền sẵn địa chỉ đã lưu khi mở form ở chế độ SỬA. Chỉ dùng làm giá trị khởi
+// tạo — muốn nạp lại giá trị khác cho bản ghi khác thì truyền prop "key" khác từ bên ngoài.
+const AddressAutocomplete = ({ onSelect, placeholder = 'Tìm địa chỉ...', className = '', initialValue = '' }) => {
+  const [query, setQuery] = useState(initialValue);
   const [results, setResults] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const debounceRef = useRef(null);
-  const skipNextSearchRef = useRef(false);
+  // Bỏ qua lần tìm đầu tiên khi ô được điền sẵn initialValue — nếu không, mở form Sửa lên là
+  // dropdown gợi ý tự bung ra dù người dùng chưa gõ gì.
+  const skipNextSearchRef = useRef(Boolean(initialValue));
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
