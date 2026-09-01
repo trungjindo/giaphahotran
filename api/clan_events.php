@@ -13,6 +13,10 @@ function format_clan_event($row) {
     'description' => $row['description'],
     'chiId' => $row['chi_id'] === null ? null : (int)$row['chi_id'],
     'chiName' => $row['chi_name'] ?? null,
+    // Gắn sự kiện vào ngày giỗ của một người cụ thể (tùy chọn)
+    'memberId' => $row['member_id'],
+    'time' => $row['event_time'],
+    'organizer' => $row['organizer'],
     'calendar' => $row['calendar'],            // 'am' | 'duong'
     'day' => (int)$row['event_day'],
     'month' => (int)$row['event_month'],
@@ -30,6 +34,9 @@ function read_clan_event_input(PDO $pdo): array {
   $title = trim($body['title'] ?? '');
   $description = trim($body['description'] ?? '') ?: null;
   $location = trim($body['location'] ?? '') ?: null;
+  $organizer = trim($body['organizer'] ?? '') ?: null;
+  $time = trim($body['time'] ?? '') ?: null;
+  $memberId = trim($body['memberId'] ?? '') ?: null;
   $calendar = ($body['calendar'] ?? 'am') === 'duong' ? 'duong' : 'am';
   $day = $body['day'] ?? null;
   $month = $body['month'] ?? null;
@@ -67,7 +74,17 @@ function read_clan_event_input(PDO $pdo): array {
     if (!$stmt->fetch()) json_error('Không tìm thấy chi đã chọn.', 404);
   }
 
-  return compact('title', 'description', 'location', 'calendar', 'day', 'month', 'year', 'chiId');
+  if ($organizer !== null && mb_strlen($organizer) > 150) json_error('Tên người/ban tổ chức quá dài (tối đa 150 ký tự).');
+  if ($time !== null && mb_strlen($time) > 20) json_error('Thời gian quá dài (tối đa 20 ký tự).');
+
+  if ($memberId !== null) {
+    $tree = get_family_tree($pdo);
+    if (($tree ? find_family_node($tree, $memberId) : null) === null) {
+      json_error('Không tìm thấy người đã chọn trong cây gia phả.', 404);
+    }
+  }
+
+  return compact('title', 'description', 'location', 'calendar', 'day', 'month', 'year', 'chiId', 'organizer', 'time', 'memberId');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -86,12 +103,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $in = read_clan_event_input($pdo);
 
   $stmt = $pdo->prepare(
-    'INSERT INTO clan_events (title, description, chi_id, calendar, event_day, event_month, event_year, location, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO clan_events (title, description, chi_id, member_id, calendar, event_day, event_month, event_year, event_time, organizer, location, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
   $stmt->execute([
-    $in['title'], $in['description'], $in['chiId'], $in['calendar'],
-    $in['day'], $in['month'], $in['year'], $in['location'], $currentUser['id'],
+    $in['title'], $in['description'], $in['chiId'], $in['memberId'], $in['calendar'],
+    $in['day'], $in['month'], $in['year'], $in['time'], $in['organizer'],
+    $in['location'], $currentUser['id'],
   ]);
 
   json_response(['success' => true, 'id' => (int)$pdo->lastInsertId()]);
@@ -108,13 +126,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 
   $in = read_clan_event_input($pdo);
   $stmt = $pdo->prepare(
-    'UPDATE clan_events SET title = ?, description = ?, chi_id = ?, calendar = ?,
-            event_day = ?, event_month = ?, event_year = ?, location = ?
+    'UPDATE clan_events SET title = ?, description = ?, chi_id = ?, member_id = ?, calendar = ?,
+            event_day = ?, event_month = ?, event_year = ?, event_time = ?, organizer = ?, location = ?
      WHERE id = ?'
   );
   $stmt->execute([
-    $in['title'], $in['description'], $in['chiId'], $in['calendar'],
-    $in['day'], $in['month'], $in['year'], $in['location'], $id,
+    $in['title'], $in['description'], $in['chiId'], $in['memberId'], $in['calendar'],
+    $in['day'], $in['month'], $in['year'], $in['time'], $in['organizer'],
+    $in['location'], $id,
   ]);
 
   json_response(['success' => true]);

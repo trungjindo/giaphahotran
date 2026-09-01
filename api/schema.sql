@@ -78,20 +78,25 @@ CREATE TABLE IF NOT EXISTS activities (
 -- LỊCH GIA TỘC: sự kiện dòng họ có ngày cụ thể (bảng activities chỉ ghi được NĂM).
 -- calendar = 'am' -> ngày/tháng ÂM lịch (giỗ tổ, tế họ — đa số việc họ); 'duong' -> dương lịch.
 -- event_year = NULL nghĩa là LẶP LẠI HẰNG NĂM. chi_id = NULL nghĩa là việc chung của cả họ.
+-- member_id gắn sự kiện vào ngày giỗ của một người, để hiện kèm ai tổ chức / ở đâu / mấy giờ.
 CREATE TABLE IF NOT EXISTS clan_events (
   id INT AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(200) NOT NULL,
   description TEXT NULL,
   chi_id INT NULL,
+  member_id VARCHAR(50) NULL,
   calendar ENUM('am', 'duong') NOT NULL DEFAULT 'am',
   event_day TINYINT UNSIGNED NOT NULL,
   event_month TINYINT UNSIGNED NOT NULL,
   event_year INT NULL,
+  event_time VARCHAR(20) NULL,
+  organizer VARCHAR(150) NULL,
   location VARCHAR(255) NULL,
   created_by INT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_clan_events_md (event_month, event_day),
+  INDEX idx_clan_events_member (member_id),
   FOREIGN KEY (chi_id) REFERENCES chi(id) ON DELETE CASCADE,
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

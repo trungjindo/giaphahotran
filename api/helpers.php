@@ -2,6 +2,24 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
 
+// Mọi lỗi không bắt được (VD truy vấn vào bảng chưa tồn tại vì quên chạy migration) mặc định
+// bị PHP in ra dưới dạng TRANG HTML. Giao diện đang chờ JSON nên chỉ báo được chung chung
+// "máy chủ trả về dữ liệu không hợp lệ", không nói được hỏng ở đâu. Đăng ký bộ bắt lỗi để
+// mọi sự cố đều trả JSON có thông điệp đọc được.
+//
+// Không lộ chi tiết kỹ thuật ra ngoài: chỉ ghi vào log máy chủ, còn người dùng nhận thông
+// điệp ngắn gọn — riêng lỗi "thiếu bảng" thì nói thẳng vì đó là việc quản trị viên phải làm.
+set_exception_handler(function (Throwable $e) {
+  error_log('[api] ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+  $missingTable = $e instanceof PDOException && strpos($e->getMessage(), 'Base table or view not found') !== false;
+  json_error(
+    $missingTable
+      ? 'Cơ sở dữ liệu còn thiếu bảng cho tính năng này. Quản trị viên cần chạy file migration tương ứng trong thư mục api/ (xem DEPLOY.md).'
+      : 'Máy chủ gặp lỗi khi xử lý yêu cầu. Vui lòng thử lại hoặc báo quản trị viên.',
+    500
+  );
+});
+
 function send_cors_headers(): void {
   $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
   if (in_array($origin, ALLOWED_ORIGINS, true)) {

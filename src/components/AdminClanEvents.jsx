@@ -1,10 +1,14 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { AppContext } from '../store';
 import { apiRequest } from '../api';
+import { buildDescendantList } from '../utils/family';
 import { solarToLunar, lunarAnniversaryToSolar, todayParts, canChiYear } from '../utils/lunar';
+import { anniversaryOf } from '../utils/familyCalendar';
+import SearchableSelect from './SearchableSelect';
 
 const emptyForm = {
-  title: '', description: '', location: '', chiId: '',
+  title: '', description: '', location: '', chiId: '', memberId: '',
+  organizer: '', time: '',
   calendar: 'am', day: '', month: '', year: '',
 };
 
@@ -12,7 +16,7 @@ const emptyForm = {
 // Khác mục "Hoạt Động Dòng Họ" cũ ở chỗ có NGÀY/THÁNG và ghi rõ theo lịch âm hay dương,
 // nhờ vậy mới lên được lịch và nhắc trước được.
 const AdminClanEvents = () => {
-  const { token } = useContext(AppContext);
+  const { token, familyData } = useContext(AppContext);
   const [events, setEvents] = useState([]);
   const [chiList, setChiList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,6 +25,30 @@ const AdminClanEvents = () => {
   const [editingId, setEditingId] = useState(null);
 
   const today = useMemo(() => todayParts(), []);
+  const descendantList = useMemo(() => buildDescendantList(familyData), [familyData]);
+  const deceased = useMemo(() => descendantList.filter(m => !m.isAlive), [descendantList]);
+
+  // Danh sách người đã mất, để gắn sự kiện vào ĐÚNG ngày giỗ của một cụ.
+  const memberOptions = useMemo(() => deceased.map(m => ({
+    value: m.id,
+    label: m.name,
+    sublabel: [m.code ? `#${m.code}` : null, `Đời ${m.generation}`,
+      m.deathDate ? `mất ${m.deathDate}` : null].filter(Boolean).join(' · '),
+    keywords: m.code || '',
+  })), [deceased]);
+
+  // Chọn một cụ thì tự điền sẵn ngày/tháng và loại lịch theo đúng ngày giỗ của cụ ấy —
+  // khỏi phải tra lại rồi gõ tay, và tránh nhập lệch ngày so với hồ sơ.
+  const pickMember = (id) => {
+    const m = descendantList.find(x => x.id === id);
+    const ann = m ? anniversaryOf(m) : null;
+    setForm(prev => ({
+      ...prev,
+      memberId: id,
+      ...(ann ? { calendar: ann.calendar, day: String(ann.day), month: String(ann.month) } : {}),
+      ...(m && !prev.title.trim() ? { title: `Giỗ ${m.name}` } : {}),
+    }));
+  };
 
   const load = () => {
     setIsLoading(true);
@@ -66,6 +94,9 @@ const AdminClanEvents = () => {
       description: form.description,
       location: form.location,
       chiId: form.chiId === '' ? null : Number(form.chiId),
+      memberId: form.memberId || null,
+      organizer: form.organizer,
+      time: form.time,
       calendar: form.calendar,
       day: d,
       month: m,
@@ -94,6 +125,9 @@ const AdminClanEvents = () => {
       description: ev.description || '',
       location: ev.location || '',
       chiId: ev.chiId === null ? '' : String(ev.chiId),
+      memberId: ev.memberId || '',
+      organizer: ev.organizer || '',
+      time: ev.time || '',
       calendar: ev.calendar,
       day: String(ev.day),
       month: String(ev.month),
@@ -209,6 +243,43 @@ const AdminClanEvents = () => {
                 <div className="calendar-preview">{preview}</div>
               </div>
             )}
+
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label htmlFor="ev-member" style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>
+                Là ngày giỗ của (tùy chọn)
+              </label>
+              <SearchableSelect
+                id="ev-member"
+                options={memberOptions}
+                value={form.memberId}
+                onChange={pickMember}
+                placeholder="Gõ tên cụ để gắn sự kiện vào đúng ngày giỗ..."
+                emptyText="Không tìm thấy người đã mất nào khớp."
+              />
+              <small style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+                Gắn vào một cụ thì ngày/tháng tự điền theo ngày giỗ trong hồ sơ, và khi con cháu
+                xem "hôm nay ai giỗ" sẽ thấy luôn ai tổ chức, ở đâu, mấy giờ.
+              </small>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Người / Ban Tổ Chức</label>
+              <input
+                type="text" className="input-control" style={{ width: '100%' }}
+                value={form.organizer}
+                onChange={e => setForm({ ...form, organizer: e.target.value })}
+                placeholder="VD: Chi trưởng Trần Đình Hữu"
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Thời Gian</label>
+              <input
+                type="text" className="input-control" style={{ width: '100%' }}
+                value={form.time}
+                onChange={e => setForm({ ...form, time: e.target.value })}
+                placeholder="VD: 9h00 sáng"
+              />
+            </div>
 
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Địa Điểm</label>

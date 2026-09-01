@@ -22,6 +22,8 @@ import AssetsPublicPage from './pages/AssetsPublicPage';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import FamilyVerifyGate from './components/FamilyVerifyGate';
+import FamilyCalendarModal from './components/FamilyCalendarModal';
+import { OPEN_FAMILY_CALENDAR } from './utils/appEvents';
 
 // Các trang chứa dữ liệu riêng của dòng họ. Máy chủ đã chặn sẵn (API trả 401 nếu chưa xác
 // thực) — bọc thêm ở đây để hiện màn hình xác thực thay vì để trang trống/lỗi khó hiểu.
@@ -44,8 +46,21 @@ const NAV_ITEMS = [
   { to: '/thu-vien', label: 'Thư Viện Ảnh' },
 ];
 
+// Menu trên cùng gom 10 mục thành 4 nhóm cho đỡ chật (chân trang vẫn liệt kê phẳng đủ 10 mục
+// như cũ). Tra theo đường dẫn từ NAV_ITEMS để nhãn/đường dẫn chỉ khai báo ở đúng một chỗ —
+// thêm mục mới vào NAV_ITEMS mà quên xếp nhóm thì nó vẫn hiện ở chân trang, không mất hẳn.
+const byPath = Object.fromEntries(NAV_ITEMS.map(i => [i.to, i]));
+const NAV_GROUPS = [
+  { kind: 'link', ...byPath['/'] },
+  { kind: 'group', label: 'Phả Hệ', items: ['/gia-pha', '/danh-sach', '/cac-chi'].map(x => byPath[x]) },
+  { kind: 'group', label: 'Dòng Họ', items: ['/gioi-thieu', '/ban-do-lang-mo', '/tai-san', '/thu-chi'].map(x => byPath[x]) },
+  { kind: 'group', label: 'Tin Tức', items: ['/tin-tuc', '/thu-vien'].map(x => byPath[x]) },
+];
+
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const { isLoading, loadError, isFamilyVerified } = useContext(AppContext);
   const menuButtonRef = useRef(null);
   const footerRef = useRef(null);
@@ -55,7 +70,8 @@ function App() {
   // Chỉ ẩn navbar/footer khi sơ đồ THẬT SỰ được vẽ. Nếu khách chưa xác thực, trang này hiện
   // màn hình xác thực bình thường — vẫn phải có thanh điều hướng để họ đi tiếp chỗ khác,
   // nếu không sẽ bị kẹt ở một trang trống không có lối ra.
-  const isTreePopup = useLocation().pathname === '/gia-pha' && isFamilyVerified;
+  const { pathname } = useLocation();
+  const isTreePopup = pathname === '/gia-pha' && isFamilyVerified;
 
   useEffect(() => {
     if (!isMenuOpen) return;
@@ -68,6 +84,23 @@ function App() {
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [isMenuOpen]);
+
+  // Bấm ra ngoài hoặc bấm Esc thì đóng menu xổ đang mở.
+  useEffect(() => {
+    if (openGroup === null) return;
+    const onDown = (e) => { if (!e.target.closest('.nav-group')) setOpenGroup(null); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpenGroup(null); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [openGroup]);
+
+  // Trang chủ phát sự kiện để mở đúng hộp thoại lịch duy nhất này.
+  useEffect(() => {
+    const open = () => setCalendarOpen(true);
+    window.addEventListener(OPEN_FAMILY_CALENDAR, open);
+    return () => window.removeEventListener(OPEN_FAMILY_CALENDAR, open);
+  }, []);
 
   if (loadError) {
     return (
@@ -90,7 +123,7 @@ function App() {
     );
   }
 
-  const closeMenu = () => setIsMenuOpen(false);
+  const closeMenu = () => { setIsMenuOpen(false); setOpenGroup(null); };
 
   return (
     <div className="app-container">
@@ -110,18 +143,63 @@ function App() {
           </Link>
 
           <ul className={`nav-links ${isMenuOpen ? 'active' : ''}`} id="primary-navigation">
-            {NAV_ITEMS.map(item => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  end={item.end}
-                  onClick={closeMenu}
-                  className={({ isActive }) => (isActive ? 'active' : undefined)}
-                >
-                  {item.label}
-                </NavLink>
-              </li>
+            {NAV_GROUPS.map(group => (
+              group.kind === 'link' ? (
+                <li key={group.to}>
+                  <NavLink
+                    to={group.to}
+                    end={group.end}
+                    onClick={closeMenu}
+                    className={({ isActive }) => (isActive ? 'active' : undefined)}
+                  >
+                    {group.label}
+                  </NavLink>
+                </li>
+              ) : (
+                <li key={group.label} className="nav-group">
+                  <button
+                    type="button"
+                    className={`nav-group-btn${group.items.some(i => i.to === pathname) ? ' active' : ''}`}
+                    onClick={() => setOpenGroup(g => (g === group.label ? null : group.label))}
+                    aria-expanded={openGroup === group.label}
+                    aria-haspopup="true"
+                  >
+                    {group.label}
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </button>
+                  <ul className={`nav-dropdown${openGroup === group.label ? ' is-open' : ''}`}>
+                    {group.items.map(item => (
+                      <li key={item.to}>
+                        <NavLink
+                          to={item.to}
+                          end={item.end}
+                          onClick={closeMenu}
+                          className={({ isActive }) => (isActive ? 'active' : undefined)}
+                        >
+                          {item.label}
+                        </NavLink>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              )
             ))}
+
+            <li className="nav-calendar-item">
+              <button
+                type="button"
+                className="nav-calendar-btn"
+                onClick={() => { closeMenu(); setCalendarOpen(true); }}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
+                  <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
+                </svg>
+                Lịch Gia Tộc
+              </button>
+            </li>
           </ul>
 
           <button
@@ -187,6 +265,8 @@ function App() {
           <Link to="/login" className="footer-login-link">Đăng Nhập Quản Trị Viên</Link>
         </div>
       </footer>}
+
+      {calendarOpen && <FamilyCalendarModal onClose={() => setCalendarOpen(false)} />}
     </div>
   );
 }

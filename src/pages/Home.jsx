@@ -4,7 +4,7 @@ import { AppContext } from '../store';
 import { computeFamilyStats, getMaxGeneration } from '../utils/family';
 import { computeFinanceSummary, formatCurrency } from '../utils/finance';
 import OceanScene from '../components/OceanScene';
-import FamilyCalendarModal from '../components/FamilyCalendarModal';
+import { OPEN_FAMILY_CALENDAR } from '../utils/appEvents';
 import { solarToLunar, canChiYear, todayParts, WEEKDAY_VN, jdFromDate } from '../utils/lunar';
 
 // Đặt ảnh thật (biển Quỳnh Lập, nhà thờ họ...) vào public/storage/hero/hero-main.jpg
@@ -121,8 +121,6 @@ const StatBarList = ({ data, color }) => {
 function Home() {
   const { financeData, newsData, familyData, bannerData, isFamilyVerified } = useContext(AppContext);
 
-  const [calendarOpen, setCalendarOpen] = useState(false);
-
   // Ngày hôm nay theo cả hai lịch, hiện sẵn ngay trên nút Lịch Gia Tộc.
   const todaySolar = useMemo(() => todayParts(), []);
   const todayLunar = useMemo(
@@ -170,7 +168,7 @@ function Home() {
 
       {/* LỊCH GIA TỘC — khối nổi bật ngay dưới ảnh bìa. Hiện luôn ngày dương + ngày âm của
           hôm nay để nhìn phát thấy ngay, bấm vào mở toàn cảnh việc họ / ngày giỗ. */}
-      <button type="button" className="famcal-banner" onClick={() => setCalendarOpen(true)}>
+      <button type="button" className="famcal-banner" onClick={() => window.dispatchEvent(new CustomEvent(OPEN_FAMILY_CALENDAR))}>
         <span className="famcal-banner-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
@@ -448,8 +446,6 @@ function Home() {
           font-size: 0.9rem;
         }
       `}</style>
-
-      {calendarOpen && <FamilyCalendarModal onClose={() => setCalendarOpen(false)} />}
     </div>
   );
 }

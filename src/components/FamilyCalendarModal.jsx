@@ -54,6 +54,9 @@ const DayCell = ({ cell, entry, isToday, isSelected, onSelect }) => {
 const DaySummary = ({ parts, entry, onOpenMember, compact = false }) => {
   const lunar = solarToLunar(parts.day, parts.month, parts.year);
   const weekday = WEEKDAY_VN[(jdFromDate(parts.day, parts.month, parts.year) + 1) % 7];
+  // Sự kiện gắn với một ngày giỗ đã được hiện ngay trong thẻ của cụ đó, không liệt kê lại.
+  const gioMemberIds = new Set(entry.gio.map(g => g.member.id));
+  const otherEvents = entry.events.filter(e => !e.memberId || !gioMemberIds.has(e.memberId));
 
   return (
     <div className={`fcal-summary${compact ? ' is-compact' : ''}`}>
@@ -73,7 +76,7 @@ const DaySummary = ({ parts, entry, onOpenMember, compact = false }) => {
         </div>
       </div>
 
-      {entry.gio.length === 0 && entry.events.length === 0 ? (
+      {entry.gio.length === 0 && otherEvents.length === 0 ? (
         <p className="fcal-empty">Ngày này không có giỗ hay việc họ nào được ghi nhận.</p>
       ) : (
         <div className="fcal-day-lists">
@@ -81,37 +84,61 @@ const DaySummary = ({ parts, entry, onOpenMember, compact = false }) => {
             <div className="fcal-block is-gio">
               <h4>Ngày giỗ ({entry.gio.length})</h4>
               <ul>
-                {entry.gio.map((g, i) => (
-                  <li key={`${g.member.id}-${i}`}>
-                    <button type="button" className="fcal-person" onClick={() => onOpenMember(g.member.id)}>
-                      <span className="fcal-person-name">{g.member.name}</span>
-                      <span className="fcal-person-meta">
-                        {g.member.code ? `#${g.member.code} · ` : ''}
-                        Đời {g.member.generation}
-                        {g.ordinal ? ` · Giỗ lần thứ ${g.ordinal}` : ''}
-                        {g.calendar === DEATH_CALENDAR_LUNAR
-                          ? ` · mất ${g.lunarDay}/${g.lunarMonth} âm lịch`
-                          : ' · theo dương lịch'}
-                      </span>
-                      <span className="fcal-person-go">Xem hồ sơ →</span>
-                    </button>
-                  </li>
-                ))}
+                {entry.gio.map((g, i) => {
+                  // Nếu quản trị viên đã tạo lịch cho đúng ngày giỗ của cụ này thì hiện luôn
+                  // ai đứng ra tổ chức, ở đâu, mấy giờ — thứ con cháu cần biết để đi giỗ.
+                  const ev = entry.events.find(e => e.memberId && e.memberId === g.member.id);
+                  return (
+                    <li key={`${g.member.id}-${i}`}>
+                      <button type="button" className="fcal-person" onClick={() => onOpenMember(g.member.id)}>
+                        <span className="fcal-person-name">{g.member.name}</span>
+                        <span className="fcal-person-meta">
+                          {g.member.code ? `#${g.member.code} · ` : ''}
+                          Đời {g.member.generation}
+                          {g.ordinal ? ` · Giỗ lần thứ ${g.ordinal}` : ''}
+                          {g.calendar === DEATH_CALENDAR_LUNAR
+                            ? ` · mất ${g.lunarDay}/${g.lunarMonth} âm lịch`
+                            : ' · theo dương lịch'}
+                        </span>
+                        <span className="fcal-person-go">Xem hồ sơ →</span>
+                      </button>
+
+                      {ev ? (
+                        <div className="fcal-gio-plan">
+                          <div className="fcal-gio-plan-title">{ev.title}</div>
+                          <dl>
+                            {ev.organizer && <><dt>Tổ chức</dt><dd>{ev.organizer}</dd></>}
+                            {ev.time && <><dt>Thời gian</dt><dd>{ev.time}</dd></>}
+                            {ev.location && <><dt>Địa điểm</dt><dd>{ev.location}</dd></>}
+                            {ev.chiName && <><dt>Phạm vi</dt><dd>{ev.chiName}</dd></>}
+                          </dl>
+                          {ev.description && <p className="fcal-event-desc">{ev.description}</p>}
+                        </div>
+                      ) : (
+                        <div className="fcal-gio-noplan">
+                          Chưa tạo lịch tổ chức cho ngày giỗ này.
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
 
-          {entry.events.length > 0 && (
+          {otherEvents.length > 0 && (
             <div className="fcal-block is-event">
-              <h4>Việc họ ({entry.events.length})</h4>
+              <h4>Việc họ ({otherEvents.length})</h4>
               <ul>
-                {entry.events.map(e => (
+                {otherEvents.map(e => (
                   <li key={e.id}>
                     <div className="fcal-event-title">{e.title}</div>
                     <div className="fcal-event-meta">
                       {e.calendar === 'am' ? `${e.day}/${e.month} âm lịch` : `${e.day}/${e.month} dương lịch`}
                       {e.chiName ? ` · ${e.chiName}` : ' · Cả họ'}
+                      {e.time ? ` · ${e.time}` : ''}
                       {e.location ? ` · ${e.location}` : ''}
+                      {e.organizer ? ` · Tổ chức: ${e.organizer}` : ''}
                     </div>
                     {e.description && <p className="fcal-event-desc">{e.description}</p>}
                   </li>
@@ -163,6 +190,28 @@ const FamilyCalendarModal = ({ onClose }) => {
   );
 
   const grid = useMemo(() => buildMonthGrid(viewYear, viewMonth), [viewYear, viewMonth]);
+
+  // Tổng quan cả tháng: gom mọi giỗ và việc họ rơi vào tháng đang xem, sắp theo ngày —
+  // để nhìn một lượt biết tháng này có những việc gì, khỏi phải bấm từng ô.
+  const monthRows = useMemo(() => {
+    const rows = [];
+    yearIndex.forEach((entry, iso) => {
+      const [y, m, d] = iso.split('-').map(Number);
+      if (y !== viewYear || m !== viewMonth) return;
+      const solar = { day: d, month: m, year: y };
+      const gioIds = new Set(entry.gio.map(g => g.member.id));
+      entry.gio.forEach(g => rows.push({
+        iso, solar, kind: 'gio', person: g.member, calendar: g.calendar, ordinal: g.ordinal,
+        title: `Giỗ ${g.member.name}`,
+        // Lịch tổ chức gắn với đúng cụ này (nếu quản trị viên đã tạo)
+        plan: entry.events.find(e => e.memberId === g.member.id) || null,
+      }));
+      entry.events
+        .filter(e => !e.memberId || !gioIds.has(e.memberId))
+        .forEach(e => rows.push({ iso, solar, kind: 'sukien', event: e, calendar: e.calendar, title: e.title, plan: e }));
+    });
+    return rows.sort((a, b) => a.iso.localeCompare(b.iso));
+  }, [yearIndex, viewYear, viewMonth]);
   const todayIso = toISODate(today);
 
   const selectedParts = useMemo(() => {
@@ -177,12 +226,6 @@ const FamilyCalendarModal = ({ onClose }) => {
     if (m > 12) { m = 1; y += 1; }
     setViewMonth(m);
     setViewYear(y);
-  };
-
-  const goToday = () => {
-    setViewYear(today.year);
-    setViewMonth(today.month);
-    setSelectedIso(todayIso);
   };
 
   const personOptions = useMemo(() => descendantList.map(m => ({
@@ -262,7 +305,6 @@ const FamilyCalendarModal = ({ onClose }) => {
                     <span>{canChiYear(solarToLunar(15, viewMonth, viewYear).year)}</span>
                   </div>
                   <button type="button" onClick={() => shiftMonth(1)} aria-label="Tháng sau">›</button>
-                  <button type="button" className="fcal-today-btn" onClick={goToday}>Hôm nay</button>
                 </div>
 
                 <div className="fcal-weekdays">
@@ -286,6 +328,12 @@ const FamilyCalendarModal = ({ onClose }) => {
                   <span><i className="fcal-swatch" /> Số đỏ là ngày âm lịch có giỗ/việc họ</span>
                 </div>
 
+                <h3 className="fcal-section-title">
+                  Việc họ &amp; ngày giỗ trong {MONTH_NAMES[viewMonth - 1].toLowerCase()} ({monthRows.length})
+                </h3>
+                <MonthOverview rows={monthRows} onOpenMember={openMember} onPickDay={setSelectedIso} />
+
+                <h3 className="fcal-section-title">Chi tiết ngày đang chọn</h3>
                 <DaySummary
                   parts={selectedParts}
                   entry={dayEntry(yearIndex, selectedParts)}
@@ -385,6 +433,50 @@ function buildAllRows(index, solarYear) {
   });
   return rows.sort((a, b) => a.iso.localeCompare(b.iso));
 }
+
+// Bảng tổng quan cả tháng — mỗi dòng là một mốc, bấm vào để nhảy tới ngày đó trên lưới.
+const MonthOverview = ({ rows, onOpenMember, onPickDay }) => {
+  if (rows.length === 0) {
+    return <p className="fcal-empty">Tháng này không có giỗ hay việc họ nào được ghi nhận.</p>;
+  }
+  return (
+    <ul className="fcal-rows">
+      {rows.map((r, i) => {
+        const l = solarToLunar(r.solar.day, r.solar.month, r.solar.year);
+        const p = r.plan;
+        return (
+          <li key={i} className={`fcal-row is-${r.kind}`}>
+            <button type="button" className="fcal-row-date is-clickable" onClick={() => onPickDay(r.iso)} title="Xem ngày này trên lịch">
+              <strong>{r.solar.day}/{r.solar.month}</strong>
+              <small>{l.day}/{l.month} ÂL</small>
+            </button>
+            <span className="fcal-row-main">
+              <span className="fcal-row-title">{r.title}</span>
+              <span className="fcal-row-meta">
+                {r.kind === 'gio'
+                  ? `${r.calendar === DEATH_CALENDAR_LUNAR ? 'Giỗ theo âm lịch' : 'Giỗ theo dương lịch'}${r.ordinal ? ` · lần thứ ${r.ordinal}` : ''}`
+                  : `Việc họ · ${r.calendar === 'am' ? 'âm lịch' : 'dương lịch'}`}
+              </span>
+              {p && (p.organizer || p.time || p.location) && (
+                <span className="fcal-row-plan">
+                  {p.time ? `${p.time}` : ''}
+                  {p.location ? `${p.time ? ' · ' : ''}${p.location}` : ''}
+                  {p.organizer ? `${p.time || p.location ? ' · ' : ''}Tổ chức: ${p.organizer}` : ''}
+                </span>
+              )}
+              {r.kind === 'gio' && !p && (
+                <span className="fcal-row-plan is-missing">Chưa tạo lịch tổ chức</span>
+              )}
+            </span>
+            {r.person && (
+              <button type="button" className="fcal-row-link" onClick={() => onOpenMember(r.person.id)}>Hồ sơ →</button>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+};
 
 const UpcomingList = ({ rows, onOpenMember }) => {
   if (rows.length === 0) return <p className="fcal-empty">Không còn mốc nào từ nay tới hết năm.</p>;
