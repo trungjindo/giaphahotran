@@ -80,8 +80,34 @@ Trong repo GitHub → **Settings → Secrets and variables → Actions**, kiểm
 | Tên | Giá trị |
 |---|---|
 | `VITE_API_URL` | `https://hotrandinh.com/api` |
+| `VITE_GOOGLE_MAPS_API_KEY` | Khóa Google Maps (xem Bước 6b) |
 
-Không cần thêm secret nào khác — workflow dùng `GITHUB_TOKEN` có sẵn để đẩy code, không cần mật khẩu FTP. **Thiếu secret này thì bản build sẽ gọi API sai địa chỉ** (rơi về mặc định `http://localhost/api`), trang sẽ tải được nhưng không hiện dữ liệu gì.
+Workflow dùng `GITHUB_TOKEN` có sẵn để đẩy code, không cần mật khẩu FTP.
+
+- **Thiếu `VITE_API_URL`**: bản build gọi API sai địa chỉ (rơi về mặc định `http://localhost/api`), trang tải được nhưng không hiện dữ liệu gì.
+- **Thiếu `VITE_GOOGLE_MAPS_API_KEY`**: mọi bản đồ (lăng mộ, tài sản, ô chọn vị trí) hiện thông báo "Chưa cấu hình khóa Google Maps" thay vì bản đồ. Các phần còn lại vẫn chạy bình thường.
+
+## Bước 6b — Lấy khóa Google Maps
+
+Toàn bộ bản đồ trong web dùng Google Maps (trước đây dùng OpenStreetMap). Google **bắt buộc**
+có khóa API và tài khoản đã bật thanh toán, kể cả khi dùng trong hạn mức miễn phí hằng tháng.
+
+1. Vào [console.cloud.google.com](https://console.cloud.google.com) → tạo project (VD `hotrandinh`).
+2. Vào **Billing** → gắn thẻ thanh toán vào project. Không có bước này thì bản đồ hiện mờ kèm
+   dòng chữ "For development purposes only".
+3. Vào **APIs & Services → Library**, bật 3 API sau:
+   - **Maps JavaScript API** — vẽ bản đồ (bắt buộc)
+   - **Places API (New)** — tìm theo TÊN địa điểm ("Nghĩa trang xã...", "Nhà thờ họ...")
+   - **Geocoding API** — phương án dự phòng khi Places không ra kết quả
+4. Vào **APIs & Services → Credentials → Create credentials → API key**, sao chép khóa.
+5. **Giới hạn khóa ngay** (quan trọng — khóa trình duyệt ai xem mã nguồn trang cũng đọc được,
+   nên phải chặn bằng cách này chứ không phải bằng cách giấu):
+   - **Application restrictions** → *Websites* → thêm `https://hotrandinh.com/*` và `https://*.hotrandinh.com/*`
+   - **API restrictions** → *Restrict key* → chỉ chọn đúng 3 API ở bước 3
+6. Vào **Billing → Budgets & alerts** đặt ngưỡng cảnh báo (VD 200.000đ/tháng) để không bị
+   phát sinh chi phí ngoài dự tính.
+7. Dán khóa vào GitHub secret `VITE_GOOGLE_MAPS_API_KEY` ở bảng trên, rồi đẩy 1 commit bất kỳ
+   lên `main` để build lại — khóa được nhúng vào lúc build, không đọc lúc chạy.
 
 Từ lần push tiếp theo lên `main`, GitHub Actions sẽ tự build và cập nhật nhánh `deploy`; Hostinger phát hiện thay đổi và tự đồng bộ (tùy chọn tự động hoặc bấm "Deploy" thủ công trong mục Git, tùy Hostinger cấu hình). Xem tiến trình build tại tab **Actions** trên GitHub.
 

@@ -15,11 +15,8 @@ const AdminTombSites = ({ sites, chiList, isLoading, error, onReload }) => {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [flyTarget, setFlyTarget] = useState(null);
   // Đổi khi bắt đầu sửa 1 lăng khác, để React dựng lại ô tìm địa chỉ với giá trị điền sẵn mới.
   const [formKey, setFormKey] = useState(0);
-
-  useEffect(() => { setFlyTarget(null); }, [editingId]);
 
   const handleLocationChange = ({ lat, lng, address }) => {
     setForm(prev => ({
@@ -51,7 +48,6 @@ const AdminTombSites = ({ sites, chiList, isLoading, error, onReload }) => {
   const resetForm = () => {
     setForm(emptyForm);
     setEditingId(null);
-    setFlyTarget(null);
     setFormKey(k => k + 1);
   };
 
@@ -96,7 +92,6 @@ const AdminTombSites = ({ sites, chiList, isLoading, error, onReload }) => {
       photo: site.photo || '',
       description: site.description || '',
     });
-    setFlyTarget({ lat: site.latitude, lng: site.longitude });
     setFormKey(k => k + 1);
   };
 
@@ -157,8 +152,6 @@ const AdminTombSites = ({ sites, chiList, isLoading, error, onReload }) => {
                 longitude={form.longitude}
                 onChange={handleLocationChange}
                 onClear={() => setForm(prev => ({ ...prev, latitude: '', longitude: '' }))}
-                flyTarget={flyTarget}
-                onFlyTargetChange={setFlyTarget}
                 addressInitialValue={form.address}
                 searchPlaceholder="VD: Nghĩa trang xã..., huyện..., tỉnh Nam Định"
               />

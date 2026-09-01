@@ -1,48 +1,11 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import { AppContext } from '../../store';
 import { apiRequest, apiUpload, apiGet } from '../../api';
-import AddressAutocomplete from '../AddressAutocomplete';
+import LocationPicker from '../LocationPicker';
 import { ASSET_CATEGORIES, ASSET_STATUSES } from '../../utils/asset';
 
 const MAX_UPLOAD_MB = 10;
 const MAX_IMAGES = 10;
-const VIETNAM_CENTER = [16.0, 106.0];
-
-const pickerIcon = L.divIcon({
-  className: 'tomb-marker-icon',
-  html: `<svg width="28" height="36" viewBox="0 0 34 44" xmlns="http://www.w3.org/2000/svg">
-    <path d="M17 0C7.6 0 0 7.6 0 17c0 12 17 27 17 27s17-15 17-27C34 7.6 26.4 0 17 0z" fill="#0E6FA8" stroke="#F2C46A" stroke-width="1.5"/>
-    <circle cx="17" cy="17" r="6" fill="#F5E9D6"/>
-  </svg>`,
-  iconSize: [28, 36],
-  iconAnchor: [14, 36],
-});
-
-const CoordinatePicker = ({ position, onChange }) => {
-  useMapEvents({
-    click(e) { onChange(e.latlng.lat, e.latlng.lng); },
-  });
-  return position ? (
-    <Marker
-      position={position}
-      icon={pickerIcon}
-      draggable
-      eventHandlers={{ dragend: (e) => { const p = e.target.getLatLng(); onChange(p.lat, p.lng); } }}
-    />
-  ) : null;
-};
-
-const MapFlyTo = ({ target }) => {
-  const map = useMap();
-  useEffect(() => {
-    if (target) map.flyTo([target.lat, target.lng], 16, { duration: 1 });
-  }, [target, map]);
-  return null;
-};
-
 const emptyForm = {
   chiId: '', name: '', category: 'vat_dung', description: '', status: 'dang_dung',
   address: '', latitude: '', longitude: '', custodian: '', acquiredDate: '',
@@ -77,7 +40,6 @@ const AssetForm = ({ asset, fixedChiId, chiOptions, onSaved, onCancel }) => {
 
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [flyTarget, setFlyTarget] = useState(null);
   const [financeOptions, setFinanceOptions] = useState([]);
   const [loadingFinance, setLoadingFinance] = useState(false);
 
@@ -97,16 +59,14 @@ const AssetForm = ({ asset, fixedChiId, chiOptions, onSaved, onCancel }) => {
       .finally(() => setLoadingFinance(false));
   }, [effectiveChiId, token]);
 
-  const pickerPosition = (form.latitude !== '' && form.longitude !== '' && !isNaN(Number(form.latitude)) && !isNaN(Number(form.longitude)))
-    ? [Number(form.latitude), Number(form.longitude)]
-    : null;
-
-  const setCoords = (lat, lng) => setForm(prev => ({ ...prev, latitude: lat.toFixed(6), longitude: lng.toFixed(6) }));
-
-  const handleAddressSelect = ({ lat, lng, label }) => {
-    setCoords(lat, lng);
-    setFlyTarget({ lat, lng });
-    setForm(prev => ({ ...prev, address: prev.address || label }));
+  // Chọn địa chỉ từ ô tìm kiếm thì điền luôn vào ô Địa Chỉ nếu ô đó còn trống.
+  const handleLocationChange = ({ lat, lng, address }) => {
+    setForm(prev => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+      ...(address && !prev.address ? { address } : {}),
+    }));
   };
 
   const handleUploadImages = async (files) => {
@@ -233,26 +193,18 @@ const AssetForm = ({ asset, fixedChiId, chiOptions, onSaved, onCancel }) => {
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Địa Chỉ</label>
               <input type="text" className="input-control" style={{ width: '100%', marginBottom: '8px' }} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Địa chỉ hiện tại của tài sản" />
-              <AddressAutocomplete onSelect={handleAddressSelect} placeholder="Tìm địa chỉ để định vị nhanh trên bản đồ..." />
             </div>
 
             <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Tọa Độ GPS (tùy chọn — bấm vào bản đồ hoặc kéo ghim để chọn)</label>
-              <div className="tomb-picker-map">
-                <MapContainer center={pickerPosition || VIETNAM_CENTER} zoom={pickerPosition ? 15 : 5.5} style={{ height: '100%', width: '100%' }}>
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  <CoordinatePicker position={pickerPosition} onChange={setCoords} />
-                  <MapFlyTo target={flyTarget} />
-                </MapContainer>
-              </div>
-              {pickerPosition && (
-                <button type="button" onClick={() => setForm({ ...form, latitude: '', longitude: '' })} style={{ marginTop: '8px', padding: '5px 10px', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.85rem' }}>
-                  Xóa tọa độ
-                </button>
-              )}
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Vị Trí Trên Bản Đồ (tùy chọn)</label>
+              <LocationPicker
+                latitude={form.latitude}
+                longitude={form.longitude}
+                onChange={handleLocationChange}
+                onClear={() => setForm(prev => ({ ...prev, latitude: '', longitude: '' }))}
+                addressInitialValue={form.address}
+                searchPlaceholder="Tìm địa chỉ để định vị nhanh trên bản đồ..."
+              />
             </div>
 
             <div style={{ gridColumn: '1 / -1' }}>

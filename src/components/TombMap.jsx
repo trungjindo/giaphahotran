@@ -1,59 +1,30 @@
-import React, { useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip } from 'react-leaflet';
-import MarkerClusterGroup from 'react-leaflet-cluster';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { MarkerClusterer } from '@googlemaps/markerclusterer';
+import GoogleMapCanvas from './GoogleMapCanvas';
+import { svgMarkerIcon } from '../utils/googleMaps';
 import { formatDateVN, calculateAge } from '../utils/family';
 
-// Ghim MỘ RIÊNG LẺ: hình giọt nước tông đại dương, họa tiết mái đình nhỏ bên trong (đồng bộ logo).
-const tombIcon = L.divIcon({
-  className: 'tomb-marker-icon',
-  html: `
-    <svg width="34" height="44" viewBox="0 0 34 44" xmlns="http://www.w3.org/2000/svg">
-      <path d="M17 0C7.6 0 0 7.6 0 17c0 12 17 27 17 27s17-15 17-27C34 7.6 26.4 0 17 0z" fill="#0E6FA8" stroke="#F2C46A" stroke-width="1.5"/>
-      <circle cx="17" cy="17" r="10.5" fill="#F5E9D6"/>
-      <path d="M9 19.5c1.8-2 3.6-2 5.4 0M9 19.5l-1.8 1.2M9 19.5c-.2-2.2.4-3.6 2-4.4-.7 1.6-.8 2.9-.3 4.4" stroke="#0E6FA8" stroke-width="1.1" fill="none" stroke-linecap="round"/>
-      <path d="M25 19.5c-1.8-2-3.6-2-5.4 0M25 19.5l1.8 1.2M25 19.5c.2-2.2-.4-3.6-2-4.4.7 1.6.8 2.9.3 4.4" stroke="#0E6FA8" stroke-width="1.1" fill="none" stroke-linecap="round"/>
-      <path d="M13.5 19.7c1-2.6 2-3.9 3.5-3.9s2.5 1.3 3.5 3.9" stroke="#0E6FA8" stroke-width="1.1" fill="none" stroke-linecap="round"/>
-      <line x1="17" y1="15.8" x2="17" y2="21" stroke="#0E6FA8" stroke-width="1.1" stroke-linecap="round"/>
-      <line x1="14" y1="21" x2="20" y2="21" stroke="#0E6FA8" stroke-width="1.3" stroke-linecap="round"/>
-    </svg>
-  `,
-  iconSize: [34, 44],
-  iconAnchor: [17, 44],
-  popupAnchor: [0, -40],
-});
+// Ghim MỘ RIÊNG LẺ: giọt nước tông đại dương, họa tiết mái đình nhỏ bên trong (đồng bộ logo).
+const TOMB_PIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="44" viewBox="0 0 34 44">
+  <path d="M17 0C7.6 0 0 7.6 0 17c0 12 17 27 17 27s17-15 17-27C34 7.6 26.4 0 17 0z" fill="#0E6FA8" stroke="#F2C46A" stroke-width="1.5"/>
+  <circle cx="17" cy="17" r="10.5" fill="#F5E9D6"/>
+  <path d="M13.5 19.7c1-2.6 2-3.9 3.5-3.9s2.5 1.3 3.5 3.9" stroke="#0E6FA8" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+  <line x1="17" y1="15.8" x2="17" y2="21" stroke="#0E6FA8" stroke-width="1.1" stroke-linecap="round"/>
+  <line x1="14" y1="21" x2="20" y2="21" stroke="#0E6FA8" stroke-width="1.3" stroke-linecap="round"/>
+</svg>`;
 
 // Ghim LĂNG (nhiều người cùng an táng): mái lăng + số người bên trong, để trên bản đồ tổng
 // phân biệt ngay được đâu là lăng chung, đâu là mộ riêng lẻ.
-const createSiteIcon = (count) => L.divIcon({
-  className: 'tomb-marker-icon',
-  html: `
-    <div class="tomb-site-marker">
-      <svg width="42" height="46" viewBox="0 0 42 46" xmlns="http://www.w3.org/2000/svg">
-        <path d="M21 2 3 13h36L21 2z" fill="#0E6FA8" stroke="#F2C46A" stroke-width="1.5" stroke-linejoin="round"/>
-        <rect x="5" y="13" width="32" height="4" rx="1" fill="#0E6FA8"/>
-        <rect x="7" y="17" width="28" height="21" rx="2" fill="#F5E9D6" stroke="#0E6FA8" stroke-width="1.5"/>
-        <rect x="18" y="26" width="6" height="12" rx="1" fill="#0E6FA8"/>
-        <path d="M12 44h18" stroke="#0E6FA8" stroke-width="2.4" stroke-linecap="round"/>
-      </svg>
-      <span class="tomb-site-marker-count">${count}</span>
-    </div>
-  `,
-  iconSize: [42, 46],
-  iconAnchor: [21, 44],
-  popupAnchor: [0, -42],
-});
-
-const createClusterIcon = (cluster) => {
-  const count = cluster.getChildCount();
-  const size = count < 10 ? 38 : count < 30 ? 46 : 54;
-  return L.divIcon({
-    html: `<div class="tomb-cluster-icon" style="width:${size}px;height:${size}px;line-height:${size}px;">${count}</div>`,
-    className: 'tomb-cluster-wrapper',
-    iconSize: L.point(size, size, true),
-  });
-};
+const siteSvg = (count) => `<svg xmlns="http://www.w3.org/2000/svg" width="46" height="50" viewBox="0 0 46 50">
+  <path d="M23 4 5 15h36L23 4z" fill="#0E6FA8" stroke="#F2C46A" stroke-width="1.5" stroke-linejoin="round"/>
+  <rect x="7" y="15" width="32" height="4" rx="1" fill="#0E6FA8"/>
+  <rect x="9" y="19" width="28" height="21" rx="2" fill="#F5E9D6" stroke="#0E6FA8" stroke-width="1.5"/>
+  <rect x="20" y="28" width="6" height="12" rx="1" fill="#0E6FA8"/>
+  <path d="M14 46h18" stroke="#0E6FA8" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="38" cy="10" r="8.5" fill="#F2C46A" stroke="#fff" stroke-width="2"/>
+  <text x="38" y="13.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#4a3208">${count}</text>
+</svg>`;
 
 const directionsUrl = (lat, lng) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 
@@ -77,9 +48,7 @@ const TombPopupCard = ({ tomb, onViewProfile }) => {
 
   return (
     <div className="tomb-popup-card">
-      {tomb.photo && (
-        <img src={tomb.photo} alt={`Mộ phần ${member?.name || ''}`} loading="lazy" className="tomb-popup-photo" />
-      )}
+      {tomb.photo && <img src={tomb.photo} alt={`Mộ phần ${member?.name || ''}`} loading="lazy" className="tomb-popup-photo" />}
       <div className="tomb-popup-body">
         <div className="tomb-popup-name">
           {member?.name || 'Không rõ'} {member?.gender === 'Nam' ? '♂' : member?.gender === 'Nữ' ? '♀' : ''}
@@ -148,62 +117,97 @@ const SitePopupCard = ({ site, onViewProfile }) => (
 // sites : các LĂNG (mỗi lăng 1 ghim, kèm danh sách người bên trong)
 // singles: các mộ RIÊNG LẺ (mỗi người 1 ghim)
 function TombMap({ sites = [], singles = [], onViewProfile, center, zoom = 7 }) {
-  const bounds = useMemo(() => {
-    const points = [
-      ...sites.map(s => [s.latitude, s.longitude]),
-      ...singles.map(t => [t.latitude, t.longitude]),
-    ];
-    if (points.length === 0) return null;
-    const lats = points.map(p => p[0]);
-    const lngs = points.map(p => p[1]);
-    return [
-      [Math.min(...lats), Math.min(...lngs)],
-      [Math.max(...lats), Math.max(...lngs)],
-    ];
-  }, [sites, singles]);
+  const mapRef = useRef(null);
+  const mapsRef = useRef(null);
+  const clustererRef = useRef(null);
+  const infoRef = useRef(null);
+  // Gốc React để vẽ nội dung popup — popup của Google Maps nhận phần tử DOM chứ không nhận
+  // phần tử React, nên phải tự dựng một cây React nhỏ vào trong đó.
+  const popupHostRef = useRef(null);
+  const popupRootRef = useRef(null);
+  const [ready, setReady] = useState(false);
+
+  // Giữ callback trong ref để trình xử lý bấm ghim luôn gọi bản mới nhất mà không phải
+  // dựng lại toàn bộ ghim mỗi lần component cha render.
+  const onViewProfileRef = useRef(onViewProfile);
+  onViewProfileRef.current = onViewProfile;
+
+  const handleMapReady = useCallback((map, maps) => {
+    mapRef.current = map;
+    mapsRef.current = maps;
+    infoRef.current = new maps.InfoWindow({ maxWidth: 300 });
+    popupHostRef.current = document.createElement('div');
+    popupRootRef.current = createRoot(popupHostRef.current);
+    setReady(true);
+  }, []);
+
+  const openPopup = useCallback((marker, content) => {
+    popupRootRef.current.render(content);
+    infoRef.current.setContent(popupHostRef.current);
+    infoRef.current.open({ anchor: marker, map: mapRef.current });
+  }, []);
+
+  // Dựng lại toàn bộ ghim mỗi khi dữ liệu đổi.
+  useEffect(() => {
+    if (!ready) return undefined;
+    const map = mapRef.current;
+    const maps = mapsRef.current;
+    const markers = [];
+
+    sites.forEach(s => {
+      const marker = new maps.Marker({
+        position: { lat: s.latitude, lng: s.longitude },
+        icon: svgMarkerIcon(maps, siteSvg(s.members.length), { width: 46, height: 50, anchorX: 23, anchorY: 48 }),
+        title: `${s.name} · ${s.members.length} người`,
+      });
+      marker.addListener('click', () => openPopup(marker, <SitePopupCard site={s} onViewProfile={id => onViewProfileRef.current(id)} />));
+      markers.push(marker);
+    });
+
+    singles.forEach(t => {
+      const marker = new maps.Marker({
+        position: { lat: t.latitude, lng: t.longitude },
+        icon: svgMarkerIcon(maps, TOMB_PIN_SVG, { width: 34, height: 44, anchorX: 17, anchorY: 44 }),
+        title: t.member?.name || 'Không rõ',
+      });
+      marker.addListener('click', () => openPopup(marker, <TombPopupCard tomb={t} onViewProfile={id => onViewProfileRef.current(id)} />));
+      markers.push(marker);
+    });
+
+    clustererRef.current = new MarkerClusterer({ map, markers });
+
+    // Đưa bản đồ về vừa khít tất cả các ghim; một ghim duy nhất thì fitBounds sẽ phóng
+    // sát tối đa nên phải tự đặt lại mức phóng cho dễ nhìn.
+    if (markers.length > 0) {
+      const bounds = new maps.LatLngBounds();
+      markers.forEach(m => bounds.extend(m.getPosition()));
+      map.fitBounds(bounds, 60);
+      if (markers.length === 1) {
+        maps.event.addListenerOnce(map, 'idle', () => { if (map.getZoom() > 16) map.setZoom(16); });
+      }
+    }
+
+    return () => {
+      infoRef.current?.close();
+      clustererRef.current?.clearMarkers();
+      clustererRef.current = null;
+      markers.forEach(m => m.setMap(null));
+    };
+  }, [ready, sites, singles, openPopup]);
+
+  // Dọn gốc React của popup khi component bị gỡ — làm ở effect riêng vì nó chỉ nên chạy
+  // đúng một lần lúc gỡ, không phải mỗi lần dữ liệu ghim thay đổi.
+  useEffect(() => () => {
+    const root = popupRootRef.current;
+    if (root) setTimeout(() => root.unmount(), 0);
+  }, []);
 
   return (
-    <div className="tomb-map-wrap">
-      <MapContainer
-        center={center}
-        zoom={zoom}
-        bounds={bounds || undefined}
-        boundsOptions={{ padding: [50, 50] }}
-        scrollWheelZoom
-        style={{ height: '100%', width: '100%' }}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <MarkerClusterGroup iconCreateFunction={createClusterIcon} chunkedLoading maxClusterRadius={50}>
-          {sites.map(s => (
-            <Marker key={`site-${s.id}`} position={[s.latitude, s.longitude]} icon={createSiteIcon(s.members.length)}>
-              <Tooltip direction="top" offset={[0, -40]} opacity={1}>
-                <span className="tomb-hover-tip-name">{s.name}</span>
-                <span> · {s.members.length} người</span>
-              </Tooltip>
-              <Popup minWidth={250} maxWidth={290}>
-                <SitePopupCard site={s} onViewProfile={onViewProfile} />
-              </Popup>
-            </Marker>
-          ))}
-
-          {singles.map(t => (
-            <Marker key={`tomb-${t.id}`} position={[t.latitude, t.longitude]} icon={tombIcon}>
-              <Tooltip direction="top" offset={[0, -38]} opacity={1}>
-                <span className="tomb-hover-tip-name">{t.member?.name || 'Không rõ'}</span>
-                {t.member?.generation && <span> · Đời {t.member.generation}</span>}
-                {t.code && <span> · #{t.code}</span>}
-              </Tooltip>
-              <Popup minWidth={230} maxWidth={260}>
-                <TombPopupCard tomb={t} onViewProfile={onViewProfile} />
-              </Popup>
-            </Marker>
-          ))}
-        </MarkerClusterGroup>
-      </MapContainer>
-    </div>
+    <GoogleMapCanvas
+      className="tomb-map-wrap"
+      options={{ center: { lat: center[0], lng: center[1] }, zoom }}
+      onMapReady={handleMapReady}
+    />
   );
 }
 
