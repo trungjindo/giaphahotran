@@ -13,7 +13,7 @@ MySQL của Hostinger lưu toàn bộ dữ liệu. GitHub Actions tự build m�
 1. Vào trang quản lý `hotrandinh.com` → **Cơ sở dữ liệu** → **Tạo cơ sở dữ liệu MySQL mới** (giống màn hình bạn đã dùng cho leanai.vn).
 2. Đặt tên DB (VD: `hotrandinh`), tên người dùng, mật khẩu mạnh — **ghi lại 3 giá trị này** (tên DB đầy đủ sẽ có dạng `u113008662_hotrandinh`).
 3. Mở **phpMyAdmin** (nút "Nhập phpMyAdmin" cạnh database vừa tạo), chọn tab **Import**, tải lên file [`api/schema.sql`](api/schema.sql) trong repo, bấm Go.
-4. Kiểm tra bên khung trái phpMyAdmin có đủ 11 bảng: `app_data`, `chi`, `users`, `user_sessions`, `bai_bien_assignments`, `activities`, `phone_reveal_log`, `tomb_sites`, `tombs`, `assets`, `asset_history`.
+4. Kiểm tra bên khung trái phpMyAdmin có đủ 12 bảng: `app_data`, `chi`, `users`, `user_sessions`, `bai_bien_assignments`, `activities`, `clan_events`, `phone_reveal_log`, `tomb_sites`, `tombs`, `assets`, `asset_history`.
 
 ## Bước 2b — Chạy migration khi NÂNG CẤP một site đã chạy sẵn
 
@@ -25,6 +25,7 @@ mỗi lần thêm tính năng cần đổi cấu trúc bảng thì chạy file m
 |---|---|---|
 | [`api/migration_access_control.sql`](api/migration_access_control.sql) | `viewer_sessions`, `auth_attempt_log`, `site_settings` | Xác thực con cháu, chống dò mật khẩu |
 | [`api/migration_tomb_sites.sql`](api/migration_tomb_sites.sql) | `tomb_sites`, cột `tombs.site_id` | **Lăng chung** trong Bản Đồ Lăng Mộ |
+| [`api/migration_clan_events.sql`](api/migration_clan_events.sql) | `clan_events` | **Lịch Gia Tộc** (việc họ có ngày âm/dương) |
 
 Mọi migration đều **chạy lại nhiều lần vẫn an toàn** (tự kiểm tra trước khi thêm) và không
 đụng tới dữ liệu đang có. Chạy migration **trước** khi deploy bản web mới, vì giao diện mới
@@ -32,6 +33,9 @@ sẽ gọi các bảng/cột này ngay.
 
 > Thiếu `migration_tomb_sites.sql`: trang Bản Đồ Lăng Mộ sẽ báo lỗi khi tải, và khu quản trị
 > không mở được tab "Quản Lý Lăng".
+>
+> Thiếu `migration_clan_events.sql`: Lịch Gia Tộc vẫn mở được và vẫn hiện đúng ngày âm/dương
+> cùng ngày giỗ (lấy từ cây gia phả), nhưng phần "việc họ" sẽ báo không tải được.
 
 ## Bước 3 — Tạo file chứa mật khẩu DB thật trên server
 

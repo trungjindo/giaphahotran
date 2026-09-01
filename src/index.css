@@ -2110,3 +2110,677 @@ a.promo-card:hover {
     display: block;
   }
 }
+
+/* ============================================================
+   LỊCH GIA TỘC
+   ============================================================ */
+
+/* Nút nổi bật trên trang chủ, ngay dưới ảnh bìa */
+.famcal-banner {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  margin: 0 0 30px;
+  padding: 18px 22px;
+  text-align: left;
+  border: 1px solid var(--border-color);
+  border-left: 5px solid var(--secondary-color, #F2C46A);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(120deg, var(--surface-color) 60%, var(--color-sand));
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.famcal-banner:hover,
+.famcal-banner:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.famcal-banner-icon {
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  border-radius: var(--radius-md);
+  background: var(--primary-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.famcal-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.famcal-banner-text strong {
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 1.3rem;
+  color: var(--primary-color);
+}
+
+.famcal-banner-text small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
+.famcal-banner-today {
+  flex-shrink: 0;
+  text-align: right;
+  line-height: 1.35;
+}
+
+.famcal-banner-weekday {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.famcal-banner-solar {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Ngày âm luôn nhỏ hơn và tô đỏ — vì việc họ tính theo ngày âm */
+.famcal-banner-lunar {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #B03A3A;
+}
+
+.famcal-banner-cta {
+  flex-shrink: 0;
+  font-size: 1.4rem;
+  color: var(--primary-color);
+}
+
+/* ---- Hộp thoại lịch ---- */
+.fcal-modal {
+  max-width: 860px;
+}
+
+.fcal-header {
+  position: relative;
+  padding: 26px 30px 20px;
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+  color: white;
+}
+
+.fcal-header h2 {
+  margin: 0;
+  color: white;
+  font-size: 1.5rem;
+}
+
+.fcal-header p {
+  margin: 6px 0 0;
+  font-size: 0.88rem;
+  opacity: 0.9;
+}
+
+.fcal-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 14px 30px 0;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.fcal-tabs button {
+  padding: 10px 18px;
+  border: none;
+  background: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.fcal-tabs button.is-active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+.fcal-body {
+  padding: 22px 30px 30px;
+}
+
+.fcal-warn {
+  padding: 9px 12px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-sm);
+  background: #fff8e1;
+  color: #8a6100;
+  font-size: 0.83rem;
+}
+
+.fcal-note {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.fcal-intro {
+  margin-bottom: 14px;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.fcal-section-title {
+  margin: 26px 0 12px;
+  font-size: 1.05rem;
+  color: var(--primary-color);
+}
+
+/* ---- Khối tóm tắt một ngày ---- */
+.fcal-summary-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.fcal-summary.is-compact .fcal-summary-dates {
+  margin-top: 20px;
+}
+
+.fcal-summary-solar,
+.fcal-summary-lunar {
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--color-sand);
+  position: relative;
+}
+
+.fcal-summary-lunar {
+  background: #fdf1f1;
+}
+
+.fcal-summary-weekday {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.fcal-summary-solar strong {
+  font-size: 2.4rem;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+.fcal-summary-lunar strong {
+  font-size: 2.1rem;
+  line-height: 1.1;
+  color: #B03A3A;
+}
+
+.fcal-summary-solar-rest,
+.fcal-summary-lunar-rest {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.fcal-summary-tag {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.fcal-summary-tag.is-lunar {
+  color: #B03A3A;
+}
+
+.fcal-empty {
+  margin-top: 16px;
+  padding: 14px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  background: var(--color-sand);
+  border-radius: var(--radius-sm);
+}
+
+.fcal-day-lists {
+  margin-top: 18px;
+  display: grid;
+  gap: 16px;
+}
+
+.fcal-block h4 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.fcal-block.is-gio h4 { color: #B03A3A; }
+.fcal-block.is-event h4 { color: var(--primary-color); }
+
+.fcal-block ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.fcal-block li {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.fcal-block.is-gio li { border-left: 3px solid #B03A3A; }
+.fcal-block.is-event li { border-left: 3px solid var(--primary-color); }
+
+.fcal-person {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.fcal-person-name {
+  display: block;
+  font-weight: 700;
+  color: var(--primary-color);
+  font-size: 0.98rem;
+}
+
+.fcal-person:hover .fcal-person-name { text-decoration: underline; }
+
+.fcal-person-meta,
+.fcal-event-meta {
+  display: block;
+  font-size: 0.79rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.fcal-person-go {
+  display: inline-block;
+  margin-top: 5px;
+  font-size: 0.79rem;
+  font-weight: 600;
+  color: var(--accent-teal, #2FB3C0);
+}
+
+.fcal-event-title { font-weight: 700; font-size: 0.95rem; }
+
+.fcal-event-desc {
+  margin: 6px 0 0;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ---- Lưới lịch tháng ---- */
+.fcal-monthbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.fcal-monthbar > button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-color);
+  border-radius: var(--radius-sm);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--primary-color);
+}
+
+.fcal-monthbar-label {
+  flex: 1;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.fcal-monthbar-label strong { display: block; font-size: 1.05rem; }
+.fcal-monthbar-label span { font-size: 0.78rem; color: #B03A3A; font-weight: 600; }
+
+.fcal-today-btn {
+  padding: 7px 14px;
+  border: 1px solid var(--primary-color);
+  background: var(--surface-color);
+  color: var(--primary-color);
+  border-radius: var(--radius-pill);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fcal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.fcal-weekdays span {
+  text-align: center;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 4px 0;
+}
+
+.fcal-weekdays span:first-child { color: #B03A3A; }
+
+.fcal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.fcal-cell {
+  position: relative;
+  min-height: 58px;
+  padding: 5px 2px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--surface-color);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1px;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.fcal-cell:hover { background: var(--color-sand); }
+.fcal-cell.is-outside { opacity: 0.38; }
+.fcal-cell.is-sunday .fcal-cell-solar { color: #B03A3A; }
+
+.fcal-cell.is-today {
+  border-color: var(--primary-color);
+  background: #e8f1f8;
+}
+
+.fcal-cell.is-selected {
+  border-color: var(--secondary-color, #F2C46A);
+  box-shadow: inset 0 0 0 2px var(--secondary-color, #F2C46A);
+}
+
+.fcal-cell-solar {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+/* Ngày âm luôn nhỏ hơn ngày dương; tô đỏ đậm khi hôm đó có giỗ/việc họ tính theo âm lịch */
+.fcal-cell-lunar {
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  line-height: 1.1;
+}
+
+.fcal-cell-lunar.is-marked {
+  color: #B03A3A;
+  font-weight: 800;
+}
+
+.fcal-cell-dots {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+}
+
+.fcal-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.fcal-dot.is-gio { background: #B03A3A; }
+.fcal-dot.is-event { background: var(--primary-color); }
+
+.fcal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.fcal-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.fcal-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: #B03A3A;
+}
+
+/* ---- Danh sách "sắp tới" và lịch cá nhân ---- */
+.fcal-upcoming,
+.fcal-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.fcal-upcoming li,
+.fcal-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.fcal-row.is-gio { border-left: 3px solid #B03A3A; }
+.fcal-row.is-sukien { border-left: 3px solid var(--primary-color); }
+.fcal-row.is-sinhnhat { border-left: 3px solid var(--accent-teal, #2FB3C0); }
+
+.fcal-up-when,
+.fcal-row-date {
+  flex-shrink: 0;
+  width: 108px;
+  line-height: 1.3;
+}
+
+.fcal-row-date { width: 74px; text-align: center; }
+
+.fcal-up-when strong,
+.fcal-row-date strong {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.fcal-up-when .is-today-badge { color: #B03A3A; }
+
+.fcal-up-when small,
+.fcal-row-date small {
+  display: block;
+  font-size: 0.72rem;
+  color: #B03A3A;
+  font-weight: 600;
+}
+
+.fcal-up-main,
+.fcal-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.fcal-up-kind {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-right: 7px;
+  border-radius: var(--radius-pill);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.fcal-up-kind.is-gio { background: #fdf1f1; color: #B03A3A; }
+.fcal-up-kind.is-sukien { background: #e8f1f8; color: var(--primary-color); }
+.fcal-up-kind.is-sinhnhat { background: #e8f5e9; color: #2e7d32; }
+
+.fcal-up-title,
+.fcal-row-title {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.fcal-row-title { display: block; }
+
+.fcal-row-meta {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  margin-top: 1px;
+}
+
+.fcal-row-link {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--accent-teal, #2FB3C0);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fcal-person-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-sand);
+}
+
+@media (max-width: 600px) {
+  .famcal-banner {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .famcal-banner-today {
+    text-align: left;
+    width: 100%;
+    order: 3;
+  }
+  .famcal-banner-cta { display: none; }
+
+  .fcal-header,
+  .fcal-tabs,
+  .fcal-body { padding-left: 16px; padding-right: 16px; }
+
+  .fcal-summary-dates { grid-template-columns: 1fr; }
+  .fcal-cell { min-height: 48px; }
+  .fcal-cell-solar { font-size: 0.9rem; }
+  .fcal-cell-lunar { font-size: 0.62rem; }
+
+  .fcal-upcoming li,
+  .fcal-row { flex-wrap: wrap; gap: 8px; }
+  .fcal-up-when, .fcal-row-date { width: auto; text-align: left; }
+}
+
+/* Chọn "ngày này ghi theo lịch âm hay lịch dương" — dùng ở form ngày mất và form sự kiện họ */
+.calendar-kind-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.calendar-kind-modes label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.calendar-kind-modes label.is-active {
+  border-color: var(--primary-color);
+  background: var(--color-sand);
+}
+
+.calendar-kind-modes input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.calendar-kind-modes strong {
+  display: block;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+}
+
+.calendar-kind-modes small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Đối chiếu sang lịch còn lại, để người nhập tự kiểm tra lại cho chắc */
+.calendar-preview {
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: #fdf1f1;
+  color: #8a3a3a;
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+.badge-lunar {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: #fdf1f1;
+  color: #B03A3A;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+@media (max-width: 600px) {
+  .calendar-kind-modes { grid-template-columns: 1fr; }
+}

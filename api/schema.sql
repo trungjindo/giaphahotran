@@ -75,6 +75,27 @@ CREATE TABLE IF NOT EXISTS activities (
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- LỊCH GIA TỘC: sự kiện dòng họ có ngày cụ thể (bảng activities chỉ ghi được NĂM).
+-- calendar = 'am' -> ngày/tháng ÂM lịch (giỗ tổ, tế họ — đa số việc họ); 'duong' -> dương lịch.
+-- event_year = NULL nghĩa là LẶP LẠI HẰNG NĂM. chi_id = NULL nghĩa là việc chung của cả họ.
+CREATE TABLE IF NOT EXISTS clan_events (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(200) NOT NULL,
+  description TEXT NULL,
+  chi_id INT NULL,
+  calendar ENUM('am', 'duong') NOT NULL DEFAULT 'am',
+  event_day TINYINT UNSIGNED NOT NULL,
+  event_month TINYINT UNSIGNED NOT NULL,
+  event_year INT NULL,
+  location VARCHAR(255) NULL,
+  created_by INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_clan_events_md (event_month, event_day),
+  FOREIGN KEY (chi_id) REFERENCES chi(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Ghi lại mỗi lần API reveal_phone.php trả về số điện thoại thật của 1 người (dùng khi
 -- người xem công khai bấm nút "Gọi") — chỉ để giới hạn tần suất theo IP, không phục vụ mục
 -- đích thống kê/theo dõi nào khác. Có thể dọn định kỳ các dòng cũ hơn vài ngày nếu cần.

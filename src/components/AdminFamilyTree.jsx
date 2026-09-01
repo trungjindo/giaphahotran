@@ -1,4 +1,5 @@
 import React, { useState, useContext, useRef, useMemo, useEffect } from 'react';
+import DeathDateField from './DeathDateField';
 import { AppContext } from '../store';
 import * as XLSX from 'xlsx';
 import { flattenFamily, buildDescendantList, EDUCATION_LEVELS, buildFamilyCodeMap } from '../utils/family';
@@ -25,6 +26,7 @@ const emptyFormData = {
   gender: 'Nam',
   birthDate: '',
   deathDate: '',
+  deathDateCalendar: 'duong', // 'duong' | 'am' — ngày mất ở trên được ghi theo lịch nào
   isAlive: true,
   isMainLineage: false,
   isRegistered: false,
@@ -1272,10 +1274,11 @@ const AdminFamilyTree = () => {
                 <input type="date" value={formData.birthDate} onChange={e => setFormData({...formData, birthDate: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Ngày mất (Để trống nếu còn sống)</label>
-                <input type="date" value={formData.deathDate} onChange={e => setFormData({...formData, deathDate: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
-              </div>
+              <DeathDateField
+                value={formData.deathDate}
+                calendar={formData.deathDateCalendar}
+                onChange={patch => setFormData({ ...formData, ...patch })}
+              />
 
               <div>
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Thuộc nhánh Đích tôn?</label>

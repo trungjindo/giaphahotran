@@ -4,6 +4,8 @@ import { AppContext } from '../store';
 import { computeFamilyStats, getMaxGeneration } from '../utils/family';
 import { computeFinanceSummary, formatCurrency } from '../utils/finance';
 import OceanScene from '../components/OceanScene';
+import FamilyCalendarModal from '../components/FamilyCalendarModal';
+import { solarToLunar, canChiYear, todayParts, WEEKDAY_VN, jdFromDate } from '../utils/lunar';
 
 // Đặt ảnh thật (biển Quỳnh Lập, nhà thờ họ...) vào public/storage/hero/hero-main.jpg
 // để tự động thay thế minh họa vector bên dưới — không cần sửa code.
@@ -119,6 +121,16 @@ const StatBarList = ({ data, color }) => {
 function Home() {
   const { financeData, newsData, familyData, bannerData, isFamilyVerified } = useContext(AppContext);
 
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  // Ngày hôm nay theo cả hai lịch, hiện sẵn ngay trên nút Lịch Gia Tộc.
+  const todaySolar = useMemo(() => todayParts(), []);
+  const todayLunar = useMemo(
+    () => solarToLunar(todaySolar.day, todaySolar.month, todaySolar.year),
+    [todaySolar]
+  );
+  const todayWeekday = WEEKDAY_VN[(jdFromDate(todaySolar.day, todaySolar.month, todaySolar.year) + 1) % 7];
+
   const stats = useMemo(() => computeFamilyStats(familyData), [familyData]);
   const totalGenerations = useMemo(() => getMaxGeneration(familyData), [familyData]);
   const financeSummary = useMemo(() => computeFinanceSummary(financeData), [financeData]);
@@ -155,6 +167,30 @@ function Home() {
           </span>
         </Link>
       </OceanHero>
+
+      {/* LỊCH GIA TỘC — khối nổi bật ngay dưới ảnh bìa. Hiện luôn ngày dương + ngày âm của
+          hôm nay để nhìn phát thấy ngay, bấm vào mở toàn cảnh việc họ / ngày giỗ. */}
+      <button type="button" className="famcal-banner" onClick={() => setCalendarOpen(true)}>
+        <span className="famcal-banner-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
+            <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
+            <circle cx="12" cy="15" r="2.2" fill="currentColor" stroke="none" />
+          </svg>
+        </span>
+        <span className="famcal-banner-text">
+          <strong>Lịch Gia Tộc</strong>
+          <small>Ngày âm – ngày dương, việc họ và ngày giỗ trong dòng họ</small>
+        </span>
+        <span className="famcal-banner-today">
+          <span className="famcal-banner-weekday">{todayWeekday}</span>
+          <span className="famcal-banner-solar">{todaySolar.day}/{todaySolar.month}/{todaySolar.year}</span>
+          <span className="famcal-banner-lunar">
+            {todayLunar.day}/{todayLunar.month}{todayLunar.leap ? ' (nhuận)' : ''} âm lịch · {canChiYear(todayLunar.year)}
+          </span>
+        </span>
+        <span className="famcal-banner-cta" aria-hidden="true">→</span>
+      </button>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
         <div className="card">
@@ -412,6 +448,8 @@ function Home() {
           font-size: 0.9rem;
         }
       `}</style>
+
+      {calendarOpen && <FamilyCalendarModal onClose={() => setCalendarOpen(false)} />}
     </div>
   );
 }
