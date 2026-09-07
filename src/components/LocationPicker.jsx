@@ -117,11 +117,10 @@ const LocationPicker = ({
   const position = hasCoords ? [Number(latitude), Number(longitude)] : null;
 
   const [foundLabel, setFoundLabel] = useState('');
-  // Đếm số ô bản đồ tải hỏng. Khi máy chủ nền bản đồ (OpenStreetMap) không truy cập được,
-  // Leaflet chỉ hiện một mảng xám trống — không có thông báo gì, rất khó đoán là lỗi mạng
-  // hay lỗi phần mềm. Đếm đủ vài ô hỏng thì nói rõ ra, đồng thời trấn an rằng việc ghim và
-  // lưu tọa độ vẫn hoạt động bình thường.
-  const [tileErrors, setTileErrors] = useState(0);
+  // Bật lên khi ResilientTileLayer đã thử HẾT các nguồn nền bản đồ mà vẫn hỏng. Lúc đó bản
+  // đồ chỉ là một mảng xám trống và Leaflet không báo gì cả — phải tự nói ra, đồng thời trấn
+  // an rằng việc ghim và lưu tọa độ vẫn chạy bình thường.
+  const [tilesUnavailable, setTilesUnavailable] = useState(false);
 
   const pick = (lat, lng) => {
     setFoundLabel(''); // tự bấm/kéo ghim thì không còn gắn với địa chỉ đã tìm nữa
@@ -163,17 +162,18 @@ const LocationPicker = ({
           scrollWheelZoom
           style={{ height: '100%', width: '100%' }}
         >
-          <ResilientTileLayer />
+          <ResilientTileLayer onAllSourcesFailed={() => setTilesUnavailable(true)} />
           <CoordinatePicker position={position} onPick={pick} />
           <MapFlyTo target={flyTarget} />
           <MapAutoSize />
         </MapContainer>
       </div>
 
-      {tileErrors >= 3 && (
+      {tilesUnavailable && (
         <div className="location-picker-tilewarn">
-          Không tải được nền bản đồ từ máy chủ OpenStreetMap (thường do mạng hoặc bị chặn).
-          Bản đồ hiện ra xám là vì vậy — <strong>việc đặt ghim và lưu tọa độ vẫn hoạt động bình thường</strong>.
+          Không tải được nền bản đồ (đã thử cả nguồn dự phòng — thường do mạng hoặc bị chặn).
+          Bản đồ hiện ra xám là vì vậy — <strong>việc đặt ghim và lưu tọa độ vẫn hoạt động bình thường</strong>,
+          và nút <strong>Mở Google Maps</strong> bên dưới vẫn dùng được.
         </div>
       )}
 
