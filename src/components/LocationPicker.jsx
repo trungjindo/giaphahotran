@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import ResilientTileLayer from './ResilientTileLayer';
+import MapLinks from './MapLinks';
 import AddressAutocomplete from './AddressAutocomplete';
 
 const VIETNAM_CENTER = [16.0, 106.0];
@@ -161,11 +163,7 @@ const LocationPicker = ({
           scrollWheelZoom
           style={{ height: '100%', width: '100%' }}
         >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            eventHandlers={{ tileerror: () => setTileErrors(n => n + 1) }}
-          />
+          <ResilientTileLayer />
           <CoordinatePicker position={position} onPick={pick} />
           <MapFlyTo target={flyTarget} />
           <MapAutoSize />
@@ -188,6 +186,8 @@ const LocationPicker = ({
             {onClear && (
               <button type="button" className="location-picker-clear" onClick={onClear}>Xóa ghim</button>
             )}
+            {/* Mở đúng điểm vừa ghim trong Google Maps để đối chiếu lại cho chắc trước khi lưu */}
+            <MapLinks lat={Number(latitude)} lng={Number(longitude)} compact />
           </>
         ) : (
           <span className="location-picker-badge is-empty">Chưa ghim vị trí nào</span>

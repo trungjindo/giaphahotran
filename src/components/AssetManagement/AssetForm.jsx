@@ -1,7 +1,8 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import ResilientTileLayer from '../ResilientTileLayer';
 import { AppContext } from '../../store';
 import { apiRequest, apiUpload, apiGet } from '../../api';
 import AddressAutocomplete from '../AddressAutocomplete';
@@ -240,10 +241,7 @@ const AssetForm = ({ asset, fixedChiId, chiOptions, onSaved, onCancel }) => {
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Tọa Độ GPS (tùy chọn — bấm vào bản đồ hoặc kéo ghim để chọn)</label>
               <div className="tomb-picker-map">
                 <MapContainer center={pickerPosition || VIETNAM_CENTER} zoom={pickerPosition ? 15 : 5.5} style={{ height: '100%', width: '100%' }}>
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
+                  <ResilientTileLayer />
                   <CoordinatePicker position={pickerPosition} onChange={setCoords} />
                   <MapFlyTo target={flyTarget} />
                 </MapContainer>

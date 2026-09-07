@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip } from 'react-leaflet';
+import { MapContainer, Marker, Popup, Tooltip } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import ResilientTileLayer from './ResilientTileLayer';
+import MapLinks from './MapLinks';
 import { formatDateVN, calculateAge } from '../utils/family';
 
 // Ghim MỘ RIÊNG LẺ: hình giọt nước tông đại dương, họa tiết mái đình nhỏ bên trong (đồng bộ logo).
@@ -55,17 +57,6 @@ const createClusterIcon = (cluster) => {
   });
 };
 
-const directionsUrl = (lat, lng) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-
-const DirectionsLink = ({ lat, lng }) => (
-  <a href={directionsUrl(lat, lng)} target="_blank" rel="noopener noreferrer" className="tomb-directions-btn">
-    <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="3 11 22 2 13 21 11 13 3 11" />
-    </svg>
-    Dẫn đường
-  </a>
-);
-
 const memberYears = (member) => member
   ? `${member.birthDate ? new Date(member.birthDate).getFullYear() : '?'} – ${member.deathDate ? new Date(member.deathDate).getFullYear() : '?'}`
   : '';
@@ -98,7 +89,7 @@ const TombPopupCard = ({ tomb, onViewProfile }) => {
               Xem hồ sơ
             </button>
           )}
-          <DirectionsLink lat={tomb.latitude} lng={tomb.longitude} />
+          <MapLinks lat={tomb.latitude} lng={tomb.longitude} />
         </div>
       </div>
     </div>
@@ -139,7 +130,7 @@ const SitePopupCard = ({ site, onViewProfile }) => (
       )}
 
       <div className="tomb-popup-actions">
-        <DirectionsLink lat={site.latitude} lng={site.longitude} />
+        <MapLinks lat={site.latitude} lng={site.longitude} />
       </div>
     </div>
   </div>
@@ -172,10 +163,7 @@ function TombMap({ sites = [], singles = [], onViewProfile, center, zoom = 7 }) 
         scrollWheelZoom
         style={{ height: '100%', width: '100%' }}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+          <ResilientTileLayer />
         <MarkerClusterGroup iconCreateFunction={createClusterIcon} chunkedLoading maxClusterRadius={50}>
           {sites.map(s => (
             <Marker key={`site-${s.id}`} position={[s.latitude, s.longitude]} icon={createSiteIcon(s.members.length)}>

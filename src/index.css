@@ -2990,3 +2990,43 @@ a.promo-card:hover {
     font-size: 1rem;
   }
 }
+
+/* Cụm nút mở sang ứng dụng Google Maps (miễn phí, chỉ là link — không cần khóa API) */
+.map-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.map-links.is-compact {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.map-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--primary-color);
+  border-radius: var(--radius-pill);
+  color: var(--primary-color);
+  background: var(--surface-color);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.map-open-btn:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
+.map-links-coords {
+  font-family: monospace;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  user-select: all; /* bấm 1 lần chọn trọn tọa độ để sao chép */
+}

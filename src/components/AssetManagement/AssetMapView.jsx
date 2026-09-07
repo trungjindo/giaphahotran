@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip } from 'react-leaflet';
+import { MapContainer, Marker, Popup, Tooltip } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import ResilientTileLayer from '../ResilientTileLayer';
+import MapLinks from '../MapLinks';
 import { getAssetCategory, getAssetStatus } from '../../utils/asset';
 
 const VIETNAM_CENTER = [16.0, 106.0];
@@ -38,8 +40,6 @@ const createClusterIcon = (cluster) => {
   });
 };
 
-const directionsUrl = (lat, lng) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-
 const AssetPopupCard = ({ asset, onViewDetail }) => {
   const category = getAssetCategory(asset.category);
   const status = getAssetStatus(asset.status);
@@ -56,12 +56,7 @@ const AssetPopupCard = ({ asset, onViewDetail }) => {
           <button className="btn-primary" style={{ padding: '7px 14px', fontSize: '0.85rem' }} onClick={() => onViewDetail(asset)}>
             Xem chi tiết
           </button>
-          <a href={directionsUrl(asset.latitude, asset.longitude)} target="_blank" rel="noopener noreferrer" className="tomb-directions-btn">
-            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="3 11 22 2 13 21 11 13 3 11" />
-            </svg>
-            Dẫn đường
-          </a>
+          <MapLinks lat={asset.latitude} lng={asset.longitude} />
         </div>
       </div>
     </div>
@@ -91,10 +86,7 @@ const AssetMapView = ({ assets, onViewDetail }) => {
         scrollWheelZoom
         style={{ height: '100%', width: '100%' }}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+          <ResilientTileLayer />
         <MarkerClusterGroup iconCreateFunction={createClusterIcon} chunkedLoading maxClusterRadius={50}>
           {located.map(a => {
             const category = getAssetCategory(a.category);

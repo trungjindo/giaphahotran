@@ -85,6 +85,28 @@ Không cần thêm secret nào khác — workflow dùng `GITHUB_TOKEN` có sẵn
 
 Từ lần push tiếp theo lên `main`, GitHub Actions sẽ tự build và cập nhật nhánh `deploy`; Hostinger phát hiện thay đổi và tự đồng bộ (tùy chọn tự động hoặc bấm "Deploy" thủ công trong mục Git, tùy Hostinger cấu hình). Xem tiến trình build tại tab **Actions** trên GitHub.
 
+## Ghi chú — Bản đồ dùng gì, vì sao không dùng Google Maps API
+
+Nền bản đồ nhúng trong web dùng **OpenStreetMap** (miễn phí, không cần khóa API, không cần
+thẻ thanh toán). Có thêm nguồn dự phòng **Carto**: khi máy chủ ô bản đồ đầu tiên không tải
+được (chậm hoặc bị nhà mạng chặn — nguyên nhân thường gặp khiến bản đồ hiện ra một mảng xám),
+web tự chuyển sang nguồn kia, người dùng không phải làm gì.
+
+**Không dùng Google Maps API để nhúng bản đồ.** Mọi cách nhúng bản đồ Google (Maps JavaScript
+API, Embed API, Static Maps) đều bắt buộc project phải bật thanh toán bằng thẻ tín dụng, kể
+cả khi nằm trong hạn mức miễn phí — điều kiện hiện chưa đáp ứng được.
+
+**Google Maps vẫn được dùng, ở chỗ quan trọng nhất và hoàn toàn miễn phí:** mỗi ghim (mộ,
+lăng, tài sản) đều có 2 nút mở thẳng sang ứng dụng Google Maps trên máy người xem —
+*Dẫn đường* và *Mở Google Maps*. Đó chỉ là địa chỉ web thông thường, không cần khóa, không
+tốn phí, và trên điện thoại sẽ tự mở app Google Maps nếu đã cài:
+
+- Xem vị trí: `https://www.google.com/maps/search/?api=1&query=<vĩ độ>,<kinh độ>`
+- Chỉ đường: `https://www.google.com/maps/dir/?api=1&destination=<vĩ độ>,<kinh độ>`
+
+Nói cách khác: web lo phần **lưu và hiển thị tọa độ**, còn phần **dẫn đường tận nơi** thì
+giao cho ứng dụng Google Maps của từng người.
+
 ## Bước 7 — Kiểm tra sau khi lên thật
 
 - [ ] Truy cập `https://hotrandinh.com` — trang chủ tải được, không lỗi trắng trang, ổ khóa HTTPS hợp lệ (nếu chưa có, vào hPanel → mục **SSL** để bật/chờ cấp chứng chỉ miễn phí).

@@ -1,10 +1,9 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
+import MapLinks from '../MapLinks';
 import { AppContext } from '../../store';
 import { apiRequest, apiGet } from '../../api';
 import { getAssetCategory, getAssetStatus, calculateDepreciation, formatVND } from '../../utils/asset';
 import { formatDateVN } from '../../utils/family';
-
-const directionsUrl = (lat, lng) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 
 const AssetDetailModal = ({ asset, chiName, canEdit, onEdit, onDelete, onClose, compact = false }) => {
   const { token } = useContext(AppContext);
@@ -88,12 +87,7 @@ const AssetDetailModal = ({ asset, chiName, canEdit, onEdit, onDelete, onClose, 
               <div style={{ gridColumn: '1 / -1' }}>
                 <strong>Vị trí:</strong> {asset.address || 'Chưa rõ'}
                 {asset.latitude != null && asset.longitude != null && (
-                  <a href={directionsUrl(asset.latitude, asset.longitude)} target="_blank" rel="noopener noreferrer" className="tomb-directions-btn" style={{ marginLeft: '10px' }}>
-                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="3 11 22 2 13 21 11 13 3 11" />
-                    </svg>
-                    Dẫn đường
-                  </a>
+                  <MapLinks lat={asset.latitude} lng={asset.longitude} showCoords compact />
                 )}
               </div>
             )}
