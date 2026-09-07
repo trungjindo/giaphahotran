@@ -9,7 +9,7 @@ const mapsDirectionsUrl = (a, b) => `https://www.google.com/maps/dir/?api=1&orig
 
 // So sánh vai vế, tuổi tác, nơi ở và khoảng cách địa lý giữa 2 người bất kỳ trong cây gia
 // phả. Khoảng cách được suy ra bằng cách định vị Phường/Xã + Tỉnh/Thành của mỗi người qua
-// Google Geocoding/Places — là vị trí gần đúng của khu vực, không phải nhà riêng
+// Nominatim (OpenStreetMap, miễn phí) — là vị trí gần đúng của khu vực, không phải nhà riêng
 // chính xác, vì hồ sơ thành viên hiện chỉ lưu tới cấp phường/xã.
 const CompareMembersModal = ({ onClose }) => {
   const { familyData } = useContext(AppContext);

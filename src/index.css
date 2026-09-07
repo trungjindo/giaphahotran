@@ -660,32 +660,19 @@ img {
   border: 1px solid var(--border-color);
 }
 
-/* Khung bản đồ Google dùng chung */
-.gmap-canvas {
-  width: 100%;
-  height: 100%;
+.tomb-map-wrap .leaflet-container {
+  font-family: var(--font-sans);
   background: var(--color-sand);
 }
 
-/* Hiện thay cho bản đồ khi chưa cấu hình khóa API hoặc không tải được */
-.gmap-fallback {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 24px;
-  text-align: center;
-  background: var(--color-sand);
-  color: var(--text-secondary);
-  border-radius: var(--radius-md);
-  font-size: 0.86rem;
-  line-height: 1.55;
+.leaflet-div-icon.tomb-marker-icon {
+  background: transparent;
+  border: none;
 }
 
-.gmap-fallback p {
-  margin: 0;
-  max-width: 420px;
+.tomb-cluster-wrapper {
+  background: transparent;
+  border: none;
 }
 
 .tomb-cluster-icon {
@@ -700,28 +687,50 @@ img {
   box-shadow: var(--shadow-md);
 }
 
-/* Thẻ thông tin của Google Maps (InfoWindow) — bỏ khoảng đệm mặc định để thẻ nội dung
-   của mình chiếm trọn, và cho phép cuộn khi danh sách người trong lăng dài. */
-.gm-style .gm-style-iw-c {
+.tomb-map-wrap .leaflet-popup-content-wrapper {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  padding: 0;
-  max-height: none !important;
-}
-
-.gm-style .gm-style-iw-d {
-  overflow: auto !important;
-  max-height: 340px !important;
+  overflow: hidden;
   padding: 0;
 }
 
-.gm-style .gm-style-iw-c .tomb-popup-card {
-  width: 250px;
+.tomb-map-wrap .leaflet-popup-content {
+  margin: 0;
+  width: 230px !important;
+}
+
+.tomb-map-wrap .leaflet-popup-tip {
+  box-shadow: var(--shadow-md);
+}
+
+/* Tooltip nhỏ khi hover ghim — tên, đời, mã phả hệ, không che nội dung quan trọng */
+.tomb-map-wrap .leaflet-tooltip {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sm);
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.tomb-map-wrap .leaflet-tooltip-top::before {
+  border-top-color: var(--surface-color);
 }
 
 .tomb-hover-tip-name {
   font-weight: 700;
   color: var(--primary-color);
+}
+
+.tomb-map-wrap .leaflet-control-zoom a {
+  border-radius: var(--radius-sm) !important;
+  color: var(--primary-color) !important;
+}
+
+.tomb-map-wrap .leaflet-control-zoom a:hover {
+  background: var(--color-sand) !important;
 }
 
 .tomb-popup-card {
@@ -940,7 +949,24 @@ img {
   margin-top: 2px;
 }
 
+/* Nền bản đồ không tải được (mạng/chặn) — nói rõ để khỏi tưởng phần mềm hỏng */
+.location-picker-tilewarn {
+  margin-top: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: #fff8e1;
+  color: #8a6100;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
 
+/* Chọn tọa độ trên bản đồ nhỏ trong form quản trị */
+.tomb-picker-map {
+  height: 280px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
 
 /* ------- Ô "gõ để tìm rồi chọn" (SearchableSelect) ------- */
 /* Dùng cho danh sách dài: người đã mất trong cây gia phả, danh sách lăng... */
@@ -1906,6 +1932,12 @@ img {
 
 .asset-detail-modal {
   max-width: 800px;
+}
+
+/* Ghim bản đồ tài sản (Leaflet) — tái dùng khung .tomb-map-wrap chung */
+.leaflet-div-icon.asset-marker-icon {
+  background: transparent;
+  border: none;
 }
 
 .asset-map-wrap {

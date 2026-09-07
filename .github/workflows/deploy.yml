@@ -34,11 +34,6 @@ jobs:
         run: npm run build
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
-          # Khóa Google Maps được nhúng vào bản build. Khóa trình duyệt vốn LUÔN công khai
-          # (ai xem mã nguồn trang cũng đọc được) — chặn lạm dụng bằng cách giới hạn
-          # HTTP referrer về hotrandinh.com trong Google Cloud Console, không phải bằng
-          # cách giấu khóa. Thiếu secret này thì mọi bản đồ sẽ hiện thông báo chưa cấu hình.
-          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
 
       # Gom file tĩnh đã build + mã nguồn PHP (trừ storage/ — ảnh người dùng tải lên,
       # không thuộc mã nguồn) vào 1 thư mục để publish thành nội dung của nhánh "deploy".

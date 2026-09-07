@@ -25,6 +25,7 @@ const AdminTombs = () => {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [flyTarget, setFlyTarget] = useState(null);
   const [formKey, setFormKey] = useState(0);
 
   const descendantList = useMemo(() => buildDescendantList(familyData), [familyData]);
@@ -100,6 +101,7 @@ const AdminTombs = () => {
   const resetForm = () => {
     setForm(emptyForm);
     setEditingId(null);
+    setFlyTarget(null);
     setFormKey(k => k + 1);
   };
 
@@ -148,6 +150,7 @@ const AdminTombs = () => {
       description: tomb.description || '',
       interredDate: tomb.interredDate || '',
     });
+    setFlyTarget(tomb.siteId === null && tomb.latitude !== null ? { lat: tomb.latitude, lng: tomb.longitude } : null);
     setFormKey(k => k + 1);
     setSubTab('burials');
   };
@@ -277,6 +280,8 @@ const AdminTombs = () => {
                       longitude={form.longitude}
                       onChange={handleLocationChange}
                       onClear={() => setForm(prev => ({ ...prev, latitude: '', longitude: '' }))}
+                      flyTarget={flyTarget}
+                      onFlyTargetChange={setFlyTarget}
                       searchPlaceholder="VD: Nghĩa trang xã..., huyện..., tỉnh Nam Định"
                     />
                   </div>
