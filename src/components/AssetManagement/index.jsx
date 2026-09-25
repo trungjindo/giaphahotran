@@ -12,7 +12,7 @@ import AssetForm from './AssetForm';
 // compact=true dùng cho trang công khai: chỉ đọc, danh sách rút gọn (API tự che field nhạy
 // cảm cho người chưa đăng nhập ở phía server, xem api/assets.php).
 const AssetManagement = ({ scopeChiId, compact = false }) => {
-  const { token, role, isAuthenticated } = useContext(AppContext);
+  const { token, isAuthenticated, hasPermission } = useContext(AppContext);
   const [assets, setAssets] = useState([]);
   const [chiList, setChiList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,7 +49,9 @@ const AssetManagement = ({ scopeChiId, compact = false }) => {
     return assets.filter(a => a.chiId === scopeChiId);
   }, [assets, isSuperAdminMode, scopeChiId]);
 
-  const canEdit = !compact && isAuthenticated && role !== 'bai_bien';
+  // Sửa được hay không là theo QUYỀN, không theo tên vai trò — vai trò giờ do quản trị
+  // viên tự tạo nên tên cũ như 'bai_bien' không còn tồn tại.
+  const canEdit = !compact && isAuthenticated && hasPermission('assets.manage');
 
   const handleAdd = () => setEditing('new');
   const handleEdit = (asset) => { setSelected(null); setEditing(asset); };

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/permissions.php';
 
 // Mọi lỗi không bắt được (VD truy vấn vào bảng chưa tồn tại vì quên chạy migration) mặc định
 // bị PHP in ra dưới dạng TRANG HTML. Giao diện đang chờ JSON nên chỉ báo được chung chung
@@ -242,7 +243,65 @@ function require_family_access(): array {
   json_error('Nội dung này chỉ dành cho con cháu trong dòng họ. Vui lòng xác thực để xem.', 401);
 }
 
+// ---- PHÂN QUYỀN THEO QUYỀN (permission), thay cho kiểm tra theo tên vai trò ----
+//
+// Vai trò giờ do quản trị viên tự tạo, nên code KHÔNG được chốt cứng tên vai trò nữa; nó
+// hỏi "tài khoản này có quyền X không". Xem api/permissions.php cho danh mục quyền.
+
+// Thông tin vai trò (bao gồm phạm vi) của một tài khoản.
+function get_role_of(array $user): ?array {
+  static $cache = [];
+  $code = $user['role'] ?? '';
+  if ($code === '') return null;
+  if (array_key_exists($code, $cache)) return $cache[$code];
+
+  $stmt = get_db()->prepare('SELECT * FROM roles WHERE code = ?');
+  $stmt->execute([$code]);
+  $cache[$code] = $stmt->fetch() ?: null;
+  return $cache[$code];
+}
+
+// Tập quyền của một tài khoản.
+// Vai trò 'admin' luôn có MỌI quyền và không đọc từ bảng — để không bao giờ xảy ra việc gỡ
+// nhầm quyền trong màn hình phân quyền rồi không còn ai vào sửa lại được.
+function get_permissions_of(array $user): array {
+  static $cache = [];
+  $code = $user['role'] ?? '';
+  if ($code === 'admin') return all_permission_keys();
+  if (array_key_exists($code, $cache)) return $cache[$code];
+
+  $role = get_role_of($user);
+  if (!$role) return $cache[$code] = [];
+
+  $stmt = get_db()->prepare('SELECT permission FROM role_permissions WHERE role_id = ?');
+  $stmt->execute([$role['id']]);
+  return $cache[$code] = array_column($stmt->fetchAll(), 'permission');
+}
+
+function user_has_permission(array $user, string $permission): bool {
+  return ($user['role'] ?? '') === 'admin'
+    || in_array($permission, get_permissions_of($user), true);
+}
+
+// Bắt buộc tài khoản đăng nhập phải có quyền này. Dừng request với 403 nếu không.
+function require_permission(string $permission): array {
+  $user = require_auth();
+  if (!user_has_permission($user, $permission)) {
+    json_error('Bạn không có quyền thực hiện thao tác này.', 403);
+  }
+  return $user;
+}
+
+// Vai trò này có bị giới hạn trong phạm vi một chi không?
+function user_is_chi_scoped(array $user): bool {
+  if (($user['role'] ?? '') === 'admin') return false;
+  $role = get_role_of($user);
+  return $role ? $role['scope'] === 'chi' : true; // không rõ vai trò -> siết chặt nhất
+}
+
 // Bắt buộc người dùng có 1 trong các role cho phép. Dừng request với lỗi 403 nếu không đủ quyền.
+// Giữ lại cho các chỗ thật sự cần chặn theo ĐÚNG tên vai trò (hiếm) — phần lớn nên dùng
+// require_permission() để admin còn cấu hình lại được.
 function require_role(array $allowedRoles): array {
   $user = require_auth();
   if (!in_array($user['role'], $allowedRoles, true)) {
@@ -254,7 +313,10 @@ function require_role(array $allowedRoles): array {
 // Kiểm tra người dùng có quyền thao tác trên 1 chi cụ thể hay không:
 // admin luôn được phép; các role còn lại chỉ được phép trên đúng chi_id của mình.
 function require_chi_access(array $user, ?int $chiId): void {
-  if ($user['role'] === 'admin') {
+  // Vai trò phạm vi cả dòng họ đụng được mọi chi; chỉ vai trò phạm vi CHI mới bị khóa lại
+  // đúng chi của mình. Trước đây chỗ này chốt cứng tên 'admin' nên vai trò mới do quản trị
+  // viên tạo (VD Quản trị dòng họ) sẽ bị chặn oan.
+  if (!user_is_chi_scoped($user)) {
     return;
   }
   if ($chiId === null || (int)$user['chi_id'] !== (int)$chiId) {
@@ -268,7 +330,9 @@ function require_chi_access(array $user, ?int $chiId): void {
 function require_chi_year_access(array $user, ?int $chiId, int $year): void {
   require_chi_access($user, $chiId);
 
-  if ($user['role'] !== 'bai_bien') {
+  // Ràng buộc "chỉ ghi được năm mình phụ trách" áp cho người làm bãi biện/thủ quỹ — nhận
+  // biết qua việc họ KHÔNG có quyền phân công bãi biện (người phân công thì không bị hạn chế).
+  if (user_has_permission($user, 'baibien.manage')) {
     return;
   }
 

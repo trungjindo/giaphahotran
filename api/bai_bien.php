@@ -54,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $currentUser = require_role(['admin', 'chi_admin', 'dich_ton']);
+  $currentUser = require_permission('baibien.manage');
   $action = $_GET['action'] ?? '';
   $body = read_json_body();
   $chiId = normalize_chi_id($body['chiId'] ?? null);

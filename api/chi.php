@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  require_role(['admin']);
+  require_permission('system.chi');
   $body = read_json_body();
   $name = trim($body['name'] ?? '');
   $rootMemberId = trim($body['rootMemberId'] ?? '');
@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-  require_role(['admin']);
+  require_permission('system.chi');
   $id = (int)($_GET['id'] ?? 0);
   if ($id <= 0) json_error('Thiếu id chi cần cập nhật.');
 
@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-  require_role(['admin']);
+  require_permission('system.chi');
   $id = (int)($_GET['id'] ?? 0);
   if ($id <= 0) json_error('Thiếu id chi cần xóa.');
 

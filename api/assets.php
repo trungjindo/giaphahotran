@@ -192,7 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $currentUser = require_auth();
+  $currentUser = require_permission('assets.manage');
   $data = validate_asset_body(read_json_body(), $ASSET_CATEGORIES, $ASSET_STATUSES);
   require_asset_write_access($currentUser, $data['chiId']);
 
@@ -217,7 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-  $currentUser = require_auth();
+  $currentUser = require_permission('assets.manage');
   $id = (int)($_GET['id'] ?? 0);
   if ($id <= 0) json_error('Thiếu id tài sản cần cập nhật.');
 
@@ -262,7 +262,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-  $currentUser = require_auth();
+  $currentUser = require_permission('assets.manage');
   $id = (int)($_GET['id'] ?? 0);
   if ($id <= 0) json_error('Thiếu id tài sản cần xóa.');
 

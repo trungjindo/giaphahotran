@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
   json_error('Method not allowed', 405);
 }
 
-$currentUser = require_auth();
+$currentUser = require_permission('assets.manage');
 $pdo = get_db();
 
 $assetId = (int)($_GET['assetId'] ?? 0);

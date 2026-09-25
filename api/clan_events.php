@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $currentUser = require_role(['admin']);
+  $currentUser = require_permission('events.manage');
   $in = read_clan_event_input($pdo);
 
   $stmt = $pdo->prepare(
@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-  require_role(['admin']);
+  require_permission('events.manage');
   $id = (int)($_GET['id'] ?? 0);
   if ($id <= 0) json_error('Thiếu id sự kiện cần cập nhật.');
 
@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-  require_role(['admin']);
+  require_permission('events.manage');
   $id = (int)($_GET['id'] ?? 0);
   if ($id <= 0) json_error('Thiếu id sự kiện cần xóa.');
 

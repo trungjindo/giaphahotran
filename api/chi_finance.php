@@ -49,7 +49,7 @@ function get_bai_bien_active_year($pdo, int $userId, int $chiId): ?int {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $currentUser = require_auth();
+  $currentUser = require_permission('finance.manage');
   require_chi_access($currentUser, $chiId);
 
   $raw = file_get_contents('php://input');

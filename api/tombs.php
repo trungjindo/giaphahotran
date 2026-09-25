@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $currentUser = require_role(['admin']);
+  $currentUser = require_permission('tombs.manage');
   $in = read_tomb_input($pdo);
 
   $stmt = $pdo->prepare('SELECT id FROM tombs WHERE member_id = ?');
@@ -107,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-  require_role(['admin']);
+  require_permission('tombs.manage');
   $id = (int)($_GET['id'] ?? 0);
   if ($id <= 0) json_error('Thiếu id vị trí lăng mộ cần cập nhật.');
 
@@ -130,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-  require_role(['admin']);
+  require_permission('tombs.manage');
   $id = (int)($_GET['id'] ?? 0);
   if ($id <= 0) json_error('Thiếu id vị trí lăng mộ cần xóa.');
 

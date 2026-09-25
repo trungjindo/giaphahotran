@@ -27,7 +27,10 @@ const AdminBaiBien = ({ chiId = null, title = 'Dòng Họ' }) => {
     ])
       .then(([assignmentList, userList]) => {
         setAssignments(assignmentList);
-        setCandidates(userList.filter(u => u.role === 'bai_bien' && (u.chiId ?? null) === chiId));
+        // Trước đây lọc theo đúng tên vai trò 'bai_bien'. Vai trò giờ do quản trị viên tự
+        // đặt tên nên không thể đoán được nữa — liệt kê mọi tài khoản thuộc chi này để
+        // người phân công tự chọn. Máy chủ vẫn kiểm tra quyền khi lưu.
+        setCandidates(userList.filter(u => (u.chiId ?? null) === chiId));
       })
       .catch(err => setError(err.message))
       .finally(() => setIsLoading(false));

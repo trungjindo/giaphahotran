@@ -9,6 +9,7 @@ import AdminChiFinance from '../components/AdminChiFinance';
 import AdminBaiBien from '../components/AdminBaiBien';
 import AdminTombs from '../components/AdminTombs';
 import AdminClanEvents from '../components/AdminClanEvents';
+import AdminRoleManager from '../components/AdminRoleManager';
 import AssetManagement from '../components/AssetManagement';
 import AdminPromoBanners from '../components/AdminPromoBanners';
 import { INCOME_CATEGORIES, formatCurrency, computeFinanceSummary, getAvailableYears, getYear } from '../utils/finance';
@@ -16,12 +17,15 @@ import { apiUpload, apiRequest } from '../api';
 
 const MAX_UPLOAD_MB = 10;
 
-// Giao diện quản trị thu gọn dành cho chi_admin / dich_ton / bai_bien: chỉ thấy đúng
-// 2 mục thuộc phạm vi chi của mình, không thấy gia phả/tin tức/chi khác trong dòng họ.
-function ChiScopedDashboard({ chiId, fullName, role, yearAssigned, logout }) {
+// Giao diện quản trị thu gọn cho các vai trò PHẠM VI CHI: chỉ thấy đúng phần việc thuộc
+// chi của mình, không thấy gia phả/tin tức/chi khác trong dòng họ.
+function ChiScopedDashboard({ chiId, fullName, yearAssigned, logout, can }) {
   const [chiName, setChiName] = useState('');
   const [scopedTab, setScopedTab] = useState('finance');
-  const canManageBaiBien = role === 'chi_admin' || role === 'dich_ton';
+  const canManageBaiBien = can('baibien.manage');
+  // Người bị ràng buộc theo năm chính là người KHÔNG được phân công bãi biện (xem
+  // helpers.php#require_chi_year_access) — hiện lời nhắc đúng cho họ.
+  const isYearBound = !canManageBaiBien;
 
   useEffect(() => {
     apiRequest('chi.php')
@@ -42,11 +46,11 @@ function ChiScopedDashboard({ chiId, fullName, role, yearAssigned, logout }) {
         <button onClick={logout} className="btn-primary" style={{ background: '#576574' }}>Đăng Xuất</button>
       </div>
 
-      {role === 'bai_bien' && (
+      {isYearBound && (
         <div className="card" style={{ marginBottom: '30px', background: '#fff8e1', border: '1px solid #f1c40f' }}>
           {yearAssigned
             ? <p style={{ margin: 0 }}>Bạn đang được phân công làm <strong>bãi biện</strong> phụ trách năm <strong>{yearAssigned}</strong>. Bạn chỉ có thể ghi thu chi/hoạt động của năm này.</p>
-            : <p style={{ margin: 0 }}>Bạn hiện chưa được phân công phụ trách năm nào. Vui lòng liên hệ chi trưởng/đích tôn để được phân công.</p>}
+            : <p style={{ margin: 0 }}>Bạn hiện chưa được phân công phụ trách năm nào. Vui lòng liên hệ quản trị chi họ để được phân công.</p>}
         </div>
       )}
 
@@ -93,6 +97,20 @@ function ChiScopedDashboard({ chiId, fullName, role, yearAssigned, logout }) {
   );
 }
 
+// Các tab quản trị và quyền cần có để thấy tab đó. Đặt thành dữ liệu thay vì lặp lại JSX
+// cho từng nút, để thêm tab mới chỉ là thêm một dòng.
+const TABS = [
+  { id: 'activities',   label: 'Hoạt Động Dòng Họ',   permission: 'activities.manage' },
+  { id: 'baibien',      label: 'Bãi Biện Dòng Họ',    permission: 'baibien.manage' },
+  { id: 'clanEvents',   label: 'Lịch Gia Tộc',        permission: 'events.manage' },
+  { id: 'tombs',        label: 'Bản Đồ Lăng Mộ',      permission: 'tombs.manage' },
+  { id: 'assets',       label: 'Quản Lý Tài Sản',     permission: 'assets.manage' },
+  { id: 'chi',          label: 'Quản Lý Chi',         permission: 'system.chi' },
+  { id: 'users',        label: 'Quản Lý Tài Khoản',   permission: 'users.manage' },
+  { id: 'roles',        label: 'Vai Trò & Phân Quyền', permission: 'system.roles' },
+  { id: 'promoBanners', label: 'Quảng Cáo Thành Viên', permission: 'system.banners' },
+];
+
 function AdminDashboard() {
   const {
     isAuthenticated, logout, token, role, user, chiId,
@@ -101,10 +119,13 @@ function AdminDashboard() {
     aboutData, setAboutData,
     bannerData, setBannerData,
     galleryData, setGalleryData,
-    contactAdminData, setContactAdminData
+    contactAdminData, setContactAdminData,
+    hasPermission, isChiScoped: roleIsChiScoped
   } = useContext(AppContext);
-  const isSuperAdmin = role === 'admin' || role === null; // role null: tài khoản cũ trước khi có hệ thống phân quyền
-  const isChiScoped = !isSuperAdmin && !!chiId;
+  // Menu dựng theo QUYỀN, không theo tên vai trò — vai trò giờ do quản trị viên tự tạo nên
+  // chốt cứng tên vai trò sẽ khiến vai trò mới không bao giờ thấy được tab nào.
+  const can = hasPermission;
+  const isChiScoped = roleIsChiScoped && !!chiId;
   const [activeTab, setActiveTab] = useState('family'); // Default to family management
 
   // Form states for Finance
@@ -154,7 +175,7 @@ function AdminDashboard() {
   }
 
   if (isChiScoped) {
-    return <ChiScopedDashboard chiId={chiId} fullName={user?.fullName} role={role} yearAssigned={user?.yearAssigned} logout={logout} />;
+    return <ChiScopedDashboard chiId={chiId} fullName={user?.fullName} yearAssigned={user?.yearAssigned} logout={logout} can={can} />;
   }
 
   const handleSubmitTransaction = (e) => {
@@ -403,66 +424,18 @@ function AdminDashboard() {
           >
             Banner & Thư Viện Ảnh
           </button>
-          {isSuperAdmin && (
-            <>
-              <button
-                onClick={() => setActiveTab('activities')}
-                className={`btn-primary tab-btn ${activeTab === 'activities' ? '' : 'inactive-tab'}`}
-                style={{ background: activeTab === 'activities' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'activities' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
-              >
-                Hoạt Động Dòng Họ
-              </button>
-              <button
-                onClick={() => setActiveTab('baibien')}
-                className={`btn-primary tab-btn ${activeTab === 'baibien' ? '' : 'inactive-tab'}`}
-                style={{ background: activeTab === 'baibien' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'baibien' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
-              >
-                Bãi Biện Dòng Họ
-              </button>
-              <button
-                onClick={() => setActiveTab('clanEvents')}
-                className={`btn-primary tab-btn ${activeTab === 'clanEvents' ? '' : 'inactive-tab'}`}
-                style={{ background: activeTab === 'clanEvents' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'clanEvents' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
-              >
-                Lịch Gia Tộc
-              </button>
-              <button
-                onClick={() => setActiveTab('tombs')}
-                className={`btn-primary tab-btn ${activeTab === 'tombs' ? '' : 'inactive-tab'}`}
-                style={{ background: activeTab === 'tombs' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'tombs' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
-              >
-                Bản Đồ Lăng Mộ
-              </button>
-              <button
-                onClick={() => setActiveTab('assets')}
-                className={`btn-primary tab-btn ${activeTab === 'assets' ? '' : 'inactive-tab'}`}
-                style={{ background: activeTab === 'assets' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'assets' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
-              >
-                Quản Lý Tài Sản
-              </button>
-              <button
-                onClick={() => setActiveTab('chi')}
-                className={`btn-primary tab-btn ${activeTab === 'chi' ? '' : 'inactive-tab'}`}
-                style={{ background: activeTab === 'chi' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'chi' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
-              >
-                Quản Lý Chi
-              </button>
-              <button
-                onClick={() => setActiveTab('users')}
-                className={`btn-primary tab-btn ${activeTab === 'users' ? '' : 'inactive-tab'}`}
-                style={{ background: activeTab === 'users' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'users' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
-              >
-                Quản Lý Tài Khoản
-              </button>
-              <button
-                onClick={() => setActiveTab('promoBanners')}
-                className={`btn-primary tab-btn ${activeTab === 'promoBanners' ? '' : 'inactive-tab'}`}
-                style={{ background: activeTab === 'promoBanners' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'promoBanners' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
-              >
-                Quảng Cáo Thành Viên
-              </button>
-            </>
-          )}
+          {/* Mỗi tab hiện theo ĐÚNG quyền của nó, không gom chung vào "là admin hay không" —
+              nhờ vậy vai trò do quản trị viên tự tạo cũng thấy đúng phần việc của mình. */}
+          {TABS.filter(t => can(t.permission)).map(t => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`btn-primary tab-btn ${activeTab === t.id ? '' : 'inactive-tab'}`}
+              style={{ background: activeTab === t.id ? 'var(--primary-color)' : 'transparent', color: activeTab === t.id ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -862,14 +835,15 @@ function AdminDashboard() {
         </>
       )}
 
-      {activeTab === 'activities' && isSuperAdmin && <AdminActivities chiId={null} title="Dòng Họ" />}
-      {activeTab === 'baibien' && isSuperAdmin && <AdminBaiBien chiId={null} title="Dòng Họ" />}
-      {activeTab === 'clanEvents' && isSuperAdmin && <AdminClanEvents />}
-      {activeTab === 'tombs' && isSuperAdmin && <AdminTombs />}
-      {activeTab === 'assets' && isSuperAdmin && <AssetManagement />}
-      {activeTab === 'chi' && isSuperAdmin && <AdminChiManager />}
-      {activeTab === 'users' && isSuperAdmin && <AdminUserManager />}
-      {activeTab === 'promoBanners' && isSuperAdmin && <AdminPromoBanners />}
+      {activeTab === 'activities' && can('activities.manage') && <AdminActivities chiId={null} title="Dòng Họ" />}
+      {activeTab === 'baibien' && can('baibien.manage') && <AdminBaiBien chiId={null} title="Dòng Họ" />}
+      {activeTab === 'clanEvents' && can('events.manage') && <AdminClanEvents />}
+      {activeTab === 'tombs' && can('tombs.manage') && <AdminTombs />}
+      {activeTab === 'assets' && can('assets.manage') && <AssetManagement />}
+      {activeTab === 'chi' && can('system.chi') && <AdminChiManager />}
+      {activeTab === 'users' && can('users.manage') && <AdminUserManager />}
+      {activeTab === 'roles' && can('system.roles') && <AdminRoleManager />}
+      {activeTab === 'promoBanners' && can('system.banners') && <AdminPromoBanners />}
     </div>
   );
 }

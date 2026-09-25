@@ -22,6 +22,12 @@ export const AppProvider = ({ children }) => {
   const isAuthenticated = !!token;
   const role = user?.role || null;
   const chiId = user?.chiId ?? null;
+  // Vai trò giờ do quản trị viên tự tạo, nên giao diện KHÔNG được dựng menu theo tên vai trò
+  // nữa mà phải hỏi "có quyền này không".
+  const permissions = user?.permissions || [];
+  const hasPermission = (perm) => role === 'admin' || permissions.includes(perm);
+  // Vai trò phạm vi chi chỉ thao tác trong chi của mình. Thiếu thông tin thì siết chặt nhất.
+  const isChiScoped = role !== 'admin' && (user?.roleScope ?? 'chi') === 'chi';
 
   // Xác thực con cháu: dành cho người trong dòng họ KHÔNG có tài khoản quản trị. Token này
   // chỉ cho XEM, không bao giờ cho ghi — mọi API ghi vẫn đòi token tài khoản như cũ.
@@ -97,6 +103,24 @@ export const AppProvider = ({ children }) => {
     })();
     return () => { cancelled = true; };
   }, [token, viewerToken]);
+
+  // Làm mới quyền mỗi khi khởi động: quản trị viên có thể đã sửa phân quyền sau lần đăng
+  // nhập gần nhất, và các phiên có từ trước hệ phân quyền này thì chưa hề lưu quyền nào.
+  useEffect(() => {
+    if (!token) return undefined;
+    let cancelled = false;
+    apiRequest('me.php', { token })
+      .then(me => {
+        if (cancelled) return;
+        setUser(prev => {
+          const next = { ...(prev || {}), ...me };
+          localStorage.setItem('authUser', JSON.stringify(next));
+          return next;
+        });
+      })
+      .catch(() => {}); // mất mạng thì tạm dùng bản đã lưu; token hỏng sẽ bị API chặn sau
+    return () => { cancelled = true; };
+  }, [token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,7 +198,7 @@ export const AppProvider = ({ children }) => {
   return (
     <AppContext.Provider value={{
       isAuthenticated, login, logout, token,
-      user, role, chiId,
+      user, role, chiId, permissions, hasPermission, isChiScoped,
       isFamilyVerified, viewerMember, verifyFamily, clearFamilyVerification,
       isLoading, loadError,
       familyData, setFamilyData, chiList,

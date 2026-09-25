@@ -1,15 +1,9 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { AppContext } from '../store';
 import { apiRequest } from '../api';
 
-const ROLE_LABELS = {
-  admin: 'Quản trị dòng họ',
-  chi_admin: 'Quản lý chi',
-  dich_ton: 'Đích tôn',
-  bai_bien: 'Bãi biện'
-};
-
-const emptyForm = { username: '', password: '', fullName: '', role: 'chi_admin', chiId: '', yearAssigned: '' };
+// Vai trò KHÔNG còn chốt cứng ở đây — lấy từ máy chủ, vì quản trị viên tự tạo được vai trò mới.
+const emptyForm = { username: '', password: '', fullName: '', role: '', chiId: '', yearAssigned: '' };
 
 // Cấu hình câu hỏi xác thực dành cho con cháu KHÔNG có tài khoản: ngày tế họ hàng năm.
 // Đây là đáp án bảo vệ toàn bộ dữ liệu riêng của dòng họ, nên chỉ tài khoản admin thấy được.
@@ -19,6 +13,15 @@ const FamilyGateSettings = ({ token }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    // roles.php đòi quyền system.roles (chỉ Quản trị hệ thống), nên người quản lý tài khoản
+    // cấp thấp hơn sẽ không đọc được — khi đó lùi về danh sách vai trò suy ra từ chính các
+    // tài khoản đang có, để ô chọn vai trò không bị trống trơn.
+    apiRequest('roles.php', { token })
+      .then(d => setRoleOptions((d.roles || []).map(r => ({ code: r.code, name: r.name, scope: r.scope }))))
+      .catch(() => setRoleOptions([]));
+  }, []);
 
   useEffect(() => {
     apiRequest('settings.php', { token })
@@ -101,7 +104,26 @@ const FamilyGateSettings = ({ token }) => {
 };
 
 const AdminUserManager = () => {
-  const { token, user: currentUser } = useContext(AppContext);
+  // Danh sách vai trò lấy từ API để khớp với phân quyền hiện hành.
+  const [roleOptions, setRoleOptions] = useState([]);
+
+  // Suy ra vai trò từ chính danh sách tài khoản (mỗi tài khoản đã kèm roleName từ API).
+  const derivedRoles = useMemo(() => {
+    const seen = new Map();
+    userList.forEach(u => {
+      if (u.role && !seen.has(u.role)) {
+        seen.set(u.role, { code: u.role, name: u.roleName || u.role, scope: u.roleScope || 'chi' });
+      }
+    });
+    return [...seen.values()];
+  }, [userList]);
+
+  // Nếu không đọc được roles.php (thiếu quyền system.roles) thì suy ra danh sách vai trò từ
+  // chính các tài khoản đang hiển thị, để ô chọn không bị trống trơn.
+  const availableRoles = roleOptions.length > 0 ? roleOptions : derivedRoles;
+  const roleNameOf = (code) => availableRoles.find(r => r.code === code)?.name || '';
+  const selectedRoleScope = availableRoles.find(r => r.code === form.role)?.scope || 'clan';
+  const { token, user: currentUser, hasPermission } = useContext(AppContext);
   const [userList, setUserList] = useState([]);
   const [chiList, setChiList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -127,7 +149,8 @@ const AdminUserManager = () => {
     if (!form.username || !form.fullName || (!editingId && !form.password)) {
       return alert('Vui lòng điền đủ tên đăng nhập, họ tên' + (editingId ? '' : ' và mật khẩu') + '.');
     }
-    if (form.role !== 'admin' && !form.chiId) {
+    if (!form.role) return alert('Vui lòng chọn vai trò.');
+    if (selectedRoleScope === 'chi' && !form.chiId) {
       return alert('Vui lòng chọn chi cho vai trò này.');
     }
     try {
@@ -175,7 +198,7 @@ const AdminUserManager = () => {
 
   return (
     <div>
-      {currentUser?.role === 'admin' && <FamilyGateSettings token={token} />}
+      {hasPermission('system.settings') && <FamilyGateSettings token={token} />}
 
       <div className="card" style={{ marginBottom: '30px' }}>
         <h3>{editingId ? 'Cập Nhật Tài Khoản' : 'Tạo Tài Khoản Mới'}</h3>
@@ -195,11 +218,12 @@ const AdminUserManager = () => {
           <div>
             <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Vai Trò *</label>
             <select value={form.role} onChange={e => setForm({...form, role: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
-              {Object.entries(ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              <option value="">-- Chọn vai trò --</option>
+              {availableRoles.map(r => <option key={r.code} value={r.code}>{r.name}</option>)}
             </select>
           </div>
 
-          {form.role !== 'admin' && (
+          {selectedRoleScope === 'chi' && (
             <div>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Chi *</label>
               <select value={form.chiId} onChange={e => setForm({...form, chiId: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
@@ -209,7 +233,7 @@ const AdminUserManager = () => {
             </div>
           )}
 
-          {form.role === 'bai_bien' && (
+          {selectedRoleScope === 'chi' && (
             <div>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Năm Phụ Trách</label>
               <input type="number" value={form.yearAssigned} onChange={e => setForm({...form, yearAssigned: e.target.value})} placeholder="VD: 2026" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
@@ -243,7 +267,9 @@ const AdminUserManager = () => {
                   <tr key={u.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <td style={{ padding: '12px', fontWeight: 'bold' }}>{u.fullName}</td>
                     <td style={{ padding: '12px' }}>{u.username}</td>
-                    <td style={{ padding: '12px' }}>{ROLE_LABELS[u.role] || u.role}</td>
+                    <td style={{ padding: '12px' }}>
+                      {u.roleName || roleNameOf(u.role) || <em style={{ color: '#B03A3A' }}>Vai trò đã bị xóa — cần gán lại</em>}
+                    </td>
                     <td style={{ padding: '12px' }}>{u.chiName || '—'}</td>
                     <td style={{ padding: '12px' }}>{u.yearAssigned || '—'}</td>
                     <td style={{ padding: '12px' }}>

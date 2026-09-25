@@ -53,8 +53,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
   exit;
 }
 
+// Mỗi kho dữ liệu cần đúng một quyền để được GHI. Trước đây chỗ này chỉ gọi require_auth()
+// nên MỌI tài khoản đã đăng nhập — kể cả thủ quỹ cấp chi — đều ghi đè được toàn bộ cây gia
+// phả, sổ thu chi hay tin tức của cả dòng họ, dù ở giao diện không có nút nào làm việc đó.
+$WRITE_PERMISSION = [
+  'familyData'       => 'family.manage',
+  'financeData'      => 'finance.manage',
+  'newsData'         => 'news.manage',
+  'aboutData'        => 'about.manage',
+  'galleryData'      => 'gallery.manage',
+  'bannerData'       => 'system.banners',
+  'contactAdminData' => 'system.settings',
+  'coupletData'      => 'about.manage',
+];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  require_auth(); // Chỉ admin đã đăng nhập mới được ghi dữ liệu
+  $writer = require_permission($WRITE_PERMISSION[$key]);
+
+  // Mọi kho dữ liệu ở đây đều là dữ liệu CHUNG CỦA CẢ DÒNG HỌ (cây gia phả, sổ thu chi dòng
+  // họ, tin tức...). Vai trò phạm vi chi dù có quyền tương ứng cũng không được ghi — phần
+  // của chi nằm ở chi_finance.php và activities.php, nơi đã khóa theo đúng chi của họ.
+  if (user_is_chi_scoped($writer)) {
+    json_error('Đây là dữ liệu chung của cả dòng họ. Tài khoản phạm vi chi không được sửa.', 403);
+  }
 
   $raw = file_get_contents('php://input');
   // Kiểm tra JSON hợp lệ trước khi lưu để tránh làm hỏng dữ liệu đang có

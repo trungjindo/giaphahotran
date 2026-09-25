@@ -52,6 +52,8 @@ $expiresAt = date('Y-m-d H:i:s', strtotime('+30 days'));
 $stmt = $pdo->prepare('INSERT INTO user_sessions (token, user_id, expires_at) VALUES (?, ?, ?)');
 $stmt->execute([$token, $user['id'], $expiresAt]);
 
+$roleRow = get_role_of($user);
+
 json_response([
   'success' => true,
   'token' => $token,
@@ -60,6 +62,11 @@ json_response([
     'username' => $username,
     'fullName' => $user['full_name'],
     'role' => $user['role'],
+    // Giao diện dựng menu theo QUYỀN chứ không theo tên vai trò, vì vai trò giờ do quản trị
+    // viên tự tạo. Gửi kèm ngay lúc đăng nhập để khỏi phải gọi thêm một API nữa.
+    'roleName' => $roleRow['name'] ?? $user['role'],
+    'roleScope' => $roleRow['scope'] ?? 'chi',
+    'permissions' => get_permissions_of($user),
     'chiId' => $user['chi_id'] !== null ? (int)$user['chi_id'] : null,
     'yearAssigned' => $user['year_assigned'] !== null ? (int)$user['year_assigned'] : null,
   ],

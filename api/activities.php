@@ -13,6 +13,11 @@ function get_activity_scope($pdo, int $id): ?array {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  // Hoạt động theo năm là việc nội bộ của dòng họ — trước đây endpoint này đọc được mà
+  // không cần gì cả. Cả hai nơi dùng nó (khu quản trị và trang Các Chi) đều đã nằm sau
+  // xác thực rồi, nên siết lại ở đây không ảnh hưởng người dùng thật.
+  require_family_access();
+
   $where = [];
   $params = [];
 
@@ -57,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $currentUser = require_auth();
+  $currentUser = require_permission('activities.manage');
   $body = read_json_body();
   $chiId = isset($body['chiId']) && $body['chiId'] !== null && $body['chiId'] !== '' ? (int)$body['chiId'] : null;
   $year = (int)($body['year'] ?? 0);
@@ -77,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-  $currentUser = require_auth();
+  $currentUser = require_permission('activities.manage');
   $id = (int)($_GET['id'] ?? 0);
   if ($id <= 0) json_error('Thiếu id hoạt động cần cập nhật.');
 
@@ -107,7 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-  $currentUser = require_auth();
+  $currentUser = require_permission('activities.manage');
   $id = (int)($_GET['id'] ?? 0);
   if ($id <= 0) json_error('Thiếu id hoạt động cần xóa.');
 

@@ -9,7 +9,7 @@ send_cors_headers();
 $pdo = get_db();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-  require_role(['admin']);
+  require_permission('system.settings');
   json_response([
     'teHoDay' => (int)get_setting('te_ho_day', '0'),
     'teHoMonth' => (int)get_setting('te_ho_month', '0'),
@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-  require_role(['admin']);
+  require_permission('system.settings');
   $body = read_json_body();
   $day = (int)($body['teHoDay'] ?? 0);
   $month = (int)($body['teHoMonth'] ?? 0);

@@ -26,6 +26,7 @@ mỗi lần thêm tính năng cần đổi cấu trúc bảng thì chạy file m
 | [`api/migration_access_control.sql`](api/migration_access_control.sql) | `viewer_sessions`, `auth_attempt_log`, `site_settings` | Xác thực con cháu, chống dò mật khẩu |
 | [`api/migration_tomb_sites.sql`](api/migration_tomb_sites.sql) | `tomb_sites`, cột `tombs.site_id` | **Lăng chung** trong Bản Đồ Lăng Mộ |
 | [`api/migration_clan_events.sql`](api/migration_clan_events.sql) | `clan_events` | **Lịch Gia Tộc** (việc họ có ngày âm/dương) |
+| [`api/migration_roles.sql`](api/migration_roles.sql) | `roles`, `role_permissions`, đổi `users.role` | **Phân quyền động** (admin tự tạo vai trò) |
 
 Mọi migration đều **chạy lại nhiều lần vẫn an toàn** (tự kiểm tra trước khi thêm) và không
 đụng tới dữ liệu đang có. Chạy migration **trước** khi deploy bản web mới, vì giao diện mới

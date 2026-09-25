@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 // Đổi thứ tự: hoán đổi sort_order với banner liền kề (theo toàn bộ danh sách, không phân
 // biệt đang bật/ẩn) — dùng nút mũi tên lên/xuống ở trang quản trị thay vì kéo-thả phức tạp.
 if ($_SERVER['REQUEST_METHOD'] === 'PUT' && isset($_GET['move'])) {
-  require_role(['admin']);
+  require_permission('system.banners');
   $id = (int)($_GET['id'] ?? 0);
   $direction = $_GET['move'];
   if ($id <= 0 || !in_array($direction, ['up', 'down'], true)) json_error('Yêu cầu không hợp lệ.');
@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' && isset($_GET['move'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $currentUser = require_role(['admin']);
+  $currentUser = require_permission('system.banners');
   $body = read_json_body();
 
   $businessName = trim($body['businessName'] ?? '');
@@ -83,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-  require_role(['admin']);
+  require_permission('system.banners');
   $id = (int)($_GET['id'] ?? 0);
   if ($id <= 0) json_error('Thiếu id banner cần cập nhật.');
 
@@ -111,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-  require_role(['admin']);
+  require_permission('system.banners');
   $id = (int)($_GET['id'] ?? 0);
   if ($id <= 0) json_error('Thiếu id banner cần xóa.');
 
