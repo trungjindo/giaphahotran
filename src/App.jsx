@@ -22,6 +22,7 @@ import AssetsPublicPage from './pages/AssetsPublicPage';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import FamilyVerifyGate from './components/FamilyVerifyGate';
+import NavAuthControl from './components/NavAuthControl';
 import FamilyCalendarModal from './components/FamilyCalendarModal';
 import { OPEN_FAMILY_CALENDAR } from './utils/appEvents';
 
@@ -186,6 +187,10 @@ function App() {
                 </li>
               )
             ))}
+
+            <li className="nav-auth-item">
+              <NavAuthControl onNavigate={closeMenu} />
+            </li>
 
             <li className="nav-calendar-item">
               <button
