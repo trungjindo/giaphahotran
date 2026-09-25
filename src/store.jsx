@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
-import { apiGet, apiSave, apiLogin, apiLogout, apiVerifyFamily, VIEWER_TOKEN_KEY } from './api';
+import { apiGet, apiSave, apiLogin, apiLogout, apiVerifyFamily, apiRequest, VIEWER_TOKEN_KEY } from './api';
 
 export const AppContext = createContext();
 
@@ -34,6 +34,10 @@ export const AppProvider = ({ children }) => {
   const isFamilyVerified = isAuthenticated || !!viewerToken;
 
   const [familyData, setFamilyDataState] = useState(null);
+  // Danh sách chi — nạp ở đây thay vì ở từng màn hình, để chỗ nào cần biết "người này thuộc
+  // chi nào" cũng dùng được mà không phải gọi lại API. Hỏng thì coi như chưa có chi nào:
+  // chi chỉ là thông tin phụ, không được làm hỏng cả trang.
+  const [chiList, setChiList] = useState([]);
   const [financeData, setFinanceDataState] = useState(null);
   const [newsData, setNewsDataState] = useState(null);
   const [aboutData, setAboutDataState] = useState(null);
@@ -91,6 +95,14 @@ export const AppProvider = ({ children }) => {
       setLoadError(fatalError);
       setIsLoading(false);
     })();
+    return () => { cancelled = true; };
+  }, [token, viewerToken]);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest('chi.php')
+      .then(rows => { if (!cancelled) setChiList(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (!cancelled) setChiList([]); }); // khách chưa xác thực -> 401, bình thường
     return () => { cancelled = true; };
   }, [token, viewerToken]);
 
@@ -165,7 +177,7 @@ export const AppProvider = ({ children }) => {
       user, role, chiId,
       isFamilyVerified, viewerMember, verifyFamily, clearFamilyVerification,
       isLoading, loadError,
-      familyData, setFamilyData,
+      familyData, setFamilyData, chiList,
       financeData, setFinanceData,
       newsData, setNewsData,
       aboutData, setAboutData,

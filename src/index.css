@@ -3220,3 +3220,52 @@ a.promo-card:hover {
     padding-right: 18px;
   }
 }
+
+/* Mã định danh trong hồ sơ — hạ xuống hàng phụ, nhường chỗ cho "Đời thứ … · Chi …" */
+.member-code {
+  margin: 0 auto 16px;
+  max-width: 420px;
+}
+
+.member-code-line {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.member-code-line code {
+  font-family: monospace;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  background: var(--color-sand);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  user-select: all; /* bấm 1 lần chọn trọn mã để sao chép */
+}
+
+.member-code-toggle {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent-teal, #2FB3C0);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.member-code-help {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-sand);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  text-align: left;
+}

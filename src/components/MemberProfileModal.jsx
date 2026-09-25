@@ -1,6 +1,6 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useMemo, useState, useEffect } from 'react';
 import { AppContext } from '../store';
-import { calculateAge, formatDateVN } from '../utils/family';
+import { buildChiMap, calculateAge, formatDateVN } from '../utils/family';
 import { getAvatarPlaceholder } from '../utils/avatar';
 import MapLinkButton from './MapLinkButton';
 import PhoneRevealButton from './PhoneRevealButton';
@@ -66,8 +66,17 @@ const AddRelativeButton = ({ relation, member, onAddRelative }) => {
 // onAddRelative (tuỳ chọn, chỉ Admin truyền vào): (relationValue, refMember) => void — hiện nút
 // "+" cạnh mỗi vai vế để thêm người thân đúng quan hệ đó ngay từ hồ sơ đang xem.
 const MemberProfileModal = ({ member, onClose, onSelectMember, onAddRelative }) => {
-  const { isAuthenticated } = useContext(AppContext);
+  const { isAuthenticated, familyData, chiList } = useContext(AppContext);
   const [avatarSrc, setAvatarSrc] = useState(null);
+  // Hiện mã định danh có kèm giải thích hay không — mặc định thu gọn cho đỡ rối, ai cần
+  // hiểu con số đó nghĩa là gì thì bấm mở ra.
+  const [showCodeHelp, setShowCodeHelp] = useState(false);
+
+  // Người này thuộc chi nào — suy ra từ cấu trúc cây, xem utils/family.js#buildChiMap.
+  const chiOfMember = useMemo(
+    () => (member ? buildChiMap(familyData, chiList)[member.id] || null : null),
+    [familyData, chiList, member]
+  );
 
   useEffect(() => {
     if (!member) return;
@@ -95,10 +104,34 @@ const MemberProfileModal = ({ member, onClose, onSelectMember, onAddRelative }) 
           <h2 style={{ margin: '18px 0 6px', fontFamily: 'var(--font-serif)', color: 'var(--primary-color)', fontSize: '1.6rem' }}>
             {member.name}
           </h2>
-          <span className="generation" style={{ display: 'inline-block', marginBottom: '14px', padding: '5px 15px', fontSize: '0.9rem' }}>
+          <span className="generation" style={{ display: 'inline-block', marginBottom: '10px', padding: '5px 15px', fontSize: '0.9rem' }}>
             Đời thứ {member.generation}
-            {member.code && <> · Mã: <span style={{ fontFamily: 'monospace' }}>{member.code}</span></>}
+            {chiOfMember && <> · {chiOfMember.name}</>}
           </span>
+
+          {member.code && (
+            <div className="member-code">
+              <span className="member-code-line">
+                Mã định danh: <code>{member.code}</code>
+                <button
+                  type="button"
+                  className="member-code-toggle"
+                  onClick={() => setShowCodeHelp(v => !v)}
+                  aria-expanded={showCodeHelp}
+                >
+                  {showCodeHelp ? 'Ẩn giải thích' : 'Mã này là gì?'}
+                </button>
+              </span>
+              {showCodeHelp && (
+                <p className="member-code-help">
+                  Mã cho biết vị trí của người này trong cây gia phả. Đọc từ trái sang phải,
+                  mỗi con số là <strong>thứ tự người con</strong> ở một đời, bắt đầu từ thủy tổ.
+                  Vì vậy số chữ số cũng chính là đời thứ mấy, và hai người có mã giống nhau ở
+                  phần đầu nghĩa là chung một ông tổ ở đời đó.
+                </p>
+              )}
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '24px' }}>
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 12px', borderRadius: '10px',

@@ -49,6 +49,36 @@ export const normalizeSpouses = (node) => {
   return [];
 };
 
+// Tra "người này thuộc chi nào" -> { memberId: { id, name } }.
+//
+// Chi KHÔNG phải một trường lưu trên từng người, mà suy ra từ cấu trúc cây: một người thuộc
+// chi X nếu họ là gốc chi X hoặc là hậu duệ của gốc đó. Quy tắc này trước đây bị chép lại ở
+// nhiều màn hình; để chung một chỗ cho khỏi lệch nhau về sau.
+//
+// Nếu gốc của một chi lại nằm trong nhánh của chi khác (chi con), thì chi khai báo SAU sẽ
+// ghi đè — tức người đó được tính vào chi cụ thể hơn.
+export const buildChiMap = (root, chiList = []) => {
+  const map = {};
+  if (!root) return map;
+  chiList.forEach(chi => {
+    const rootNode = findFamilyNodeById(root, chi.rootMemberId);
+    if (!rootNode) return;
+    flattenFamily(rootNode).forEach(m => { map[m.id] = { id: chi.id, name: chi.name }; });
+  });
+  return map;
+};
+
+// Tìm 1 người theo id trong cây.
+export const findFamilyNodeById = (node, id) => {
+  if (!node || !id) return null;
+  if (node.id === id) return node;
+  for (const child of node.children || []) {
+    const found = findFamilyNodeById(child, id);
+    if (found) return found;
+  }
+  return null;
+};
+
 export const flattenFamily = (node, parentId = '', parentName = 'Thủy tổ') => {
   if (!node) return [];
   let list = [{ ...node, parentId, parentName, spouses: normalizeSpouses(node) }];

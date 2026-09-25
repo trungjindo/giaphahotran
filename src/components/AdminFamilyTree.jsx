@@ -2,7 +2,7 @@ import React, { useState, useContext, useRef, useMemo, useEffect } from 'react';
 import DeathDateField from './DeathDateField';
 import { AppContext } from '../store';
 import * as XLSX from 'xlsx';
-import { flattenFamily, buildDescendantList, EDUCATION_LEVELS, buildFamilyCodeMap } from '../utils/family';
+import { flattenFamily, buildDescendantList, EDUCATION_LEVELS, buildFamilyCodeMap, buildChiMap } from '../utils/family';
 import { getAvatarPlaceholder } from '../utils/avatar';
 import { apiUpload, apiRequest } from '../api';
 import MemberProfileModal from './MemberProfileModal';
@@ -549,18 +549,11 @@ const AdminFamilyTree = () => {
     return null;
   };
 
-  // Chi là suy ra theo cấu trúc cây (hậu duệ của root_member_id mỗi chi), không phải field lưu
-  // trực tiếp trên từng người — tính giống hệt cách FamilyTreePage.jsx đang làm.
+  // Chi suy ra theo cấu trúc cây (hậu duệ của gốc chi), không phải field lưu trên từng người.
+  // Quy tắc nằm ở utils/family.js#buildChiMap để chỉ có đúng một bản.
   const chiInfoMap = useMemo(() => {
-    const infoMap = {};
-    if (familyData) {
-      chiList.forEach(chi => {
-        const rootNode = findNodeById(familyData, chi.rootMemberId);
-        if (!rootNode) return;
-        flattenFamily(rootNode).forEach(m => { infoMap[m.id] = chi.name; });
-      });
-    }
-    return infoMap;
+    const byId = buildChiMap(familyData, chiList);
+    return Object.fromEntries(Object.entries(byId).map(([id, chi]) => [id, chi.name]));
   }, [familyData, chiList]);
 
   // Giống recursiveDelete nhưng TRẢ VỀ node vừa gỡ (thay vì chỉ xóa đi) — dùng để "gắn" 1 thành
