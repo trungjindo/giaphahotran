@@ -1,4 +1,5 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { AppContext } from '../store';
 import FamilyVerifyForm from './FamilyVerifyForm';
@@ -105,7 +106,13 @@ const NavAuthControl = ({ onNavigate }) => {
 
 // Hộp thoại xác thực mở từ menu — dùng lại đúng form của màn hình chắn, kèm lối sang trang
 // đăng nhập quản trị viên để hai con đường vào đều nằm cùng một chỗ.
-const AuthDialog = ({ onClose }) => (
+//
+// BẮT BUỘC đưa ra thẳng <body> bằng portal: component này nằm bên trong <nav class="navbar">,
+// mà navbar có backdrop-filter. Thuộc tính đó biến navbar thành "containing block" cho mọi
+// phần tử position:fixed bên trong nó — nghĩa là lớp phủ toàn màn hình sẽ bị co lại đúng
+// bằng chiều cao thanh menu (~75px), và hộp thoại cao hơn thế sẽ bị đẩy vọt lên trên, mất
+// hẳn phần tiêu đề và câu hỏi đầu tiên. Render ở body thì lớp phủ mới phủ đúng cả màn hình.
+const AuthDialog = ({ onClose }) => createPortal(
   <div className="modal-overlay" onClick={onClose}>
     <div className="modal-content auth-dialog" onClick={e => e.stopPropagation()}>
       <div className="auth-dialog-header">
@@ -131,7 +138,8 @@ const AuthDialog = ({ onClose }) => (
         </p>
       </div>
     </div>
-  </div>
+  </div>,
+  document.body
 );
 
 export default NavAuthControl;

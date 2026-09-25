@@ -3118,12 +3118,19 @@ a.promo-card:hover {
 }
 
 /* ---- Hộp thoại xác thực mở từ menu ---- */
+/* Cửa sổ thấp thì form dài hơn màn hình. Cho THÂN hộp thoại cuộn, còn tiêu đề đứng yên —
+   nếu để cả hộp thoại cuộn thì cuộn xuống câu 2, câu 3 là mất luôn tiêu đề và không biết
+   mình đang ở đâu. */
 .auth-dialog {
   max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .auth-dialog-header {
   position: relative;
+  flex-shrink: 0;
   padding: 24px 28px 20px;
   background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
   color: white;
@@ -3144,6 +3151,7 @@ a.promo-card:hover {
 
 .auth-dialog-body {
   padding: 22px 28px 28px;
+  overflow-y: auto;
 }
 
 .auth-dialog-intro {
