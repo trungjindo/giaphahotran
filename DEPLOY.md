@@ -27,6 +27,7 @@ mỗi lần thêm tính năng cần đổi cấu trúc bảng thì chạy file m
 | [`api/migration_tomb_sites.sql`](api/migration_tomb_sites.sql) | `tomb_sites`, cột `tombs.site_id` | **Lăng chung** trong Bản Đồ Lăng Mộ |
 | [`api/migration_clan_events.sql`](api/migration_clan_events.sql) | `clan_events` | **Lịch Gia Tộc** (việc họ có ngày âm/dương) |
 | [`api/migration_roles.sql`](api/migration_roles.sql) | `roles`, `role_permissions`, đổi `users.role` | **Phân quyền động** (admin tự tạo vai trò) |
+| [`api/migration_geocode_cache.sql`](api/migration_geocode_cache.sql) | `geocode_cache` | **Tiết kiệm hạn mức Google** (đệm kết quả định vị) |
 
 Mọi migration đều **chạy lại nhiều lần vẫn an toàn** (tự kiểm tra trước khi thêm) và không
 đụng tới dữ liệu đang có. Chạy migration **trước** khi deploy bản web mới, vì giao diện mới
@@ -87,6 +88,24 @@ Workflow dùng `GITHUB_TOKEN` có sẵn để đẩy code, không cần mật kh
 
 - **Thiếu `VITE_API_URL`**: bản build gọi API sai địa chỉ (rơi về mặc định `http://localhost/api`), trang tải được nhưng không hiện dữ liệu gì.
 - **Thiếu `VITE_GOOGLE_MAPS_API_KEY`**: mọi bản đồ (lăng mộ, tài sản, ô chọn vị trí) hiện thông báo "Chưa cấu hình khóa Google Maps" thay vì bản đồ. Các phần còn lại vẫn chạy bình thường.
+
+## Ghi chú — Những gì TỐN và KHÔNG TỐN hạn mức Google
+
+| Việc | Có tính phí? |
+|---|---|
+| Mở trang có bản đồ nhúng (lăng mộ, tài sản, ô ghim) | **Có** — mỗi lượt mở trang |
+| Bấm Enter/kính lúp ở ô tìm địa chỉ | **Có** — mỗi lượt bấm |
+| Tính khoảng cách ở "So Sánh 2 Người" | **Chỉ lần đầu** mỗi phường/xã (xem bên dưới) |
+| Xem ghim lăng/mộ/tài sản đã lưu trên bản đồ | **Không** — tọa độ đọc từ CSDL |
+| Nút *Dẫn đường* / *Mở Google Maps* | **Không** — chỉ là đường link |
+
+Hai cơ chế tiết kiệm đã cài sẵn:
+
+1. **Ô tìm địa chỉ KHÔNG tự tìm trong lúc gõ.** Chỉ gọi Google khi bấm Enter hoặc nút kính
+   lúp. Nhập một địa chỉ dài giờ tốn 1 lượt thay vì 5–7 lượt như cách gợi ý theo từng chữ.
+2. **Bảng `geocode_cache`** nhớ kết quả định vị ở MÁY CHỦ, dùng chung cho mọi người xem.
+   Một phường/xã chỉ tốn đúng 1 lượt gọi Google trong suốt vòng đời của web, kể cả kết quả
+   "không tìm thấy" cũng được nhớ để khỏi hỏi lại.
 
 ## Bước 6b — Lấy khóa Google Maps
 

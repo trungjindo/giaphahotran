@@ -1,13 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { searchPlaces } from '../utils/googleMaps';
 
 // Ô tìm địa chỉ có gợi ý — dùng Google Places/Geocoding (xem utils/googleMaps.js).
 //
 // Có 2 cách dùng, cùng dẫn tới việc ghim vị trí lên bản đồ:
-//   1. Gõ rồi ĐỢI danh sách gợi ý hiện ra, bấm chọn 1 dòng.
-//   2. Gõ rồi bấm Enter (hoặc bấm nút kính lúp) — tìm NGAY, không phải đợi, và tự chọn
-//      kết quả khớp nhất để bản đồ bay tới và đánh dấu luôn. Danh sách vẫn mở để đổi sang
-//      kết quả khác nếu chọn nhầm.
+// Gõ địa chỉ rồi bấm Enter (hoặc nút kính lúp) để tìm. Kết quả khớp nhất được chọn sẵn để
+// bản đồ bay tới và đánh dấu luôn, danh sách vẫn mở để đổi sang kết quả khác nếu chưa đúng.
+//
+// Cố ý KHÔNG tự tìm trong lúc gõ: mỗi lượt tìm là một lượt gọi Google có tính phí, nên chỉ
+// gọi khi người dùng thật sự yêu cầu.
 //
 // initialValue: điền sẵn địa chỉ đã lưu khi mở form ở chế độ SỬA. Chỉ dùng làm giá trị khởi
 // tạo — muốn nạp lại giá trị khác cho bản ghi khác thì truyền prop "key" khác từ bên ngoài.
@@ -18,10 +19,6 @@ const AddressAutocomplete = ({ onSelect, placeholder = 'Tìm địa chỉ...', c
   const [isLoading, setIsLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [highlight, setHighlight] = useState(-1);
-  const debounceRef = useRef(null);
-  // Bỏ qua lần tìm đầu tiên khi ô được điền sẵn initialValue — nếu không, mở form Sửa lên là
-  // dropdown gợi ý tự bung ra dù người dùng chưa gõ gì.
-  const skipNextSearchRef = useRef(Boolean(initialValue));
 
   const runSearch = async (text) => {
     const q = text.trim();
@@ -44,33 +41,19 @@ const AddressAutocomplete = ({ onSelect, placeholder = 'Tìm địa chỉ...', c
     }
   };
 
-  // Gợi ý theo từng chữ đang gõ (có độ trễ để không gọi API liên tục).
+  // KHÔNG tự tìm trong lúc gõ.
+  //
+  // Trước đây cứ ngừng gõ 0,5 giây là gọi Google một lần, nên nhập xong một địa chỉ dài có
+  // thể tốn dăm bảy lượt gọi tính phí trong khi người dùng chỉ cần đúng 1 kết quả. Giờ chỉ
+  // tìm khi người dùng CHỦ ĐỘNG yêu cầu — bấm Enter hoặc nút kính lúp.
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    // Bỏ qua 1 lần tìm kiếm ngay sau khi người dùng vừa CHỌN 1 gợi ý (query được set
-    // theo lập trình từ handleSelect) — nếu không, effect này sẽ tự tìm lại đúng địa chỉ
-    // vừa chọn và bật dropdown mở lại ngay sau khi đã đóng.
-    if (skipNextSearchRef.current) {
-      skipNextSearchRef.current = false;
-      return;
-    }
-
-    if (query.trim().length < 3) {
-      setResults([]);
-      setIsLoading(false);
-      setNotFound(false);
-      return;
-    }
-
-    setIsLoading(true);
-    debounceRef.current = setTimeout(() => { runSearch(query); }, 500);
-
-    return () => clearTimeout(debounceRef.current);
+    // Gõ lại thì kết quả cũ không còn đúng nữa, dọn đi cho khỏi chọn nhầm.
+    setResults([]);
+    setNotFound(false);
+    setIsOpen(false);
   }, [query]);
 
   const handleSelect = (result) => {
-    skipNextSearchRef.current = true;
     setQuery(result.label);
     setIsOpen(false);
     setResults([]);
@@ -80,7 +63,6 @@ const AddressAutocomplete = ({ onSelect, placeholder = 'Tìm địa chỉ...', c
 
   // Enter / bấm nút kính lúp: tìm ngay và ghim luôn kết quả khớp nhất, khỏi phải đợi rồi bấm.
   const searchAndPick = async () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
     if (query.trim().length < 3) return;
     const list = await runSearch(query);
     if (list.length > 0) handleSelect(list[0]);
