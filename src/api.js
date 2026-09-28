@@ -1,7 +1,12 @@
 // Lớp giao tiếp với backend PHP. Toàn bộ dữ liệu web (gia phả, thu chi, tin tức...)
 // giờ lưu trên MySQL qua các API này thay vì localStorage, để mọi người xem cùng 1 dữ liệu.
 
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost/api';
+// Mặc định là '/api' NGAY BÊN CẠNH trang web đang mở, vì trên máy chủ thật (Hostinger)
+// web và api/ nằm chung một tên miền. Trước đây mặc định là 'http://localhost/api': khi
+// bản build thiếu VITE_API_URL thì mọi khách vào web sẽ gọi API về MÁY CỦA CHÍNH HỌ, và
+// vì gần như không ai chạy máy chủ ở đó, cả trang chết với "Không thể kết nối máy chủ".
+// Người đang phát triển vẫn trỏ đi đâu tuỳ ý bằng VITE_API_URL trong file .env.
+export const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const VIEWER_TOKEN_KEY = 'familyViewerToken';
 

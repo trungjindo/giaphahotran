@@ -86,7 +86,7 @@ Trong repo GitHub → **Settings → Secrets and variables → Actions**, kiểm
 
 Workflow dùng `GITHUB_TOKEN` có sẵn để đẩy code, không cần mật khẩu FTP.
 
-- **Thiếu `VITE_API_URL`**: bản build gọi API sai địa chỉ (rơi về mặc định `http://localhost/api`), trang tải được nhưng không hiện dữ liệu gì.
+- **Thiếu `VITE_API_URL`**: bản build gọi `/api` ngay trên tên miền đang mở. Với hotrandinh.com thì đó đúng là chỗ đặt API nên web vẫn chạy bình thường — cứ khai báo secret cho rõ ràng, nhưng thiếu nó không còn làm chết trang như trước.
 - **Thiếu `VITE_GOOGLE_MAPS_API_KEY`**: mọi bản đồ (lăng mộ, tài sản, ô chọn vị trí) hiện thông báo "Chưa cấu hình khóa Google Maps" thay vì bản đồ. Các phần còn lại vẫn chạy bình thường.
 
 ## Ghi chú — Những gì TỐN và KHÔNG TỐN hạn mức Google
