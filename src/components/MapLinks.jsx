@@ -3,10 +3,12 @@ import { googleMapsViewUrl, googleMapsDirectionsUrl, formatCoords } from '../uti
 
 // Hai nút mở sang ứng dụng Google Maps, dùng chung cho mọi ghim (mộ, lăng, tài sản).
 //
-// Nền bản đồ trong web là OpenStreetMap (miễn phí, không cần khóa), còn khi con cháu cần
-// ĐI TỚI TẬN NƠI thì bấm vào đây để chuyển sang Google Maps trên máy mình — nơi có ảnh vệ
-// tinh, Street View và chỉ đường theo thời gian thực. Đây là cách dùng Google Maps không
-// mất phí và không cần đăng ký gì.
+// Bản đồ nhúng trong web chỉ để XEM và ghim vị trí. Khi con cháu cần ĐI TỚI TẬN NƠI thì
+// bấm vào đây để chuyển sang ứng dụng Google Maps trên máy mình — nơi có chỉ đường theo
+// thời gian thực và cảnh báo giao thông.
+//
+// Hai liên kết này KHÔNG dùng khóa API và không tính vào hạn mức, vì chúng chỉ là địa chỉ
+// web thông thường — khác hẳn với bản đồ nhúng ở trên.
 const MapLinks = ({ lat, lng, showCoords = false, compact = false }) => {
   if (lat == null || lng == null) return null;
 

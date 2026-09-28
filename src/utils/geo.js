@@ -1,7 +1,7 @@
-// Tiện ích định vị: dùng Nominatim (OpenStreetMap) — miễn phí, không cần API key,
-// đồng bộ với cách bản đồ lăng mộ đã dùng thay cho Google Places/Geocoding có phí.
+// Tiện ích định vị: dùng Google Geocoding/Places qua Maps JavaScript API
+// (xem utils/googleMaps.js), đồng bộ với mọi bản đồ khác trong dự án.
 
-const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
+import { searchPlaces } from './googleMaps';
 
 // Địa chỉ thành viên trong hệ thống chỉ có độ chi tiết Phường/Xã + Tỉnh/Thành (không có
 // số nhà/tọa độ lưu sẵn), nên tọa độ trả về là vị trí gần đúng của khu vực đó, không phải
@@ -9,14 +9,10 @@ const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
 export async function geocodeAddress(query) {
   if (!query || !query.trim()) return null;
   try {
-    const url = `${NOMINATIM_SEARCH_URL}?format=json&q=${encodeURIComponent(query.trim())}&limit=1&accept-language=vi`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-    }
+    const results = await searchPlaces(query);
+    if (results.length > 0) return { lat: results[0].lat, lng: results[0].lng };
   } catch {
-    // Lỗi mạng/định dạng -> coi như không định vị được, để phía gọi tự xử lý hiển thị
+    // Chưa cấu hình khóa API/lỗi mạng -> coi như không định vị được, để phía gọi tự xử lý.
   }
   return null;
 }

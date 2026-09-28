@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { searchPlaces } from '../utils/googleMaps';
 
-const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
-
-// Ô tìm địa chỉ có gợi ý — dùng Nominatim (OpenStreetMap), miễn phí và không cần API key,
-// thay cho Google Places (yêu cầu tài khoản Google Cloud + bật thanh toán).
+// Ô tìm địa chỉ có gợi ý — dùng Google Places/Geocoding (xem utils/googleMaps.js).
 //
 // Có 2 cách dùng, cùng dẫn tới việc ghim vị trí lên bản đồ:
 //   1. Gõ rồi ĐỢI danh sách gợi ý hiện ra, bấm chọn 1 dòng.
@@ -31,10 +29,7 @@ const AddressAutocomplete = ({ onSelect, placeholder = 'Tìm địa chỉ...', c
     setIsLoading(true);
     setNotFound(false);
     try {
-      const url = `${NOMINATIM_URL}?format=json&q=${encodeURIComponent(q)}&limit=5&accept-language=vi`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : [];
+      const list = await searchPlaces(q);
       setResults(list);
       setIsOpen(true);
       setHighlight(-1);
@@ -76,11 +71,11 @@ const AddressAutocomplete = ({ onSelect, placeholder = 'Tìm địa chỉ...', c
 
   const handleSelect = (result) => {
     skipNextSearchRef.current = true;
-    setQuery(result.display_name);
+    setQuery(result.label);
     setIsOpen(false);
     setResults([]);
     setNotFound(false);
-    onSelect({ lat: parseFloat(result.lat), lng: parseFloat(result.lon), label: result.display_name });
+    onSelect({ lat: result.lat, lng: result.lng, label: result.label });
   };
 
   // Enter / bấm nút kính lúp: tìm ngay và ghim luôn kết quả khớp nhất, khỏi phải đợi rồi bấm.
@@ -145,7 +140,7 @@ const AddressAutocomplete = ({ onSelect, placeholder = 'Tìm địa chỉ...', c
       {isOpen && results.length > 0 && (
         <ul className="address-autocomplete-results">
           {results.map((r, idx) => (
-            <li key={r.place_id ?? idx}>
+            <li key={idx}>
               <button
                 type="button"
                 className={idx === highlight ? 'is-highlighted' : ''}
@@ -153,7 +148,7 @@ const AddressAutocomplete = ({ onSelect, placeholder = 'Tìm địa chỉ...', c
                 onMouseEnter={() => setHighlight(idx)}
                 onClick={() => handleSelect(r)}
               >
-                {r.display_name}
+                {r.label}
               </button>
             </li>
           ))}

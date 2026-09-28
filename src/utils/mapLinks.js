@@ -1,11 +1,11 @@
 // Liên kết mở sang ỨNG DỤNG Google Maps trên máy người xem.
 //
-// Đây là cách dùng Google Maps HOÀN TOÀN MIỄN PHÍ và không cần khóa API: chỉ là một địa chỉ
-// web bình thường. Trên điện thoại, hệ điều hành tự mở app Google Maps nếu đã cài; trên máy
-// tính thì mở google.com/maps trong tab mới.
+// Những liên kết này KHÔNG cần khóa API và KHÔNG tính vào hạn mức: chỉ là một địa chỉ web
+// bình thường. Trên điện thoại, hệ điều hành tự mở app Google Maps nếu đã cài; trên máy tính
+// thì mở google.com/maps trong tab mới.
 //
-// (Nhúng bản đồ Google vào thẳng trang web thì lại khác — thứ đó bắt buộc phải có khóa API
-// và project đã bật thanh toán, nên nền bản đồ trong web vẫn dùng OpenStreetMap miễn phí.)
+// Khác với bản đồ NHÚNG trong trang (utils/googleMaps.js) — thứ đó dùng Maps JavaScript API
+// nên mỗi lần mở trang đều tính vào hạn mức của khóa.
 
 // Mở Google Maps và đặt ghim ngay tại tọa độ — để XEM chỗ đó nằm ở đâu.
 // Cố ý chỉ truyền TỌA ĐỘ, không truyền tên địa điểm: tên sẽ khiến Google tự dò lại và có thể
