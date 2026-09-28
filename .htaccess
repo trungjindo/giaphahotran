@@ -1,0 +1,34 @@
+# React Router dùng client-side routing — mọi đường dẫn không phải file/thư mục
+# thật trên server (VD /gia-pha, /thu-vien) phải trả về index.html để React tự xử lý,
+# nếu không Apache sẽ trả 404 khi người dùng vào thẳng URL hoặc bấm F5.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Ảnh tải lên được lưu ngoài public_html trên server thật (xem api/config.php) nên không
+  # còn là file tĩnh thật ở đây nữa — chuyển hướng nội bộ sang script PHP đọc & trả về đúng file.
+  RewriteRule ^api/storage/(.+)$ api/serve_storage.php?path=$1 [L,QSA]
+
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Không cho trình duyệt giữ lại index.html.
+#
+# Tên các file trong assets/ có kèm vân tay nội dung (index-CNreWYgC.js) nên đổi mỗi lần
+# build — cache chúng 7 ngày là an toàn và nên làm. Nhưng index.html là thứ TRỎ tới các file
+# đó, và trước đây nó không có chỉ dẫn cache nào cả, nên trình duyệt được phép tự suy đoán và
+# giữ lại bản cũ. Hậu quả: deploy xong người dùng vẫn chạy bản cũ cho tới khi Ctrl+F5.
+<IfModule mod_headers.c>
+  <FilesMatch "^index\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  # Vân tay trong tên file đã bảo đảm nội dung không bao giờ đổi -> cache lâu, và đánh dấu
+  # immutable để trình duyệt khỏi hỏi lại máy chủ.
+  <FilesMatch "\.(js|css|woff2?)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
