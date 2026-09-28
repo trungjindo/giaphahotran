@@ -4,6 +4,15 @@ import {
   GOOGLE_MAPS_KEY_MISSING, GOOGLE_MAPS_AUTH_FAILED, onGoogleMapsAuthFailure,
 } from '../utils/googleMaps';
 
+// Rộng rãi để mạng chậm không bị báo nhầm là hỏng.
+const MAP_READY_TIMEOUT_MS = 15000;
+
+const GOOGLE_MAPS_NOT_LOADING =
+  'Google Maps không tải được. Thường do một trong các nguyên nhân sau, theo thứ tự hay gặp: '
+  + 'chưa bật "Maps JavaScript API" cho project; vừa bật xong và Google chưa kịp có hiệu lực '
+  + '(đợi vài phút rồi tải lại trang); project chưa bật thanh toán; hoặc giới hạn tên miền của '
+  + 'khóa không khớp tên miền đang mở.';
+
 // Khung bản đồ Google dùng chung cho mọi bản đồ trong dự án.
 //
 // Lo phần lặp lại ở mọi nơi: nạp API, tạo bản đồ đúng một lần, và hiện thông báo đọc được
@@ -34,17 +43,29 @@ const GoogleMapCanvas = ({
   useEffect(() => {
     if (!hasGoogleMapsKey()) return undefined;
     let cancelled = false;
+    let readyTimer = null;
 
     loadGoogleMaps()
       .then(maps => {
         if (cancelled || !containerRef.current) return;
         const map = new maps.Map(containerRef.current, { ...BASE_MAP_OPTIONS, ...optionsRef.current });
         mapRef.current = map;
+
+        // Không phải lỗi nào của Google cũng gọi gm_authFailure. Khi API chưa được bật, hoặc
+        // thanh toán chưa hiệu lực, Google chỉ vẽ đè lớp "Rất tiếc! Đã xảy ra lỗi" lên khung
+        // và bảo người dùng đi mở bảng điều khiển JavaScript — thứ không ai ngoài lập trình
+        // viên đọc được. Bản đồ chạy được thì luôn phát sự kiện 'idle'; không thấy nó sau một
+        // khoảng thời gian rộng rãi thì coi là hỏng và nói rõ nguyên nhân thường gặp.
+        readyTimer = setTimeout(() => {
+          if (!cancelled) setError(GOOGLE_MAPS_NOT_LOADING);
+        }, MAP_READY_TIMEOUT_MS);
+        maps.event.addListenerOnce(map, 'idle', () => clearTimeout(readyTimer));
+
         onReadyRef.current?.(map, maps);
       })
       .catch(err => { if (!cancelled) setError(err.message); });
 
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(readyTimer); };
   }, [resetKey]);
 
   // Khóa bị Google từ chối: đổi khung bản đồ thành thông báo nêu rõ nguyên nhân, thay vì
