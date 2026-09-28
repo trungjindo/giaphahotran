@@ -82,6 +82,17 @@ function read_tomb_input(PDO $pdo): array {
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
   require_family_access(); // Dữ liệu riêng của dòng họ — chỉ con cháu đã xác thực mới được đọc.
+
+  // ?memberId=... : hồ sơ một người chỉ cần đúng bản ghi của người đó. Trả về thẳng object
+  // (hoặc null) thay vì mảng, để nơi gọi khỏi phải tải cả danh sách lăng mộ của cả họ.
+  $memberId = trim($_GET['memberId'] ?? '');
+  if ($memberId !== '') {
+    $stmt = $pdo->prepare(TOMB_SELECT_SQL . ' WHERE t.member_id = ? LIMIT 1');
+    $stmt->execute([$memberId]);
+    $row = $stmt->fetch();
+    json_response($row ? format_tomb($row) : null);
+  }
+
   $stmt = $pdo->query(TOMB_SELECT_SQL . ' ORDER BY t.created_at DESC');
   json_response(array_map('format_tomb', $stmt->fetchAll()));
 }

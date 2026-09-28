@@ -1,5 +1,5 @@
 import React, { useContext, useState, useMemo, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { AppContext } from '../store';
 import AdminFamilyTree from '../components/AdminFamilyTree';
 import AdminChiManager from '../components/AdminChiManager';
@@ -126,7 +126,17 @@ function AdminDashboard() {
   // chốt cứng tên vai trò sẽ khiến vai trò mới không bao giờ thấy được tab nào.
   const can = hasPermission;
   const isChiScoped = roleIsChiScoped && !!chiId;
-  const [activeTab, setActiveTab] = useState('family'); // Default to family management
+  // ?tab=...&member=... : cho phép đi thẳng từ nơi khác vào đúng tab, kèm người cần xử lý —
+  // dùng cho nút "Sửa vị trí này" trong hồ sơ một người đã mất, thay vì bắt tự tìm trong bảng.
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const focusMemberId = searchParams.get('member');
+  // Chỉ nhận tab yêu cầu khi người này THỰC SỰ có quyền vào đó — nếu không, liên kết sẽ mở
+  // ra một màn hình trống vì nút tab cũng bị ẩn.
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = TABS.find(t => t.id === requestedTab);
+    return tab && hasPermission(tab.permission) ? tab.id : 'family';
+  });
 
   // Form states for Finance
   const emptyTx = { date: '', type: 'Thu', category: INCOME_CATEGORIES[0], amount: '', description: '', person: '', proof: '', status: 'actual' };
@@ -838,7 +848,7 @@ function AdminDashboard() {
       {activeTab === 'activities' && can('activities.manage') && <AdminActivities chiId={null} title="Dòng Họ" />}
       {activeTab === 'baibien' && can('baibien.manage') && <AdminBaiBien chiId={null} title="Dòng Họ" />}
       {activeTab === 'clanEvents' && can('events.manage') && <AdminClanEvents />}
-      {activeTab === 'tombs' && can('tombs.manage') && <AdminTombs />}
+      {activeTab === 'tombs' && can('tombs.manage') && <AdminTombs focusMemberId={focusMemberId} />}
       {activeTab === 'assets' && can('assets.manage') && <AssetManagement />}
       {activeTab === 'chi' && can('system.chi') && <AdminChiManager />}
       {activeTab === 'users' && can('users.manage') && <AdminUserManager />}

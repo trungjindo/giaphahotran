@@ -5,6 +5,7 @@ import { getAvatarPlaceholder } from '../utils/avatar';
 import MapLinkButton from './MapLinkButton';
 import PhoneRevealButton from './PhoneRevealButton';
 import ZaloRevealButton from './ZaloRevealButton';
+import MemberTombCard from './MemberTombCard';
 
 // Tên có thể bấm vào để mở hồ sơ người đó ngay trong modal — chỉ khi có id thật (thành viên
 // có hồ sơ riêng trong cây), nếu không thì chỉ hiện tên thường (VD: vợ/chồng ghi chú, không
@@ -204,6 +205,8 @@ const MemberProfileModal = ({ member, onClose, onSelectMember, onAddRelative }) 
             )}
 
           </div>
+
+          <MemberTombCard member={member} />
 
           <div style={{ marginTop: '25px', textAlign: 'left' }}>
             <h3 style={{ borderBottom: '2px solid var(--primary-light)', display: 'inline-block', paddingBottom: '5px', marginBottom: '15px' }}>

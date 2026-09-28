@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppContext } from '../store';
 import { apiRequest, apiUpload } from '../api';
 import { buildDescendantList, formatDateVN } from '../utils/family';
@@ -12,7 +12,7 @@ const MAX_UPLOAD_MB = 10;
 // siteId === '' => mộ riêng lẻ, phải tự ghim tọa độ.
 const emptyForm = { memberId: '', siteId: '', latitude: '', longitude: '', photo: '', description: '', interredDate: '' };
 
-const AdminTombs = () => {
+const AdminTombs = ({ focusMemberId = null }) => {
   const { familyData, token } = useContext(AppContext);
   const [subTab, setSubTab] = useState('burials');
 
@@ -103,6 +103,24 @@ const AdminTombs = () => {
     setFormKey(k => k + 1);
   };
 
+  const tombByMemberId = useMemo(
+    () => Object.fromEntries(tombs.map(t => [t.memberId, t])),
+    [tombs]
+  );
+
+  // Mỗi người chỉ có đúng một vị trí phần mộ. Trước đây chọn một người đã có mộ thì form vẫn
+  // để ở chế độ "Thêm", và mãi tới lúc bấm Lưu máy chủ mới báo lỗi trùng — người dùng không
+  // biết phải làm gì tiếp. Nay chọn ai đã có mộ là form tự chuyển sang SỬA đúng mục của họ.
+  const handleSelectMember = (memberId) => {
+    const existing = memberId ? tombByMemberId[memberId] : null;
+    if (existing) {
+      handleEdit(existing);
+      return;
+    }
+    setForm(prev => ({ ...prev, memberId }));
+    setEditingId(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.memberId) return alert('Vui lòng chọn người an táng.');
@@ -162,6 +180,18 @@ const AdminTombs = () => {
     }
   };
 
+  // Mở thẳng từ hồ sơ một người (/admin?tab=tombs&member=...): nạp sẵn người đó vào form —
+  // đang có mộ thì vào luôn chế độ sửa, chưa có thì điền sẵn để thêm mới.
+  // Chỉ làm đúng một lần, sau khi danh sách đã tải xong; nếu không, mỗi lần loadAll() lại
+  // kéo form về người này và xóa mất những gì đang gõ dở.
+  const focusApplied = useRef(false);
+  useEffect(() => {
+    if (!focusMemberId || isLoading || focusApplied.current) return;
+    focusApplied.current = true;
+    setSubTab('burials');
+    handleSelectMember(focusMemberId);
+  }, [focusMemberId, isLoading]);
+
   return (
     <div>
       <div className="tomb-subtabs">
@@ -201,10 +231,16 @@ const AdminTombs = () => {
                     id="tomb-member"
                     options={memberOptions}
                     value={form.memberId}
-                    onChange={v => setForm(prev => ({ ...prev, memberId: v }))}
+                    onChange={handleSelectMember}
                     placeholder="Gõ tên để tìm người đã mất trong cây gia phả..."
                     emptyText="Không tìm thấy người đã mất nào khớp với từ khóa."
                   />
+                  {editingId && (
+                    <p className="tomb-existing-note">
+                      Người này đã có vị trí phần mộ được ghi nhận — các ô bên dưới đang là dữ liệu
+                      hiện có. Sửa rồi bấm <strong>Cập Nhật</strong>, hoặc bấm <strong>Hủy Bỏ</strong> để chọn người khác.
+                    </p>
+                  )}
                 </div>
 
                 <div style={{ gridColumn: '1 / -1' }}>
